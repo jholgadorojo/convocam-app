@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: convocam-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: convocam
+      POSTGRES_PASSWORD: convocam
+      POSTGRES_DB: convocam
+
+    ports:
+      - "5434:5432"
+
+    volumes:
+      - convocam_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  convocam_postgres_data:
