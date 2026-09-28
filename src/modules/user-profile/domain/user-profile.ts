@@ -10,15 +10,15 @@ export class UserProfile {
 
   static create(props: Omit<UserProfileProps, "id">): UserProfile {
     if (!props.userId.trim()) {
-      throw new Error("User id is required");
+      throw new Error("El identificador del usuario es obligatorio");
     }
 
     if (!props.firstName.trim()) {
-      throw new Error("First name is required");
+      throw new Error("El nombre es obligatorio");
     }
 
     if (!props.lastName.trim()) {
-      throw new Error("Last name is required");
+      throw new Error("Los apellidos son obligatorios");
     }
 
     return new UserProfile({
@@ -30,7 +30,7 @@ export class UserProfile {
 
   static restore(props: UserProfileProps): UserProfile {
     if (!props.id || props.id <= 0) {
-      throw new Error("Valid id is required");
+      throw new Error("El identificador del perfil no es válido");
     }
 
     return new UserProfile(props);
