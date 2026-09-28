@@ -12,10 +12,12 @@ import { LogoutButton } from "@/components/auth/logout-button";
 
 type AppSidebarProps = {
   isAuthenticated: boolean;
+  activeItem?: "dashboard" | "convocatorias" | "mis-convocatorias" | "perfil";
 };
 
 export function AppSidebar({
   isAuthenticated,
+  activeItem = "dashboard",
 }: AppSidebarProps) {
   return (
     <aside className="hidden min-h-screen w-[264px] shrink-0 flex-col bg-[#0E1A33] px-[14px] pb-5 pt-[18px] lg:flex">
@@ -36,7 +38,11 @@ export function AppSidebar({
       <nav className="flex flex-col gap-0.5">
         <Link
           href="/dashboard"
-          className="flex h-10 items-center gap-3 rounded-lg bg-[#1B2A4D] px-3 text-sm font-semibold text-white"
+          className={
+            activeItem === "dashboard"
+              ? "flex h-10 items-center gap-3 rounded-lg bg-[#1B2A4D] px-3 text-sm font-semibold text-white"
+              : "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
+          }
         >
           <LayoutDashboard
             size={18}
@@ -48,7 +54,11 @@ export function AppSidebar({
 
         <Link
           href="/convocatorias"
-          className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
+          className={
+            activeItem === "convocatorias"
+              ? "flex h-10 items-center gap-3 rounded-lg bg-[#1B2A4D] px-3 text-sm font-semibold text-white"
+              : "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
+          }
         >
           <Search size={18} className="text-[#7D89A6]" />
 
@@ -61,7 +71,11 @@ export function AppSidebar({
               ? "/mis-convocatorias"
               : "/login?returnTo=/mis-convocatorias"
           }
-          className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
+          className={
+            activeItem === "mis-convocatorias"
+              ? "flex h-10 items-center gap-3 rounded-lg bg-[#1B2A4D] px-3 text-sm font-semibold text-white"
+              : "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
+          }
         >
           <Bookmark size={18} className="text-[#7D89A6]" />
 

@@ -21,16 +21,17 @@ export default async function DashboardPage() {
     <div className="flex min-h-screen bg-[#F4F6F9]">
       <AppSidebar
         isAuthenticated={isAuthenticated}
+        activeItem="dashboard"
       />
-
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader
+          title="Dashboard"
           user={
             session?.user
               ? {
-                  name: session.user.name,
-                  email: session.user.email,
-                }
+                name: session.user.name,
+                email: session.user.email,
+              }
               : undefined
           }
         />

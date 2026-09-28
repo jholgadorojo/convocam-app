@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 
 type AppHeaderProps = {
+  title: string;
+
   user?: {
     name?: string | null;
     email: string;
@@ -9,6 +11,7 @@ type AppHeaderProps = {
 };
 
 export function AppHeader({
+  title,
   user,
 }: AppHeaderProps) {
   const initials = getInitials(user?.name, user?.email);
@@ -16,7 +19,7 @@ export function AppHeader({
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-6 border-b border-[#E3E7EE] bg-white px-10">
       <span className="text-sm font-semibold text-[#131A2C]">
-        Dashboard
+        {title}
       </span>
 
       <div className="flex items-center gap-4">
