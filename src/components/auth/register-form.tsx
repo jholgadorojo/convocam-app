@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
-import { CircleAlert, Eye, EyeOff } from "lucide-react";
+import { CircleAlert, CircleCheck, Eye, EyeOff } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -27,8 +27,6 @@ export function RegisterForm() {
 
         setConfirmationError("");
         setGeneralError("");
-        setConfirmationError("");
-        setGeneralError("");
         setSuccess("");
 
         if (password !== passwordConfirmation) {
@@ -50,23 +48,31 @@ export function RegisterForm() {
 
         setIsLoading(true);
 
-        const { data, error } = await authClient.signUp.email({
-            name,
-            email,
-            password,
-        });
+        try {
+            const { data, error } = await authClient.signUp.email({
+                name,
+                email,
+                password,
+            });
 
-        setIsLoading(false);
+            if (error) {
+                setGeneralError(
+                    error.message ?? "No se ha podido crear la cuenta.",
+                );
+                return;
+            }
 
-        if (error) {
-            setGeneralError(
-                error.message ?? "No se ha podido crear la cuenta.",
-            );
-            return;
-        }
-
-        if (data) {
-            setSuccess("La cuenta se ha creado correctamente.");
+            if (data) {
+                setSuccess("La cuenta se ha creado correctamente.");
+                setName("");
+                setEmail("");
+                setPassword("");
+                setPasswordConfirmation("");
+            }
+        } catch {
+            setGeneralError("No se ha podido conectar con el servidor.");
+        } finally {
+            setIsLoading(false);
         }
     }
 
@@ -197,6 +203,17 @@ export function RegisterForm() {
                 <p className="flex items-center gap-1.5 text-[13px] text-[#B3212F]">
                     <CircleAlert size={14} />
                     {generalError}
+                </p>
+            )}
+
+            {/* Mensaje de éxito */}
+            {success && (
+                <p
+                    role="status"
+                    className="flex items-center gap-1.5 text-[13px] text-[#1E7B4A]"
+                >
+                    <CircleCheck size={14} />
+                    {success}
                 </p>
             )}
 
