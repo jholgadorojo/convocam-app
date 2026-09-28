@@ -21,7 +21,7 @@ export function AppSidebar({
     <aside className="hidden min-h-screen w-[264px] shrink-0 flex-col bg-[#0E1A33] px-[14px] pb-5 pt-[18px] lg:flex">
       {/* Logo */}
       <div className="px-2 pb-[26px] pt-0.5">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           <div className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-[#4F5BD5]">
             <span className="text-sm font-bold text-white">C</span>
           </div>
