@@ -1,3 +1,5 @@
+import type { InstitutionRepository } from "./institution-repository";
+import type { InstitutionSource } from "./institution-source";
 import type { SelectionProcessRepository } from "./selection-process-repository";
 import type { SelectionProcessSource } from "./selection-process-source";
 
@@ -10,8 +12,15 @@ export class SyncSelectionProcesses {
   constructor(
     private readonly source:
       SelectionProcessSource,
+
     private readonly repository:
       SelectionProcessRepository,
+
+    private readonly institutionSource:
+      InstitutionSource,
+
+    private readonly institutionRepository:
+      InstitutionRepository,
   ) {}
 
   async execute({
@@ -27,8 +36,24 @@ export class SyncSelectionProcesses {
     });
 
     for (const selectionProcess of page.items) {
+      const institution =
+        await this.institutionSource
+          .getBySelectionProcessCidoId(
+            selectionProcess.cidoId,
+          );
+
+      let institutionId: number | null =
+        null;
+
+      if (institution) {
+        institutionId =
+          await this.institutionRepository
+            .upsert(institution);
+      }
+
       await this.repository.upsert(
         selectionProcess,
+        institutionId,
       );
     }
 

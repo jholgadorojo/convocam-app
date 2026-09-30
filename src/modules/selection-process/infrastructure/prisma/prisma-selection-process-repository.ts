@@ -11,31 +11,34 @@ export class PrismaSelectionProcessRepository
   ) {}
 
   async upsert(
-    data: SelectionProcessSyncData,
-  ): Promise<number> {
-    const syncedAt = new Date();
+  data: SelectionProcessSyncData,
+  institutionId: number | null,
+): Promise<number> {
+  const syncedAt = new Date();
 
-    const selectionProcess =
-      await this.prisma.selectionProcess.upsert({
-        where: {
-          cidoId: data.cidoId,
-        },
+  const selectionProcess =
+    await this.prisma.selectionProcess.upsert({
+      where: {
+        cidoId: data.cidoId,
+      },
 
-        create: {
-          ...data,
-          sourceSyncedAt: syncedAt,
-        },
+      create: {
+        ...data,
+        institutionId,
+        sourceSyncedAt: syncedAt,
+      },
 
-        update: {
-          ...data,
-          sourceSyncedAt: syncedAt,
-        },
+      update: {
+        ...data,
+        institutionId,
+        sourceSyncedAt: syncedAt,
+      },
 
-        select: {
-          id: true,
-        },
-      });
+      select: {
+        id: true,
+      },
+    });
 
-    return selectionProcess.id;
-  }
+  return selectionProcess.id;
+}
 }

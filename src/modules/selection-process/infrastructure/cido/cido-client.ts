@@ -2,6 +2,8 @@ import type {
   CidoSelectionProcessesResponse,
 } from "./cido-types";
 
+import type { CidoInstitutionResponse } from "./cido-institution-types";
+
 const CIDO_API_BASE_URL =
   "https://api.diba.cat/dadesobertes/cido/v1";
 
@@ -52,4 +54,29 @@ export async function getCidoSelectionProcesses({
   }
 
   return response.json() as Promise<CidoSelectionProcessesResponse>;
+}
+
+export async function getCidoInstitution(
+  selectionProcessCidoId: string,
+): Promise<CidoInstitutionResponse> {
+  const url = new URL(
+    `${CIDO_API_BASE_URL}/oposicions/${encodeURIComponent(
+      selectionProcessCidoId,
+    )}/institucio`,
+  );
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.api+json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Error consultando la institución en CIDO: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  return response.json() as Promise<CidoInstitutionResponse>;
 }
