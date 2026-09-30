@@ -13,17 +13,16 @@ datasource db {
 }
 
 model User {
-  id            String    @id
+  id            String       @id
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean      @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   sessions      Session[]
   accounts      Account[]
   profile       UserProfile?
-
 
   @@unique([email])
   @@map("user")
@@ -76,6 +75,7 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
 model UserProfile {
   id        Int      @id @default(autoincrement())
   userId    String   @unique
@@ -87,4 +87,167 @@ model UserProfile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
+}
+
+model Institution {
+  id     Int    @id @default(autoincrement())
+  cidoId String @unique
+
+  name      String
+  shortName String
+  isActive  Boolean
+
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  ineCode      String?
+  address      String?
+  postalCode   String?
+  municipality String?
+  countyCode   String?
+  county       String?
+  provinceCode String?
+  province     String?
+
+  contractorProfileUrl String?
+  socCode              String?
+  sepeCode             String?
+
+  selectionProcesses SelectionProcess[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([municipality])
+  @@index([county])
+  @@index([province])
+  @@map("institutions")
+}
+
+model SelectionProcess {
+  id              Int     @id @default(autoincrement())
+  cidoId          String  @unique
+  cidoIdentifier  String  @unique
+  fileNumber      String?
+  publicOfferYear Int?
+
+  title           String
+  isJobPool       Boolean
+  scopeId         Int
+  scopeName       String
+  institutionName String
+
+  institutionId Int?
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+
+  documents    SelectionProcessDocument[]
+  subjectAreas SelectionProcessSubjectArea[]
+
+  applicationStartDate     DateTime? @db.Date
+  applicationEndDate       DateTime? @db.Date
+  applicationEndTime       String?
+  applicationDeadlineNotes String?
+
+  selectionSystemId    Int?
+  selectionSystem      String?
+  personnelTypeId      Int?
+  personnelType        String?
+  qualificationGroupId Int?
+  qualificationGroup   String?
+
+  requiredQualification String?
+  otherRequirements     String?
+
+  numberOfPositions           Int?
+  reservedDisabilityPositions Int?
+  reservedUnemployed          Boolean
+  reservedYoung               Boolean
+  reservedWomen               Boolean
+
+  firstExamDate DateTime? @db.Date
+  observations  String?
+
+  institutionUrl String?
+  applicationUrl String?
+  cidoUrl        String
+
+  statusId Int
+  status   String
+
+  lastDocumentPublicationDate DateTime? @db.Date
+
+  sourceSyncedAt DateTime @default(now())
+  sourceHash     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([institutionId])
+  @@index([statusId])
+  @@index([isJobPool])
+  @@index([scopeId])
+  @@index([qualificationGroupId])
+  @@index([applicationEndDate])
+  @@map("selection_processes")
+}
+
+model SelectionProcessDocument {
+  id     Int    @id @default(autoincrement())
+  cidoId String @unique
+
+  selectionProcessId Int
+  selectionProcess   SelectionProcess @relation(fields: [selectionProcessId], references: [id], onDelete: Cascade)
+
+  publicationDate DateTime @db.Date
+  summary         String
+  publisher       String?
+
+  bulletinId     Int
+  bulletin       String
+  bulletinNumber Int?
+  entryDate      DateTime @db.Date
+
+  phaseId    Int
+  phase      String
+  phaseNotes String?
+
+  documentUrl String
+  htmlUrl     String?
+
+  sourceSyncedAt DateTime @default(now())
+  sourceHash     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([selectionProcessId])
+  @@index([publicationDate])
+  @@index([phaseId])
+  @@map("selection_process_documents")
+}
+
+model SubjectArea {
+  id           Int    @id @default(autoincrement())
+  cidoId       String @unique
+  name         String
+  cidoModuleId Int
+
+  selectionProcesses SelectionProcessSubjectArea[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subject_areas")
+}
+
+model SelectionProcessSubjectArea {
+  selectionProcessId Int
+  subjectAreaId      Int
+
+  selectionProcess SelectionProcess @relation(fields: [selectionProcessId], references: [id], onDelete: Cascade)
+  subjectArea      SubjectArea      @relation(fields: [subjectAreaId], references: [id], onDelete: Cascade)
+
+  @@id([selectionProcessId, subjectAreaId])
+  @@index([subjectAreaId])
+  @@map("selection_process_subject_areas")
 }
