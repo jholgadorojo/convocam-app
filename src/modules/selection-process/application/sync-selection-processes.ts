@@ -11,6 +11,9 @@ import type { SelectionProcessDocumentSource } from "./selection-process-documen
 export type SyncSelectionProcessesResult = {
   totalAvailable: number;
   processed: number;
+  institutionsProcessed: number;
+  subjectAreasProcessed: number;
+  documentsProcessed: number;
 };
 
 export class SyncSelectionProcesses {
@@ -54,6 +57,14 @@ export class SyncSelectionProcesses {
       limit,
       offset,
     });
+    const institutionCidoIds =
+      new Set<string>();
+
+    const subjectAreaCidoIds =
+      new Set<string>();
+
+    const documentCidoIds =
+      new Set<string>();
 
     for (const selectionProcess of page.items) {
       // 1. Institución
@@ -67,6 +78,10 @@ export class SyncSelectionProcesses {
         null;
 
       if (institution) {
+        institutionCidoIds.add(
+          institution.cidoId,
+        );
+
         institutionId =
           await this.institutionRepository
             .upsert(institution);
@@ -89,8 +104,12 @@ export class SyncSelectionProcesses {
       const subjectAreaIds: number[] = [];
 
       for (const subjectArea of subjectAreas) {
+        subjectAreaCidoIds.add(
+          subjectArea.cidoId,
+        );
         const subjectAreaId =
           await this.subjectAreaRepository
+
             .upsert(subjectArea);
 
         subjectAreaIds.push(subjectAreaId);
@@ -112,6 +131,10 @@ export class SyncSelectionProcesses {
           );
 
       for (const document of documents) {
+        documentCidoIds.add(
+          document.cidoId,
+        );
+
         await this.documentRepository.upsert(
           document,
           selectionProcessId,
@@ -122,6 +145,12 @@ export class SyncSelectionProcesses {
     return {
       totalAvailable: page.total,
       processed: page.items.length,
+      institutionsProcessed:
+        institutionCidoIds.size,
+      subjectAreasProcessed:
+        subjectAreaCidoIds.size,
+      documentsProcessed:
+        documentCidoIds.size,
     };
   }
 }
