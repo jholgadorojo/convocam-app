@@ -4,11 +4,10 @@ import type { SelectionProcessDocumentRepository } from "../../application/selec
 import type { SelectionProcessDocumentSyncData } from "../../application/selection-process-document-sync-data";
 
 export class PrismaSelectionProcessDocumentRepository
-  implements SelectionProcessDocumentRepository
-{
+  implements SelectionProcessDocumentRepository {
   constructor(
     private readonly prisma: PrismaClient,
-  ) {}
+  ) { }
 
   async upsert(
     data: SelectionProcessDocumentSyncData,
@@ -25,13 +24,19 @@ export class PrismaSelectionProcessDocumentRepository
         create: {
           ...data,
           selectionProcessId,
+
+          sourceActive: true,
           sourceSyncedAt: syncedAt,
+          sourceLastSeenAt: syncedAt,
         },
 
         update: {
           ...data,
           selectionProcessId,
+
+          sourceActive: true,
           sourceSyncedAt: syncedAt,
+          sourceLastSeenAt: syncedAt,
         },
 
         select: {
@@ -41,4 +46,27 @@ export class PrismaSelectionProcessDocumentRepository
 
     return document.id;
   }
+  async markMissingAsInactive(
+  selectionProcessId: number,
+  activeCidoIds: string[],
+): Promise<void> {
+  await this.prisma.selectionProcessDocument.updateMany({
+    where: {
+      selectionProcessId,
+      sourceActive: true,
+
+      ...(activeCidoIds.length > 0
+        ? {
+            cidoId: {
+              notIn: activeCidoIds,
+            },
+          }
+        : {}),
+    },
+
+    data: {
+      sourceActive: false,
+    },
+  });
+}
 }

@@ -134,6 +134,13 @@ export class SyncSelectionProcesses {
         documentCidoIds.add(
           document.cidoId,
         );
+        await this.documentRepository
+          .markMissingAsInactive(
+            selectionProcessId,
+            documents.map(
+              (document) => document.cidoId,
+            ),
+          );
 
         await this.documentRepository.upsert(
           document,

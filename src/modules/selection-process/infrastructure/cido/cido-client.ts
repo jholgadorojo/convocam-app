@@ -1,5 +1,6 @@
 import type {
   CidoSelectionProcessesResponse,
+  CidoSelectionProcessResponse,
 } from "./cido-types";
 
 import type { CidoInstitutionResponse } from "./cido-institution-types";
@@ -130,4 +131,34 @@ export async function getCidoSelectionProcessDocuments(
   }
 
   return response.json() as Promise<CidoSelectionProcessDocumentsResponse>;
+}
+export async function getCidoSelectionProcessById(
+  cidoId: string,
+): Promise<CidoSelectionProcessResponse> {
+  const url = new URL(
+    `${CIDO_API_BASE_URL}/oposicions/${encodeURIComponent(
+      cidoId,
+    )}`,
+  );
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.api+json",
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 404) {
+    return {
+      data: null,
+    };
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Error consultando la convocatoria ${cidoId} en CIDO: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  return response.json() as Promise<CidoSelectionProcessResponse>;
 }

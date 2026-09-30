@@ -4,41 +4,46 @@ import type { SelectionProcessRepository } from "../../application/selection-pro
 import type { SelectionProcessSyncData } from "../../application/selection-process-sync-data";
 
 export class PrismaSelectionProcessRepository
-  implements SelectionProcessRepository
-{
+  implements SelectionProcessRepository {
   constructor(
     private readonly prisma: PrismaClient,
-  ) {}
+  ) { }
 
   async upsert(
-  data: SelectionProcessSyncData,
-  institutionId: number | null,
-): Promise<number> {
-  const syncedAt = new Date();
+    data: SelectionProcessSyncData,
+    institutionId: number | null,
+  ): Promise<number> {
+    const syncedAt = new Date();
 
-  const selectionProcess =
-    await this.prisma.selectionProcess.upsert({
-      where: {
-        cidoId: data.cidoId,
-      },
+    const selectionProcess =
+      await this.prisma.selectionProcess.upsert({
+        where: {
+          cidoId: data.cidoId,
+        },
 
-      create: {
-        ...data,
-        institutionId,
-        sourceSyncedAt: syncedAt,
-      },
+        create: {
+          ...data,
+          institutionId,
 
-      update: {
-        ...data,
-        institutionId,
-        sourceSyncedAt: syncedAt,
-      },
+          sourceActive: true,
+          sourceSyncedAt: syncedAt,
+          sourceLastSeenAt: syncedAt,
+        },
 
-      select: {
-        id: true,
-      },
-    });
+        update: {
+          ...data,
+          institutionId,
 
-  return selectionProcess.id;
-}
+          sourceActive: true,
+          sourceSyncedAt: syncedAt,
+          sourceLastSeenAt: syncedAt,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    return selectionProcess.id;
+  }
 }

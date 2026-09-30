@@ -72,3 +72,6 @@ export type CidoSelectionProcessesResponse = {
     totalResourceCount: number;
   };
 };
+export type CidoSelectionProcessResponse = {
+  data: CidoSelectionProcessResource | null;
+};

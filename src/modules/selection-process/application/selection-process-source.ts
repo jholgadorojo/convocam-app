@@ -10,4 +10,8 @@ export interface SelectionProcessSource {
     limit: number;
     offset: number;
   }): Promise<SelectionProcessSourcePage>;
+
+  getByCidoId(
+    cidoId: string,
+  ): Promise<SelectionProcessSyncData | null>;
 }

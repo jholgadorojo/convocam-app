@@ -3,7 +3,13 @@ import type {
   SelectionProcessSourcePage,
 } from "../../application/selection-process-source";
 
-import { getCidoSelectionProcesses } from "./cido-client";
+import type { SelectionProcessSyncData } from "../../application/selection-process-sync-data";
+
+import {
+  getCidoSelectionProcessById,
+  getCidoSelectionProcesses,
+} from "./cido-client";
+
 import { mapCidoSelectionProcess } from "./cido-selection-process-mapper";
 
 export class CidoSelectionProcessSource
@@ -28,5 +34,22 @@ export class CidoSelectionProcessSource
         mapCidoSelectionProcess,
       ),
     };
+  }
+
+  async getByCidoId(
+    cidoId: string,
+  ): Promise<SelectionProcessSyncData | null> {
+    const response =
+      await getCidoSelectionProcessById(
+        cidoId,
+      );
+
+    if (!response.data) {
+      return null;
+    }
+
+    return mapCidoSelectionProcess(
+      response.data,
+    );
   }
 }

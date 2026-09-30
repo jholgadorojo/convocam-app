@@ -176,8 +176,10 @@ model SelectionProcess {
 
   lastDocumentPublicationDate DateTime? @db.Date
 
-  sourceSyncedAt DateTime @default(now())
-  sourceHash     String?
+  sourceSyncedAt   DateTime @default(now())
+  sourceHash       String?
+  sourceActive     Boolean  @default(true)
+  sourceLastSeenAt DateTime @default(now())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -214,8 +216,10 @@ model SelectionProcessDocument {
   documentUrl String
   htmlUrl     String?
 
-  sourceSyncedAt DateTime @default(now())
-  sourceHash     String?
+  sourceSyncedAt   DateTime @default(now())
+  sourceHash       String?
+  sourceActive     Boolean  @default(true)
+  sourceLastSeenAt DateTime @default(now())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

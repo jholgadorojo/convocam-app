@@ -5,4 +5,9 @@ export interface SelectionProcessDocumentRepository {
     data: SelectionProcessDocumentSyncData,
     selectionProcessId: number,
   ): Promise<number>;
+
+  markMissingAsInactive(
+    selectionProcessId: number,
+    activeCidoIds: string[],
+  ): Promise<void>;
 }
