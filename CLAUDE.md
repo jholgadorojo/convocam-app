@@ -43,6 +43,16 @@ Dentro de un módulo se importa con rutas relativas; entre capas globales se usa
 
 Los tests unitarios se colocan junto al código (`*.test.ts` en `src/`). Los de integración contra PostgreSQL real van en `tests/integration/<módulo>/`.
 
+### Sincronización con CIDO (`selection-process`)
+
+Importa convocatorias de la API pública CIDO de la Diputació de Barcelona (`https://api.diba.cat/dadesobertes/cido/v1`, formato JSON:API). Este módulo **no sigue la estructura de `user-profile`**: no tiene `domain/` ni entidades, y sus adaptadores están en `infrastructure/` en lugar de `adapters/`.
+
+- `application/`: tipos `*SyncData` (datos planos ya mapeados), puertos `*Source` (lectura de CIDO) y `*Repository` (escritura en BD), y el caso de uso `SyncSelectionProcesses`.
+- `infrastructure/cido/`: `cido-client.ts` (funciones `fetch` por endpoint: `/oposicions`, `/oposicions/{id}/institucio`, `/materies`, `/documents`), tipos de respuesta `cido-*-types.ts`, mappers CIDO → `*SyncData` y las implementaciones `Cido*Source`.
+- `infrastructure/prisma/`: repositorios basados en `upsert` por `cidoId` (único en cada tabla), que devuelven el `id` numérico interno.
+- `SyncSelectionProcesses.execute({ limit, offset })`: para cada convocatoria de la página hace upsert de institución → convocatoria → materias (y reemplaza la tabla puente `SelectionProcessSubjectArea`) → documentos. Las filas sincronizadas llevan campos de seguimiento `sourceActive`, `sourceSyncedAt`, `sourceLastSeenAt`, `sourceHash`; los documentos que desaparecen de CIDO se marcan `sourceActive: false` en vez de borrarse.
+- Endpoints de depuración en `src/app/api/debug/cido/`: `GET /api/debug/cido` (vista previa de convocatorias mapeadas), `GET /api/debug/cido/institution?cidoId=...` y `POST /api/debug/cido/sync` (ejecuta la sincronización con `limit: 5, offset: 0`).
+
 ### Autenticación
 
 - `src/lib/auth.ts`: servidor better-auth con `prismaAdapter` y email+contraseña. Sus tablas (`user`, `session`, `account`, `verification`) están en `schema.prisma`. `UserProfile` (`user_profiles`) es 1:1 con `user` mediante `userId` único y `onDelete: Cascade`.
