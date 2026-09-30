@@ -8,6 +8,8 @@ import { PrismaSelectionProcessRepository } from "@/modules/selection-process/in
 import { CidoSubjectAreaSource } from "@/modules/selection-process/infrastructure/cido/cido-subject-area-source";
 import { PrismaSubjectAreaRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-subject-area-repository";
 import { PrismaSelectionProcessSubjectAreaRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-subject-area-repository";
+import { CidoSelectionProcessDocumentSource } from "@/modules/selection-process/infrastructure/cido/cido-selection-process-document-source";
+import { PrismaSelectionProcessDocumentRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-document-repository";
 
 const selectionProcessSource =
   new CidoSelectionProcessSource();
@@ -36,7 +38,15 @@ const subjectAreaRepository =
 const selectionProcessSubjectAreaRepository =
   new PrismaSelectionProcessSubjectAreaRepository(
     prisma,
-  );  
+  );
+
+const documentSource =
+  new CidoSelectionProcessDocumentSource();
+
+const documentRepository =
+  new PrismaSelectionProcessDocumentRepository(
+    prisma,
+  );
 
 export const syncSelectionProcessesUseCase =
   new SyncSelectionProcesses(
@@ -47,4 +57,6 @@ export const syncSelectionProcessesUseCase =
     subjectAreaSource,
     subjectAreaRepository,
     selectionProcessSubjectAreaRepository,
+    documentSource,
+    documentRepository,
   );

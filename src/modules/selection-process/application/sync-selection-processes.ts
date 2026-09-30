@@ -5,6 +5,8 @@ import type { SelectionProcessSource } from "./selection-process-source";
 import type { SelectionProcessSubjectAreaRepository } from "./selection-process-subject-area-repository";
 import type { SubjectAreaRepository } from "./subject-area-repository";
 import type { SubjectAreaSource } from "./subject-area-source";
+import type { SelectionProcessDocumentRepository } from "./selection-process-document-repository";
+import type { SelectionProcessDocumentSource } from "./selection-process-document-source";
 
 export type SyncSelectionProcessesResult = {
   totalAvailable: number;
@@ -33,7 +35,13 @@ export class SyncSelectionProcesses {
 
     private readonly selectionProcessSubjectAreaRepository:
       SelectionProcessSubjectAreaRepository,
-  ) {}
+
+    private readonly documentSource:
+      SelectionProcessDocumentSource,
+
+    private readonly documentRepository:
+      SelectionProcessDocumentRepository,
+  ) { }
 
   async execute({
     limit,
@@ -95,6 +103,20 @@ export class SyncSelectionProcesses {
           selectionProcessId,
           subjectAreaIds,
         );
+
+      // 5. Documentos
+      const documents =
+        await this.documentSource
+          .getBySelectionProcessCidoId(
+            selectionProcess.cidoId,
+          );
+
+      for (const document of documents) {
+        await this.documentRepository.upsert(
+          document,
+          selectionProcessId,
+        );
+      }
     }
 
     return {
