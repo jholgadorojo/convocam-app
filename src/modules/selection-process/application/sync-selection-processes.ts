@@ -2,6 +2,9 @@ import type { InstitutionRepository } from "./institution-repository";
 import type { InstitutionSource } from "./institution-source";
 import type { SelectionProcessRepository } from "./selection-process-repository";
 import type { SelectionProcessSource } from "./selection-process-source";
+import type { SelectionProcessSubjectAreaRepository } from "./selection-process-subject-area-repository";
+import type { SubjectAreaRepository } from "./subject-area-repository";
+import type { SubjectAreaSource } from "./subject-area-source";
 
 export type SyncSelectionProcessesResult = {
   totalAvailable: number;
@@ -21,6 +24,15 @@ export class SyncSelectionProcesses {
 
     private readonly institutionRepository:
       InstitutionRepository,
+
+    private readonly subjectAreaSource:
+      SubjectAreaSource,
+
+    private readonly subjectAreaRepository:
+      SubjectAreaRepository,
+
+    private readonly selectionProcessSubjectAreaRepository:
+      SelectionProcessSubjectAreaRepository,
   ) {}
 
   async execute({
@@ -36,6 +48,7 @@ export class SyncSelectionProcesses {
     });
 
     for (const selectionProcess of page.items) {
+      // 1. Institución
       const institution =
         await this.institutionSource
           .getBySelectionProcessCidoId(
@@ -51,10 +64,37 @@ export class SyncSelectionProcesses {
             .upsert(institution);
       }
 
-      await this.repository.upsert(
-        selectionProcess,
-        institutionId,
-      );
+      // 2. Proceso selectivo
+      const selectionProcessId =
+        await this.repository.upsert(
+          selectionProcess,
+          institutionId,
+        );
+
+      // 3. Materias
+      const subjectAreas =
+        await this.subjectAreaSource
+          .getBySelectionProcessCidoId(
+            selectionProcess.cidoId,
+          );
+
+      const subjectAreaIds: number[] = [];
+
+      for (const subjectArea of subjectAreas) {
+        const subjectAreaId =
+          await this.subjectAreaRepository
+            .upsert(subjectArea);
+
+        subjectAreaIds.push(subjectAreaId);
+      }
+
+      // 4. Relaciones convocatoria ↔ materias
+      await this
+        .selectionProcessSubjectAreaRepository
+        .replaceAll(
+          selectionProcessId,
+          subjectAreaIds,
+        );
     }
 
     return {

@@ -3,6 +3,7 @@ import type {
 } from "./cido-types";
 
 import type { CidoInstitutionResponse } from "./cido-institution-types";
+import type { CidoSubjectAreasResponse } from "./cido-subject-area-types";
 
 const CIDO_API_BASE_URL =
   "https://api.diba.cat/dadesobertes/cido/v1";
@@ -79,4 +80,29 @@ export async function getCidoInstitution(
   }
 
   return response.json() as Promise<CidoInstitutionResponse>;
+}
+
+export async function getCidoSubjectAreas(
+  selectionProcessCidoId: string,
+): Promise<CidoSubjectAreasResponse> {
+  const url = new URL(
+    `${CIDO_API_BASE_URL}/oposicions/${encodeURIComponent(
+      selectionProcessCidoId,
+    )}/materies`,
+  );
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.api+json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Error consultando las materias en CIDO: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  return response.json() as Promise<CidoSubjectAreasResponse>;
 }
