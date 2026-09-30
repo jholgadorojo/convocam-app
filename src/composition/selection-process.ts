@@ -15,6 +15,8 @@ import { PrismaSelectionProcessSubjectAreaRepository } from "@/modules/selection
 import { PrismaSubjectAreaRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-subject-area-repository";
 import { ReconcileMissingSelectionProcesses } from "@/modules/selection-process/application/reconcile-missing-selection-processes";
 import { RunSelectionProcessSync } from "@/modules/selection-process/application/run-selection-process-sync";
+import { ListActiveSelectionProcesses } from "@/modules/selection-process/application/list-active-selection-processes";
+import { PrismaSelectionProcessQueryRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-query-repository";
 
 const selectionProcessSource =
   new CidoSelectionProcessSource();
@@ -81,4 +83,14 @@ export const runSelectionProcessSyncUseCase =
   new RunSelectionProcessSync(
     syncAllSelectionProcessesUseCase,
     reconcileMissingSelectionProcessesUseCase,
+  );
+
+  const selectionProcessQueryRepository =
+  new PrismaSelectionProcessQueryRepository(
+    prisma,
+  );
+
+export const listActiveSelectionProcessesUseCase =
+  new ListActiveSelectionProcesses(
+    selectionProcessQueryRepository,
   );
