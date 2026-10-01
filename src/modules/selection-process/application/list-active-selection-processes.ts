@@ -1,9 +1,11 @@
 import type { SelectionProcessPage } from "./selection-process-page";
 import type { SelectionProcessQueryRepository } from "./selection-process-query-repository";
+import type { SelectionProcessSearchFilters } from "./selection-process-search-filters";
 
 type ListActiveSelectionProcessesInput = {
   page?: number;
   pageSize?: number;
+  filters?: SelectionProcessSearchFilters;
 };
 
 export class ListActiveSelectionProcesses {
@@ -16,6 +18,7 @@ export class ListActiveSelectionProcesses {
   ): Promise<SelectionProcessPage> {
     const page = input.page ?? 1;
     const pageSize = input.pageSize ?? 20;
+    const filters = input.filters ?? {};
 
     if (!Number.isInteger(page) || page < 1) {
       throw new Error(
@@ -36,6 +39,7 @@ export class ListActiveSelectionProcesses {
     return this.repository.findActive(
       page,
       pageSize,
+      filters,
     );
   }
 }
