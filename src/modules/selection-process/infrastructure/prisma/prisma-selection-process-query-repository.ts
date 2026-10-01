@@ -3,9 +3,28 @@ import type {
   PrismaClient,
 } from "@/generated/prisma/client";
 
+import type { SelectionProcessFilterOptions } from "../../application/selection-process-filter-options";
 import type { SelectionProcessPage } from "../../application/selection-process-page";
 import type { SelectionProcessQueryRepository } from "../../application/selection-process-query-repository";
 import type { SelectionProcessSearchFilters } from "../../application/selection-process-search-filters";
+
+function uniqueSortedStrings(
+  values: Array<string | null>,
+): string[] {
+  return [
+    ...new Set(
+      values
+        .map((value) => value?.trim())
+        .filter(
+          (value): value is string =>
+            value !== undefined &&
+            value.length > 0,
+        ),
+    ),
+  ].sort((a, b) =>
+    a.localeCompare(b, "ca"),
+  );
+}
 
 export class PrismaSelectionProcessQueryRepository
   implements SelectionProcessQueryRepository
@@ -274,6 +293,187 @@ export class PrismaSelectionProcessQueryRepository
       totalItems,
       totalPages: Math.ceil(
         totalItems / pageSize,
+      ),
+    };
+  }
+
+  async getFilterOptions(): Promise<SelectionProcessFilterOptions> {
+    const [
+      institutions,
+      statuses,
+      scopes,
+      selectionSystems,
+      personnelTypes,
+      qualificationGroups,
+    ] = await Promise.all([
+      this.prisma.institution.findMany({
+        where: {
+          selectionProcesses: {
+            some: {
+              sourceActive: true,
+            },
+          },
+        },
+        select: {
+          municipality: true,
+          county: true,
+          province: true,
+        },
+      }),
+
+      this.prisma.selectionProcess.findMany({
+        where: {
+          sourceActive: true,
+        },
+        select: {
+          statusId: true,
+          status: true,
+        },
+        distinct: ["statusId"],
+      }),
+
+      this.prisma.selectionProcess.findMany({
+        where: {
+          sourceActive: true,
+        },
+        select: {
+          scopeId: true,
+          scopeName: true,
+        },
+        distinct: ["scopeId"],
+      }),
+
+      this.prisma.selectionProcess.findMany({
+        where: {
+          sourceActive: true,
+          selectionSystemId: {
+            not: null,
+          },
+          selectionSystem: {
+            not: null,
+          },
+        },
+        select: {
+          selectionSystemId: true,
+          selectionSystem: true,
+        },
+        distinct: ["selectionSystemId"],
+      }),
+
+      this.prisma.selectionProcess.findMany({
+        where: {
+          sourceActive: true,
+          personnelTypeId: {
+            not: null,
+          },
+          personnelType: {
+            not: null,
+          },
+        },
+        select: {
+          personnelTypeId: true,
+          personnelType: true,
+        },
+        distinct: ["personnelTypeId"],
+      }),
+
+      this.prisma.selectionProcess.findMany({
+        where: {
+          sourceActive: true,
+          qualificationGroup: {
+            not: null,
+          },
+        },
+        select: {
+          qualificationGroup: true,
+        },
+        distinct: ["qualificationGroup"],
+      }),
+    ]);
+
+    const municipalities = uniqueSortedStrings(
+      institutions.map(
+        (institution) => institution.municipality,
+      ),
+    );
+
+    const counties = uniqueSortedStrings(
+      institutions.map(
+        (institution) => institution.county,
+      ),
+    );
+
+    const provinces = uniqueSortedStrings(
+      institutions.map(
+        (institution) => institution.province,
+      ),
+    );
+
+    return {
+      municipalities,
+      counties,
+      provinces,
+
+      statuses: statuses
+        .map((item) => ({
+          id: item.statusId,
+          name: item.status,
+        }))
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, "ca"),
+        ),
+
+      scopes: scopes
+        .map((item) => ({
+          id: item.scopeId,
+          name: item.scopeName,
+        }))
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, "ca"),
+        ),
+
+      selectionSystems: selectionSystems
+        .filter(
+          (
+            item,
+          ): item is {
+            selectionSystemId: number;
+            selectionSystem: string;
+          } =>
+            item.selectionSystemId !== null &&
+            item.selectionSystem !== null,
+        )
+        .map((item) => ({
+          id: item.selectionSystemId,
+          name: item.selectionSystem,
+        }))
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, "ca"),
+        ),
+
+      personnelTypes: personnelTypes
+        .filter(
+          (
+            item,
+          ): item is {
+            personnelTypeId: number;
+            personnelType: string;
+          } =>
+            item.personnelTypeId !== null &&
+            item.personnelType !== null,
+        )
+        .map((item) => ({
+          id: item.personnelTypeId,
+          name: item.personnelType,
+        }))
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, "ca"),
+        ),
+
+      qualificationGroups: uniqueSortedStrings(
+        qualificationGroups.map(
+          (item) => item.qualificationGroup,
+        ),
       ),
     };
   }
