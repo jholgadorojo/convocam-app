@@ -24,8 +24,12 @@ type SearchParams = {
   page?: string;
 
   qualificationGroup?:
-    | string
-    | string[];
+  | string
+  | string[];
+
+  isJobPool?:
+  | string
+  | string[];
 };
 
 type ConvocatoriasPageProps = {
@@ -58,8 +62,8 @@ export default async function ConvocatoriasPage({
     params.qualificationGroup === undefined
       ? []
       : Array.isArray(
-            params.qualificationGroup,
-          )
+        params.qualificationGroup,
+      )
         ? params.qualificationGroup
         : [params.qualificationGroup];
 
@@ -70,6 +74,23 @@ export default async function ConvocatoriasPage({
         .filter(Boolean),
     ),
   ];
+  const rawJobPoolValues =
+    params.isJobPool === undefined
+      ? []
+      : Array.isArray(params.isJobPool)
+        ? params.isJobPool
+        : [params.isJobPool];
+
+  const hasRegularPositions =
+    rawJobPoolValues.includes("false");
+
+  const hasJobPools =
+    rawJobPoolValues.includes("true");
+
+  const isJobPool =
+    hasRegularPositions === hasJobPools
+      ? undefined
+      : hasJobPools;
 
   /*
    * Página actual
@@ -80,7 +101,7 @@ export default async function ConvocatoriasPage({
 
   const page =
     Number.isInteger(requestedPage) &&
-    requestedPage > 0
+      requestedPage > 0
       ? requestedPage
       : 1;
 
@@ -95,14 +116,14 @@ export default async function ConvocatoriasPage({
           pageSize: 20,
 
           filters: {
-            text:
-              query || undefined,
+            text: query || undefined,
 
             qualificationGroup:
-              selectedQualificationGroups
-                .length > 0
+              selectedQualificationGroups.length > 0
                 ? selectedQualificationGroups
                 : undefined,
+
+            isJobPool,
           },
         },
       ),
@@ -125,11 +146,11 @@ export default async function ConvocatoriasPage({
           user={
             session?.user
               ? {
-                  name:
-                    session.user.name,
-                  email:
-                    session.user.email,
-                }
+                name:
+                  session.user.name,
+                email:
+                  session.user.email,
+              }
               : undefined
           }
         />
@@ -181,6 +202,14 @@ export default async function ConvocatoriasPage({
                   />
                 ),
               )}
+              {rawJobPoolValues.map((value) => (
+                <input
+                  key={value}
+                  type="hidden"
+                  name="isJobPool"
+                  value={value}
+                />
+              ))}
 
               <button
                 type="submit"
@@ -210,8 +239,8 @@ export default async function ConvocatoriasPage({
                     href={
                       query
                         ? `/convocatorias?q=${encodeURIComponent(
-                            query,
-                          )}`
+                          query,
+                        )}`
                         : "/convocatorias"
                     }
                     className="text-[13.5px] font-semibold text-[#3B45B5]"
@@ -233,15 +262,30 @@ export default async function ConvocatoriasPage({
 
                   {/* Tipo convocatoria */}
                   <FilterSection title="Tipo de convocatoria">
-                    <FilterCheckbox
-                      label="Plazas de plantilla"
-                    />
+                    <label className="flex min-h-[30px] cursor-pointer items-center gap-2.5 text-sm text-[#131A2C]">
+                      <input
+                        type="checkbox"
+                        name="isJobPool"
+                        value="false"
+                        defaultChecked={hasRegularPositions}
+                        className="h-[18px] w-[18px] rounded border-[#D5DAE3]"
+                      />
 
-                    <FilterCheckbox
-                      label="Bolsa de trabajo"
-                    />
+                      <span>Plazas de plantilla</span>
+                    </label>
+
+                    <label className="flex min-h-[30px] cursor-pointer items-center gap-2.5 text-sm text-[#131A2C]">
+                      <input
+                        type="checkbox"
+                        name="isJobPool"
+                        value="true"
+                        defaultChecked={hasJobPools}
+                        className="h-[18px] w-[18px] rounded border-[#D5DAE3]"
+                      />
+
+                      <span>Bolsa de trabajo</span>
+                    </label>
                   </FilterSection>
-
                   {/* Administración */}
                   <FilterSection title="Administración">
                     <FilterCheckbox
@@ -447,8 +491,8 @@ export default async function ConvocatoriasPage({
                                 {convocatoria
                                   .applicationEndDate
                                   ? `Finaliza el ${formatDate(
-                                      convocatoria.applicationEndDate,
-                                    )}`
+                                    convocatoria.applicationEndDate,
+                                  )}`
                                   : "Fecha límite pendiente"}
                               </span>
                             </div>
@@ -499,10 +543,10 @@ export default async function ConvocatoriasPage({
                       {result.page > 1 ? (
                         <Link
                           href={buildPageHref(
-                            result.page -
-                              1,
+                            result.page - 1,
                             query,
                             selectedQualificationGroups,
+                            rawJobPoolValues,
                           )}
                           className="rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#131A2C] hover:bg-[#F4F6F9]"
                         >
@@ -516,13 +560,13 @@ export default async function ConvocatoriasPage({
 
                       {/* Siguiente */}
                       {result.page <
-                      result.totalPages ? (
+                        result.totalPages ? (
                         <Link
                           href={buildPageHref(
-                            result.page +
-                              1,
+                            result.page + 1,
                             query,
                             selectedQualificationGroups,
+                            rawJobPoolValues,
                           )}
                           className="rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
                         >
@@ -555,25 +599,27 @@ function buildPageHref(
   page: number,
   query: string,
   qualificationGroups: string[],
+  jobPoolValues: string[],
 ): string {
-  const params =
-    new URLSearchParams();
+  const params = new URLSearchParams();
 
   if (query) {
-    params.set(
-      "q",
-      query,
-    );
+    params.set("q", query);
   }
 
-  qualificationGroups.forEach(
-    (group) => {
-      params.append(
-        "qualificationGroup",
-        group,
-      );
-    },
-  );
+  qualificationGroups.forEach((group) => {
+    params.append(
+      "qualificationGroup",
+      group,
+    );
+  });
+
+  jobPoolValues.forEach((value) => {
+    params.append(
+      "isJobPool",
+      value,
+    );
+  });
 
   params.set(
     "page",
