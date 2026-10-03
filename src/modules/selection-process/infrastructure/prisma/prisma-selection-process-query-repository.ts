@@ -42,8 +42,14 @@ export class PrismaSelectionProcessQueryRepository
     const municipality = filters.municipality?.trim();
     const county = filters.county?.trim();
     const province = filters.province?.trim();
-    const qualificationGroup =
-      filters.qualificationGroup?.trim();
+    const qualificationGroups =
+  filters.qualificationGroup === undefined
+    ? []
+    : Array.isArray(filters.qualificationGroup)
+      ? filters.qualificationGroup
+          .map((group) => group.trim())
+          .filter(Boolean)
+      : [filters.qualificationGroup.trim()].filter(Boolean);
 
     const conditions: Prisma.SelectionProcessWhereInput[] = [
       {
@@ -167,14 +173,13 @@ export class PrismaSelectionProcessQueryRepository
       });
     }
 
-    if (qualificationGroup) {
-      conditions.push({
-        qualificationGroup: {
-          equals: qualificationGroup,
-          mode: "insensitive",
-        },
-      });
-    }
+    if (qualificationGroups.length > 0) {
+  conditions.push({
+    qualificationGroup: {
+      in: qualificationGroups,
+    },
+  });
+}
 
     if (filters.isJobPool !== undefined) {
       conditions.push({

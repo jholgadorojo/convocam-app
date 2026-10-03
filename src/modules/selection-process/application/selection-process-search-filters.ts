@@ -10,7 +10,7 @@ export type SelectionProcessSearchFilters = {
   selectionSystemId?: number;
   personnelTypeId?: number;
 
-  qualificationGroup?: string;
+  qualificationGroup?: string | string[];
   isJobPool?: boolean;
 
   applicationEndDateFrom?: Date;
