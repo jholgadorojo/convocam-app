@@ -11,6 +11,10 @@ import type {
   SelectionProcessTerritoryOption,
 } from "../../application/selection-process-filter-options";
 
+type TextSearchRow = {
+  id: number;
+};
+
 function uniqueSortedStrings(
   values: Array<string | null>,
 ): string[] {
@@ -138,58 +142,27 @@ export class PrismaSelectionProcessQueryRepository
     ];
 
     if (text) {
-      conditions.push({
-        OR: [
-          {
-            title: {
-              contains: text,
-              mode: "insensitive",
-            },
-          },
-          {
-            institution: {
-              is: {
-                name: {
-                  contains: text,
-                  mode: "insensitive",
-                },
-              },
-            },
-          },
-          {
-            institution: {
-              is: {
-                municipality: {
-                  contains: text,
-                  mode: "insensitive",
-                },
-              },
-            },
-          },
-          {
-            institution: {
-              is: {
-                county: {
-                  contains: text,
-                  mode: "insensitive",
-                },
-              },
-            },
-          },
-          {
-            institution: {
-              is: {
-                province: {
-                  contains: text,
-                  mode: "insensitive",
-                },
-              },
-            },
-          },
-        ],
-      });
-    }
+  const matchingIds =
+    await this.findTextMatchingIds(
+      text,
+    );
 
+  if (matchingIds.length === 0) {
+    return {
+      items: [],
+      page,
+      pageSize,
+      totalItems: 0,
+      totalPages: 0,
+    };
+  }
+
+  conditions.push({
+    id: {
+      in: matchingIds,
+    },
+  });
+}
     const institutionConditions: Prisma.InstitutionWhereInput = {};
 
     if (province) {
@@ -377,6 +350,311 @@ export class PrismaSelectionProcessQueryRepository
       ),
     };
   }
+
+  private async findTextMatchingIds(
+  text: string,
+): Promise<number[]> {
+  /*
+   * Separamos la búsqueda en palabras.
+   *
+   * "cardedeu informatic"
+   *
+   * se convierte en:
+   *
+   * ["cardedeu", "informatic"]
+   */
+  const terms = [
+    ...new Set(
+      text
+        .trim()
+        .split(/\s+/)
+        .map((term) => term.trim())
+        .filter(Boolean),
+    ),
+  ];
+
+  if (terms.length === 0) {
+    return [];
+  }
+
+  let matchingIds:
+    | Set<number>
+    | undefined;
+
+  for (const term of terms) {
+    const rows =
+      await this.prisma.$queryRaw<
+        TextSearchRow[]
+      >`
+        SELECT
+          sp.id
+        FROM
+          "selection_processes" sp
+        LEFT JOIN
+          "institutions" i
+            ON i.id = sp."institutionId"
+        WHERE
+          sp."sourceActive" = true
+          AND
+          (
+            /*
+             * Coincidencia normal,
+             * ignorando acentos.
+             */
+
+            unaccent(
+              lower(
+                COALESCE(
+                  sp.title,
+                  ''
+                )
+              )
+            )
+            LIKE
+            '%' ||
+            unaccent(
+              lower(${term})
+            ) ||
+            '%'
+
+            OR
+
+            unaccent(
+              lower(
+                COALESCE(
+                  i.name,
+                  ''
+                )
+              )
+            )
+            LIKE
+            '%' ||
+            unaccent(
+              lower(${term})
+            ) ||
+            '%'
+
+            OR
+
+            unaccent(
+              lower(
+                COALESCE(
+                  i.municipality,
+                  ''
+                )
+              )
+            )
+            LIKE
+            '%' ||
+            unaccent(
+              lower(${term})
+            ) ||
+            '%'
+
+            OR
+
+            unaccent(
+              lower(
+                COALESCE(
+                  i.county,
+                  ''
+                )
+              )
+            )
+            LIKE
+            '%' ||
+            unaccent(
+              lower(${term})
+            ) ||
+            '%'
+
+            OR
+
+            unaccent(
+              lower(
+                COALESCE(
+                  i.province,
+                  ''
+                )
+              )
+            )
+            LIKE
+            '%' ||
+            unaccent(
+              lower(${term})
+            ) ||
+            '%'
+
+            OR
+
+            unaccent(
+              lower(
+                COALESCE(
+                  sp."qualificationGroup",
+                  ''
+                )
+              )
+            )
+            LIKE
+            '%' ||
+            unaccent(
+              lower(${term})
+            ) ||
+            '%'
+
+            /*
+             * Si la palabra tiene al menos
+             * 4 caracteres, permitimos
+             * coincidencia aproximada.
+             */
+
+            OR
+            (
+              char_length(${term}) >= 4
+
+              AND
+              (
+                word_similarity(
+                  unaccent(
+                    lower(${term})
+                  ),
+                  unaccent(
+                    lower(
+                      COALESCE(
+                        sp.title,
+                        ''
+                      )
+                    )
+                  )
+                ) >= 0.55
+
+                OR
+
+                word_similarity(
+                  unaccent(
+                    lower(${term})
+                  ),
+                  unaccent(
+                    lower(
+                      COALESCE(
+                        i.name,
+                        ''
+                      )
+                    )
+                  )
+                ) >= 0.55
+
+                OR
+
+                word_similarity(
+                  unaccent(
+                    lower(${term})
+                  ),
+                  unaccent(
+                    lower(
+                      COALESCE(
+                        i.municipality,
+                        ''
+                      )
+                    )
+                  )
+                ) >= 0.55
+
+                OR
+
+                word_similarity(
+                  unaccent(
+                    lower(${term})
+                  ),
+                  unaccent(
+                    lower(
+                      COALESCE(
+                        i.county,
+                        ''
+                      )
+                    )
+                  )
+                ) >= 0.55
+
+                OR
+
+                word_similarity(
+                  unaccent(
+                    lower(${term})
+                  ),
+                  unaccent(
+                    lower(
+                      COALESCE(
+                        i.province,
+                        ''
+                      )
+                    )
+                  )
+                ) >= 0.55
+
+                OR
+
+                word_similarity(
+                  unaccent(
+                    lower(${term})
+                  ),
+                  unaccent(
+                    lower(
+                      COALESCE(
+                        sp."qualificationGroup",
+                        ''
+                      )
+                    )
+                  )
+                ) >= 0.55
+              )
+            )
+          )
+      `;
+
+    const termIds = new Set(
+      rows.map((row) => row.id),
+    );
+
+    /*
+     * Primera palabra:
+     * guardamos todos sus resultados.
+     */
+    if (matchingIds === undefined) {
+      matchingIds = termIds;
+      continue;
+    }
+
+    /*
+     * Siguientes palabras:
+     *
+     * hacemos una intersección.
+     *
+     * Es decir:
+     *
+     * "cardedeu informatic"
+     *
+     * debe cumplir:
+     *
+     * cardedeu
+     * AND
+     * informatic
+     */
+    matchingIds = new Set(
+      [...matchingIds].filter(
+        (id) => termIds.has(id),
+      ),
+    );
+
+    if (matchingIds.size === 0) {
+      return [];
+    }
+  }
+
+  return matchingIds
+    ? [...matchingIds]
+    : [];
+}
 
   async getFilterOptions(): Promise<SelectionProcessFilterOptions> {
     const [
