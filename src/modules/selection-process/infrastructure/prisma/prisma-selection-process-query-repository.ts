@@ -3,10 +3,13 @@ import type {
   PrismaClient,
 } from "@/generated/prisma/client";
 
-import type { SelectionProcessFilterOptions } from "../../application/selection-process-filter-options";
 import type { SelectionProcessPage } from "../../application/selection-process-page";
 import type { SelectionProcessQueryRepository } from "../../application/selection-process-query-repository";
 import type { SelectionProcessSearchFilters } from "../../application/selection-process-search-filters";
+import type {
+  SelectionProcessFilterOptions,
+  SelectionProcessTerritoryOption,
+} from "../../application/selection-process-filter-options";
 
 function uniqueSortedStrings(
   values: Array<string | null>,
@@ -26,10 +29,87 @@ function uniqueSortedStrings(
   );
 }
 
+function buildTerritories(
+  institutions: Array<{
+    province: string | null;
+    county: string | null;
+    municipality: string | null;
+  }>,
+): SelectionProcessTerritoryOption[] {
+  const territories =
+    new Map<
+      string,
+      SelectionProcessTerritoryOption
+    >();
+
+  for (const institution of institutions) {
+    const province =
+      institution.province?.trim();
+
+    if (!province) {
+      continue;
+    }
+
+    const county =
+      institution.county?.trim() || null;
+
+    const municipality =
+      institution.municipality?.trim() ||
+      null;
+
+    const territory = {
+      province,
+      county,
+      municipality,
+    };
+
+    const key = [
+      province,
+      county ?? "",
+      municipality ?? "",
+    ].join("|");
+
+    territories.set(
+      key,
+      territory,
+    );
+  }
+
+  return [
+    ...territories.values(),
+  ].sort((a, b) => {
+    const provinceComparison =
+      a.province.localeCompare(
+        b.province,
+        "ca",
+      );
+
+    if (provinceComparison !== 0) {
+      return provinceComparison;
+    }
+
+    const countyComparison =
+      (a.county ?? "").localeCompare(
+        b.county ?? "",
+        "ca",
+      );
+
+    if (countyComparison !== 0) {
+      return countyComparison;
+    }
+
+    return (
+      a.municipality ?? ""
+    ).localeCompare(
+      b.municipality ?? "",
+      "ca",
+    );
+  });
+}
+
 export class PrismaSelectionProcessQueryRepository
-  implements SelectionProcessQueryRepository
-{
-  constructor(private readonly prisma: PrismaClient) {}
+  implements SelectionProcessQueryRepository {
+  constructor(private readonly prisma: PrismaClient) { }
 
   async findActive(
     page: number,
@@ -43,13 +123,13 @@ export class PrismaSelectionProcessQueryRepository
     const county = filters.county?.trim();
     const province = filters.province?.trim();
     const qualificationGroups =
-  filters.qualificationGroup === undefined
-    ? []
-    : Array.isArray(filters.qualificationGroup)
-      ? filters.qualificationGroup
-          .map((group) => group.trim())
-          .filter(Boolean)
-      : [filters.qualificationGroup.trim()].filter(Boolean);
+      filters.qualificationGroup === undefined
+        ? []
+        : Array.isArray(filters.qualificationGroup)
+          ? filters.qualificationGroup
+            .map((group) => group.trim())
+            .filter(Boolean)
+          : [filters.qualificationGroup.trim()].filter(Boolean);
 
     const conditions: Prisma.SelectionProcessWhereInput[] = [
       {
@@ -110,41 +190,37 @@ export class PrismaSelectionProcessQueryRepository
       });
     }
 
-    if (municipality) {
-      conditions.push({
-        institution: {
-          is: {
-            municipality: {
-              equals: municipality,
-              mode: "insensitive",
-            },
-          },
-        },
-      });
+    const institutionConditions: Prisma.InstitutionWhereInput = {};
+
+    if (province) {
+      institutionConditions.province = {
+        equals: province,
+        mode: "insensitive",
+      };
     }
 
     if (county) {
-      conditions.push({
-        institution: {
-          is: {
-            county: {
-              equals: county,
-              mode: "insensitive",
-            },
-          },
-        },
-      });
+      institutionConditions.county = {
+        equals: county,
+        mode: "insensitive",
+      };
     }
 
-    if (province) {
+    if (municipality) {
+      institutionConditions.municipality = {
+        equals: municipality,
+        mode: "insensitive",
+      };
+    }
+
+    if (
+      province ||
+      county ||
+      municipality
+    ) {
       conditions.push({
         institution: {
-          is: {
-            province: {
-              equals: province,
-              mode: "insensitive",
-            },
-          },
+          is: institutionConditions,
         },
       });
     }
@@ -174,12 +250,12 @@ export class PrismaSelectionProcessQueryRepository
     }
 
     if (qualificationGroups.length > 0) {
-  conditions.push({
-    qualificationGroup: {
-      in: qualificationGroups,
-    },
-  });
-}
+      conditions.push({
+        qualificationGroup: {
+          in: qualificationGroups,
+        },
+      });
+    }
 
     if (filters.isJobPool !== undefined) {
       conditions.push({
@@ -195,14 +271,14 @@ export class PrismaSelectionProcessQueryRepository
         applicationEndDate: {
           ...(filters.applicationEndDateFrom
             ? {
-                gte: filters.applicationEndDateFrom,
-              }
+              gte: filters.applicationEndDateFrom,
+            }
             : {}),
 
           ...(filters.applicationEndDateTo
             ? {
-                lte: filters.applicationEndDateTo,
-              }
+              lte: filters.applicationEndDateTo,
+            }
             : {}),
         },
       });
@@ -213,11 +289,11 @@ export class PrismaSelectionProcessQueryRepository
         reservedDisabilityPositions:
           filters.reservedDisability
             ? {
-                gt: 0,
-              }
+              gt: 0,
+            }
             : {
-                equals: 0,
-              },
+              equals: 0,
+            },
       });
     }
 
@@ -414,10 +490,14 @@ export class PrismaSelectionProcessQueryRepository
       ),
     );
 
+    const territories =
+      buildTerritories(institutions);
+
     return {
       municipalities,
       counties,
       provinces,
+      territories,
 
       statuses: statuses
         .map((item) => ({

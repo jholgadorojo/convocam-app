@@ -13,7 +13,7 @@ import {
 import { auth } from "@/lib/auth";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
-
+import { TerritoryFilters } from "./territory-filters";
 import {
   getSelectionProcessFilterOptionsUseCase,
   listActiveSelectionProcessesUseCase,
@@ -23,110 +23,281 @@ type SearchParams = {
   q?: string;
   page?: string;
 
-  qualificationGroup?:
-  | string
-  | string[];
+  qualificationGroup?: string | string[];
+  isJobPool?: string | string[];
 
-  isJobPool?:
-  | string
-  | string[];
+  statusId?: string;
+
+  province?: string;
+  county?: string;
+  municipality?: string;
+
+  scopeId?: string;
+  selectionSystemId?: string;
+  personnelTypeId?: string;
+
+  applicationEndDateFrom?: string;
+  applicationEndDateTo?: string;
+
+  reservedDisability?: string;
+  reservedUnemployed?: string;
+  reservedYoung?: string;
+  reservedWomen?: string;
 };
 
 type ConvocatoriasPageProps = {
   searchParams: Promise<SearchParams>;
 };
 
+type CurrentFilterState = {
+  qualificationGroups: string[];
+  jobPoolValues: string[];
+
+  statusId?: number;
+
+  province?: string;
+  county?: string;
+  municipality?: string;
+
+  scopeId?: number;
+  selectionSystemId?: number;
+  personnelTypeId?: number;
+
+  applicationEndDateFrom?: string;
+  applicationEndDateTo?: string;
+
+  reservedDisability: boolean;
+  reservedUnemployed: boolean;
+  reservedYoung: boolean;
+  reservedWomen: boolean;
+};
+
 export default async function ConvocatoriasPage({
   searchParams,
 }: ConvocatoriasPageProps) {
-  const session =
-    await auth.api.getSession({
-      headers: await headers(),
-    });
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-  const isAuthenticated =
-    Boolean(session?.user);
+  const isAuthenticated = Boolean(session?.user);
 
   const params = await searchParams;
 
   /*
-   * Texto del buscador
+   * Búsqueda libre
    */
-  const query =
-    params.q?.trim() ?? "";
+  const query = params.q?.trim() ?? "";
 
   /*
-   * Grupos seleccionados
+   * Página
    */
-  const rawQualificationGroups =
-    params.qualificationGroup === undefined
-      ? []
-      : Array.isArray(
-        params.qualificationGroup,
-      )
-        ? params.qualificationGroup
-        : [params.qualificationGroup];
+  const page =
+    parsePositiveInteger(params.page) ?? 1;
 
+  /*
+   * Grupos de titulación
+   */
   const selectedQualificationGroups = [
     ...new Set(
-      rawQualificationGroups
-        .map((group) => group.trim())
+      normalizeArray(
+        params.qualificationGroup,
+      )
+        .map((value) => value.trim())
         .filter(Boolean),
     ),
   ];
-  const rawJobPoolValues =
-    params.isJobPool === undefined
-      ? []
-      : Array.isArray(params.isJobPool)
-        ? params.isJobPool
-        : [params.isJobPool];
+
+  /*
+   * Plaza / bolsa
+   */
+  const jobPoolValues = [
+    ...new Set(
+      normalizeArray(params.isJobPool).filter(
+        (value) =>
+          value === "true" ||
+          value === "false",
+      ),
+    ),
+  ];
 
   const hasRegularPositions =
-    rawJobPoolValues.includes("false");
+    jobPoolValues.includes("false");
 
   const hasJobPools =
-    rawJobPoolValues.includes("true");
+    jobPoolValues.includes("true");
 
+  /*
+   * Si ambos están marcados o ninguno está
+   * marcado, no filtramos por isJobPool.
+   */
   const isJobPool =
     hasRegularPositions === hasJobPools
       ? undefined
       : hasJobPools;
 
   /*
-   * Página actual
+   * Estado
    */
-  const requestedPage = Number(
-    params.page ?? "1",
-  );
-
-  const page =
-    Number.isInteger(requestedPage) &&
-      requestedPage > 0
-      ? requestedPage
-      : 1;
+  const statusId =
+    parsePositiveInteger(params.statusId);
 
   /*
-   * Datos reales de PostgreSQL
+   * Ubicación
+   */
+  const province =
+    cleanString(params.province);
+
+  const county =
+    cleanString(params.county);
+
+  const municipality =
+    cleanString(params.municipality);
+
+  /*
+   * Otros filtros CIDO
+   */
+  const scopeId =
+    parsePositiveInteger(params.scopeId);
+
+  const selectionSystemId =
+    parsePositiveInteger(
+      params.selectionSystemId,
+    );
+
+  const personnelTypeId =
+    parsePositiveInteger(
+      params.personnelTypeId,
+    );
+
+  /*
+   * Fechas
+   */
+  const applicationEndDateFromValue =
+    cleanString(
+      params.applicationEndDateFrom,
+    );
+
+  const applicationEndDateToValue =
+    cleanString(
+      params.applicationEndDateTo,
+    );
+
+  const applicationEndDateFrom =
+    parseDate(
+      applicationEndDateFromValue,
+    );
+
+  const applicationEndDateTo =
+    parseDate(
+      applicationEndDateToValue,
+    );
+
+  /*
+   * Reservas
+   *
+   * Solo aplicamos el filtro cuando
+   * el checkbox está marcado.
+   */
+  const reservedDisability =
+    params.reservedDisability === "true";
+
+  const reservedUnemployed =
+    params.reservedUnemployed === "true";
+
+  const reservedYoung =
+    params.reservedYoung === "true";
+
+  const reservedWomen =
+    params.reservedWomen === "true";
+
+  /*
+   * Estado actual de los filtros.
+   *
+   * Lo reutilizamos para conservarlos
+   * al buscar y al cambiar de página.
+   */
+  const currentFilters: CurrentFilterState = {
+    qualificationGroups:
+      selectedQualificationGroups,
+
+    jobPoolValues,
+
+    statusId,
+
+    province,
+    county,
+    municipality,
+
+    scopeId,
+    selectionSystemId,
+    personnelTypeId,
+
+    applicationEndDateFrom:
+      applicationEndDateFromValue,
+
+    applicationEndDateTo:
+      applicationEndDateToValue,
+
+    reservedDisability,
+    reservedUnemployed,
+    reservedYoung,
+    reservedWomen,
+  };
+
+  /*
+   * PostgreSQL
    */
   const [result, filterOptions] =
     await Promise.all([
-      listActiveSelectionProcessesUseCase.execute(
-        {
-          page,
-          pageSize: 20,
+      listActiveSelectionProcessesUseCase.execute({
+        page,
+        pageSize: 20,
 
-          filters: {
-            text: query || undefined,
+        filters: {
+          text: query || undefined,
 
-            qualificationGroup:
-              selectedQualificationGroups.length > 0
-                ? selectedQualificationGroups
-                : undefined,
+          qualificationGroup:
+            selectedQualificationGroups.length >
+              0
+              ? selectedQualificationGroups
+              : undefined,
 
-            isJobPool,
-          },
+          isJobPool,
+
+          statusId,
+
+          province,
+          county,
+          municipality,
+
+          scopeId,
+          selectionSystemId,
+          personnelTypeId,
+
+          applicationEndDateFrom,
+          applicationEndDateTo,
+
+          reservedDisability:
+            reservedDisability
+              ? true
+              : undefined,
+
+          reservedUnemployed:
+            reservedUnemployed
+              ? true
+              : undefined,
+
+          reservedYoung:
+            reservedYoung
+              ? true
+              : undefined,
+
+          reservedWomen:
+            reservedWomen
+              ? true
+              : undefined,
         },
-      ),
+      }),
 
       getSelectionProcessFilterOptionsUseCase.execute(),
     ]);
@@ -134,9 +305,7 @@ export default async function ConvocatoriasPage({
   return (
     <div className="flex min-h-screen bg-[#F4F6F9]">
       <AppSidebar
-        isAuthenticated={
-          isAuthenticated
-        }
+        isAuthenticated={isAuthenticated}
         activeItem="convocatorias"
       />
 
@@ -146,8 +315,7 @@ export default async function ConvocatoriasPage({
           user={
             session?.user
               ? {
-                name:
-                  session.user.name,
+                name: session.user.name,
                 email:
                   session.user.email,
               }
@@ -157,7 +325,6 @@ export default async function ConvocatoriasPage({
 
         <main className="flex-1 px-6 py-8 lg:px-10 lg:pb-12">
           <div className="flex flex-col gap-6">
-
             {/* Cabecera */}
             <header>
               <h1 className="text-[28px] font-semibold tracking-tight text-[#131A2C]">
@@ -192,24 +359,9 @@ export default async function ConvocatoriasPage({
                 />
               </div>
 
-              {selectedQualificationGroups.map(
-                (group) => (
-                  <input
-                    key={group}
-                    type="hidden"
-                    name="qualificationGroup"
-                    value={group}
-                  />
-                ),
-              )}
-              {rawJobPoolValues.map((value) => (
-                <input
-                  key={value}
-                  type="hidden"
-                  name="isJobPool"
-                  value={value}
-                />
-              ))}
+              <CurrentFilterHiddenInputs
+                filters={currentFilters}
+              />
 
               <button
                 type="submit"
@@ -220,11 +372,9 @@ export default async function ConvocatoriasPage({
             </form>
 
             {/* Contenido */}
-            <div className="grid items-start gap-7 lg:grid-cols-[272px_minmax(0,1fr)]">
-
+            <div className="grid items-start gap-7 lg:grid-cols-[300px_minmax(0,1fr)]">
               {/* Filtros */}
               <aside className="rounded-xl border border-[#E3E7EE] bg-white shadow-sm">
-
                 <div className="flex items-center justify-between border-b border-[#EEF1F5] px-5 py-4">
                   <h2 className="flex items-center gap-2 text-[15px] font-semibold">
                     <SlidersHorizontal
@@ -250,8 +400,7 @@ export default async function ConvocatoriasPage({
                 </div>
 
                 <form action="/convocatorias">
-
-                  {/* Conservamos búsqueda */}
+                  {/* Conservamos el texto */}
                   {query && (
                     <input
                       type="hidden"
@@ -260,57 +409,63 @@ export default async function ConvocatoriasPage({
                     />
                   )}
 
-                  {/* Tipo convocatoria */}
+                  {/* Tipo */}
                   <FilterSection title="Tipo de convocatoria">
-                    <label className="flex min-h-[30px] cursor-pointer items-center gap-2.5 text-sm text-[#131A2C]">
-                      <input
-                        type="checkbox"
-                        name="isJobPool"
-                        value="false"
-                        defaultChecked={hasRegularPositions}
-                        className="h-[18px] w-[18px] rounded border-[#D5DAE3]"
-                      />
-
-                      <span>Plazas de plantilla</span>
-                    </label>
-
-                    <label className="flex min-h-[30px] cursor-pointer items-center gap-2.5 text-sm text-[#131A2C]">
-                      <input
-                        type="checkbox"
-                        name="isJobPool"
-                        value="true"
-                        defaultChecked={hasJobPools}
-                        className="h-[18px] w-[18px] rounded border-[#D5DAE3]"
-                      />
-
-                      <span>Bolsa de trabajo</span>
-                    </label>
-                  </FilterSection>
-                  {/* Administración */}
-                  <FilterSection title="Administración">
-                    <FilterCheckbox
-                      label="Ayuntamientos"
+                    <FilterCheckLabel
+                      name="isJobPool"
+                      value="false"
+                      label="Plazas de plantilla"
+                      checked={
+                        hasRegularPositions
+                      }
                     />
 
-                    <FilterCheckbox
-                      label="Generalitat de Catalunya"
-                    />
-
-                    <FilterCheckbox
-                      label="Diputaciones"
-                    />
-
-                    <FilterCheckbox
-                      label="Consejos comarcales"
-                    />
-
-                    <FilterCheckbox
-                      label="Otros organismos públicos"
+                    <FilterCheckLabel
+                      name="isJobPool"
+                      value="true"
+                      label="Bolsa de trabajo"
+                      checked={hasJobPools}
                     />
                   </FilterSection>
 
-                  {/* Grupo real */}
-                  <FilterSection title="Grupo">
+                  {/* Estado */}
+                  <FilterSection title="Estado">
+                    <FilterSelect
+                      name="statusId"
+                      defaultValue={
+                        statusId !==
+                          undefined
+                          ? String(statusId)
+                          : ""
+                      }
+                      emptyLabel="Todos los estados"
+                      options={filterOptions.statuses.map(
+                        (option) => ({
+                          value: String(
+                            option.id,
+                          ),
+                          label:
+                            option.name,
+                        }),
+                      )}
+                    />
+                  </FilterSection>
+
+                  {/* Ubicación */}
+                  <FilterSection title="Ubicación">
+                    <TerritoryFilters
+                      territories={
+                        filterOptions.territories
+                      }
+                      initialProvince={province}
+                      initialCounty={county}
+                      initialMunicipality={
+                        municipality
+                      }
+                    />
+                  </FilterSection>
+                  {/* Grupo */}
+                  <FilterSection title="Grupo de titulación">
                     {filterOptions
                       .qualificationGroups
                       .length === 0 ? (
@@ -319,38 +474,165 @@ export default async function ConvocatoriasPage({
                         disponibles.
                       </p>
                     ) : (
-                      filterOptions
-                        .qualificationGroups
-                        .map(
-                          (group) => (
-                            <label
-                              key={
-                                group
-                              }
-                              className="flex cursor-pointer items-start gap-2.5 text-sm text-[#131A2C]"
-                            >
-                              <input
-                                type="checkbox"
-                                name="qualificationGroup"
-                                value={
-                                  group
-                                }
-                                defaultChecked={selectedQualificationGroups.includes(
-                                  group,
-                                )}
-                                className="mt-0.5 h-[18px] w-[18px] rounded border-[#D5DAE3]"
-                              />
-
-                              <span>
-                                {group}
-                              </span>
-                            </label>
-                          ),
-                        )
+                      filterOptions.qualificationGroups.map(
+                        (group) => (
+                          <FilterCheckLabel
+                            key={group}
+                            name="qualificationGroup"
+                            value={group}
+                            label={group}
+                            checked={selectedQualificationGroups.includes(
+                              group,
+                            )}
+                          />
+                        ),
+                      )
                     )}
                   </FilterSection>
 
-                  {/* Botón filtros */}
+                  {/* Ámbito */}
+                  <FilterSection title="Ámbito">
+                    <FilterSelect
+                      name="scopeId"
+                      defaultValue={
+                        scopeId !== undefined
+                          ? String(scopeId)
+                          : ""
+                      }
+                      emptyLabel="Todos los ámbitos"
+                      options={filterOptions.scopes.map(
+                        (option) => ({
+                          value: String(
+                            option.id,
+                          ),
+                          label:
+                            option.name,
+                        }),
+                      )}
+                    />
+                  </FilterSection>
+
+                  {/* Sistema selección */}
+                  <FilterSection title="Sistema de selección">
+                    <FilterSelect
+                      name="selectionSystemId"
+                      defaultValue={
+                        selectionSystemId !==
+                          undefined
+                          ? String(
+                            selectionSystemId,
+                          )
+                          : ""
+                      }
+                      emptyLabel="Todos los sistemas"
+                      options={filterOptions.selectionSystems.map(
+                        (option) => ({
+                          value: String(
+                            option.id,
+                          ),
+                          label:
+                            option.name,
+                        }),
+                      )}
+                    />
+                  </FilterSection>
+
+                  {/* Tipo personal */}
+                  <FilterSection title="Tipo de personal">
+                    <FilterSelect
+                      name="personnelTypeId"
+                      defaultValue={
+                        personnelTypeId !==
+                          undefined
+                          ? String(
+                            personnelTypeId,
+                          )
+                          : ""
+                      }
+                      emptyLabel="Todos los tipos"
+                      options={filterOptions.personnelTypes.map(
+                        (option) => ({
+                          value: String(
+                            option.id,
+                          ),
+                          label:
+                            option.name,
+                        }),
+                      )}
+                    />
+                  </FilterSection>
+
+                  {/* Fechas */}
+                  <FilterSection title="Fecha límite">
+                    <label className="flex flex-col gap-1.5 text-sm text-[#131A2C]">
+                      <span className="text-xs font-medium text-[#69738A]">
+                        Desde
+                      </span>
+
+                      <input
+                        type="date"
+                        name="applicationEndDateFrom"
+                        defaultValue={
+                          applicationEndDateFromValue ??
+                          ""
+                        }
+                        className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm outline-none focus:border-[#4F5BD5]"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1.5 text-sm text-[#131A2C]">
+                      <span className="text-xs font-medium text-[#69738A]">
+                        Hasta
+                      </span>
+
+                      <input
+                        type="date"
+                        name="applicationEndDateTo"
+                        defaultValue={
+                          applicationEndDateToValue ??
+                          ""
+                        }
+                        className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm outline-none focus:border-[#4F5BD5]"
+                      />
+                    </label>
+                  </FilterSection>
+
+                  {/* Reservas */}
+                  <FilterSection title="Reservas">
+                    <FilterCheckLabel
+                      name="reservedDisability"
+                      value="true"
+                      label="Personas con discapacidad"
+                      checked={
+                        reservedDisability
+                      }
+                    />
+
+                    <FilterCheckLabel
+                      name="reservedUnemployed"
+                      value="true"
+                      label="Personas desempleadas"
+                      checked={
+                        reservedUnemployed
+                      }
+                    />
+
+                    <FilterCheckLabel
+                      name="reservedYoung"
+                      value="true"
+                      label="Jóvenes"
+                      checked={reservedYoung}
+                    />
+
+                    <FilterCheckLabel
+                      name="reservedWomen"
+                      value="true"
+                      label="Mujeres"
+                      checked={reservedWomen}
+                    />
+                  </FilterSection>
+
+                  {/* Aplicar */}
                   <div className="p-5">
                     <button
                       type="submit"
@@ -359,13 +641,11 @@ export default async function ConvocatoriasPage({
                       Aplicar filtros
                     </button>
                   </div>
-
                 </form>
               </aside>
 
               {/* Resultados */}
               <section className="flex min-w-0 flex-col gap-4">
-
                 <div>
                   <h2 className="text-[17px] font-semibold text-[#131A2C]">
                     Convocatorias
@@ -377,7 +657,6 @@ export default async function ConvocatoriasPage({
                   </p>
                 </div>
 
-                {/* Sin resultados */}
                 {result.items.length === 0 ? (
                   <div className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
                     <Search
@@ -405,13 +684,10 @@ export default async function ConvocatoriasPage({
                         className="rounded-xl border border-[#E3E7EE] bg-white p-5 shadow-sm"
                       >
                         <div className="flex flex-col gap-4">
-
-                          {/* Cabecera tarjeta */}
                           <div>
                             <div className="mb-2 flex flex-wrap items-center gap-2">
                               <span className="rounded-md bg-[#EEF0FF] px-2 py-1 text-xs font-semibold text-[#4F5BD5]">
-                                {convocatoria
-                                  .isJobPool
+                                {convocatoria.isJobPool
                                   ? "Bolsa de trabajo"
                                   : "Plaza"}
                               </span>
@@ -430,9 +706,7 @@ export default async function ConvocatoriasPage({
                             </h3>
                           </div>
 
-                          {/* Información */}
                           <div className="grid gap-2 text-sm text-[#4E5870] md:grid-cols-2">
-
                             <div className="flex items-start gap-2">
                               <Building2
                                 size={16}
@@ -496,10 +770,8 @@ export default async function ConvocatoriasPage({
                                   : "Fecha límite pendiente"}
                               </span>
                             </div>
-
                           </div>
 
-                          {/* Enlace */}
                           <div className="border-t border-[#EEF1F5] pt-4">
                             <a
                               href={
@@ -513,7 +785,6 @@ export default async function ConvocatoriasPage({
                               oficial
                             </a>
                           </div>
-
                         </div>
                       </article>
                     ),
@@ -523,7 +794,6 @@ export default async function ConvocatoriasPage({
                 {/* Paginación */}
                 {result.totalPages > 1 && (
                   <div className="flex items-center justify-between rounded-xl border border-[#E3E7EE] bg-white px-5 py-4 shadow-sm">
-
                     <div className="text-sm text-[#4E5870]">
                       Página{" "}
                       <span className="font-semibold text-[#131A2C]">
@@ -538,15 +808,12 @@ export default async function ConvocatoriasPage({
                     </div>
 
                     <div className="flex gap-2">
-
-                      {/* Anterior */}
                       {result.page > 1 ? (
                         <Link
                           href={buildPageHref(
                             result.page - 1,
                             query,
-                            selectedQualificationGroups,
-                            rawJobPoolValues,
+                            currentFilters,
                           )}
                           className="rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#131A2C] hover:bg-[#F4F6F9]"
                         >
@@ -558,15 +825,13 @@ export default async function ConvocatoriasPage({
                         </span>
                       )}
 
-                      {/* Siguiente */}
                       {result.page <
                         result.totalPages ? (
                         <Link
                           href={buildPageHref(
                             result.page + 1,
                             query,
-                            selectedQualificationGroups,
-                            rawJobPoolValues,
+                            currentFilters,
                           )}
                           className="rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
                         >
@@ -577,11 +842,9 @@ export default async function ConvocatoriasPage({
                           Siguiente
                         </span>
                       )}
-
                     </div>
                   </div>
                 )}
-
               </section>
             </div>
           </div>
@@ -592,34 +855,97 @@ export default async function ConvocatoriasPage({
 }
 
 /*
- * Genera la URL de una página
- * conservando búsqueda y grupos.
+ * Convierte un query param en array.
+ */
+function normalizeArray(
+  value:
+    | string
+    | string[]
+    | undefined,
+): string[] {
+  if (value === undefined) {
+    return [];
+  }
+
+  return Array.isArray(value)
+    ? value
+    : [value];
+}
+
+/*
+ * Limpia strings.
+ */
+function cleanString(
+  value: string | undefined,
+): string | undefined {
+  const cleaned = value?.trim();
+
+  return cleaned
+    ? cleaned
+    : undefined;
+}
+
+/*
+ * Convierte IDs.
+ */
+function parsePositiveInteger(
+  value: string | undefined,
+): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const number = Number(value);
+
+  if (
+    !Number.isInteger(number) ||
+    number < 1
+  ) {
+    return undefined;
+  }
+
+  return number;
+}
+
+/*
+ * Convierte YYYY-MM-DD en Date.
+ */
+function parseDate(
+  value: string | undefined,
+): Date | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(
+    `${value}T00:00:00.000Z`,
+  );
+
+  return Number.isNaN(date.getTime())
+    ? undefined
+    : date;
+}
+
+/*
+ * Genera URL de paginación conservando
+ * todos los filtros.
  */
 function buildPageHref(
   page: number,
   query: string,
-  qualificationGroups: string[],
-  jobPoolValues: string[],
+  filters: CurrentFilterState,
 ): string {
-  const params = new URLSearchParams();
+  const params =
+    new URLSearchParams();
 
   if (query) {
     params.set("q", query);
   }
 
-  qualificationGroups.forEach((group) => {
-    params.append(
-      "qualificationGroup",
-      group,
-    );
-  });
-
-  jobPoolValues.forEach((value) => {
-    params.append(
-      "isJobPool",
-      value,
-    );
-  });
+  appendFiltersToParams(
+    params,
+    filters,
+  );
 
   params.set(
     "page",
@@ -630,8 +956,292 @@ function buildPageHref(
 }
 
 /*
- * Formatear fecha
+ * Añade todos los filtros a una URL.
  */
+function appendFiltersToParams(
+  params: URLSearchParams,
+  filters: CurrentFilterState,
+) {
+  filters.qualificationGroups.forEach(
+    (group) => {
+      params.append(
+        "qualificationGroup",
+        group,
+      );
+    },
+  );
+
+  filters.jobPoolValues.forEach(
+    (value) => {
+      params.append(
+        "isJobPool",
+        value,
+      );
+    },
+  );
+
+  if (filters.statusId !== undefined) {
+    params.set(
+      "statusId",
+      String(filters.statusId),
+    );
+  }
+
+  if (filters.province) {
+    params.set(
+      "province",
+      filters.province,
+    );
+  }
+
+  if (filters.county) {
+    params.set(
+      "county",
+      filters.county,
+    );
+  }
+
+  if (filters.municipality) {
+    params.set(
+      "municipality",
+      filters.municipality,
+    );
+  }
+
+  if (filters.scopeId !== undefined) {
+    params.set(
+      "scopeId",
+      String(filters.scopeId),
+    );
+  }
+
+  if (
+    filters.selectionSystemId !==
+    undefined
+  ) {
+    params.set(
+      "selectionSystemId",
+      String(
+        filters.selectionSystemId,
+      ),
+    );
+  }
+
+  if (
+    filters.personnelTypeId !==
+    undefined
+  ) {
+    params.set(
+      "personnelTypeId",
+      String(
+        filters.personnelTypeId,
+      ),
+    );
+  }
+
+  if (
+    filters.applicationEndDateFrom
+  ) {
+    params.set(
+      "applicationEndDateFrom",
+      filters.applicationEndDateFrom,
+    );
+  }
+
+  if (
+    filters.applicationEndDateTo
+  ) {
+    params.set(
+      "applicationEndDateTo",
+      filters.applicationEndDateTo,
+    );
+  }
+
+  if (filters.reservedDisability) {
+    params.set(
+      "reservedDisability",
+      "true",
+    );
+  }
+
+  if (filters.reservedUnemployed) {
+    params.set(
+      "reservedUnemployed",
+      "true",
+    );
+  }
+
+  if (filters.reservedYoung) {
+    params.set(
+      "reservedYoung",
+      "true",
+    );
+  }
+
+  if (filters.reservedWomen) {
+    params.set(
+      "reservedWomen",
+      "true",
+    );
+  }
+}
+
+/*
+ * Hidden inputs del buscador superior.
+ *
+ * De esta forma buscar texto no elimina
+ * los filtros ya seleccionados.
+ */
+function CurrentFilterHiddenInputs({
+  filters,
+}: {
+  filters: CurrentFilterState;
+}) {
+  return (
+    <>
+      {filters.qualificationGroups.map(
+        (group) => (
+          <input
+            key={`group-${group}`}
+            type="hidden"
+            name="qualificationGroup"
+            value={group}
+          />
+        ),
+      )}
+
+      {filters.jobPoolValues.map(
+        (value) => (
+          <input
+            key={`job-${value}`}
+            type="hidden"
+            name="isJobPool"
+            value={value}
+          />
+        ),
+      )}
+
+      {filters.statusId !==
+        undefined && (
+          <input
+            type="hidden"
+            name="statusId"
+            value={filters.statusId}
+          />
+        )}
+
+      {filters.province && (
+        <input
+          type="hidden"
+          name="province"
+          value={filters.province}
+        />
+      )}
+
+      {filters.county && (
+        <input
+          type="hidden"
+          name="county"
+          value={filters.county}
+        />
+      )}
+
+      {filters.municipality && (
+        <input
+          type="hidden"
+          name="municipality"
+          value={
+            filters.municipality
+          }
+        />
+      )}
+
+      {filters.scopeId !==
+        undefined && (
+          <input
+            type="hidden"
+            name="scopeId"
+            value={filters.scopeId}
+          />
+        )}
+
+      {filters.selectionSystemId !==
+        undefined && (
+          <input
+            type="hidden"
+            name="selectionSystemId"
+            value={
+              filters.selectionSystemId
+            }
+          />
+        )}
+
+      {filters.personnelTypeId !==
+        undefined && (
+          <input
+            type="hidden"
+            name="personnelTypeId"
+            value={
+              filters.personnelTypeId
+            }
+          />
+        )}
+
+      {filters.applicationEndDateFrom && (
+        <input
+          type="hidden"
+          name="applicationEndDateFrom"
+          value={
+            filters.applicationEndDateFrom
+          }
+        />
+      )}
+
+      {filters.applicationEndDateTo && (
+        <input
+          type="hidden"
+          name="applicationEndDateTo"
+          value={
+            filters.applicationEndDateTo
+          }
+        />
+      )}
+
+      {filters.reservedDisability && (
+        <input
+          type="hidden"
+          name="reservedDisability"
+          value="true"
+        />
+      )}
+
+      {filters.reservedUnemployed && (
+        <input
+          type="hidden"
+          name="reservedUnemployed"
+          value="true"
+        />
+      )}
+
+      {filters.reservedYoung && (
+        <input
+          type="hidden"
+          name="reservedYoung"
+          value="true"
+        />
+      )}
+
+      {filters.reservedWomen && (
+        <input
+          type="hidden"
+          name="reservedWomen"
+          value="true"
+        />
+      )}
+    </>
+  );
+}
+
 function formatDate(
   date: Date,
 ): string {
@@ -640,9 +1250,6 @@ function formatDate(
   ).format(date);
 }
 
-/*
- * Formatear ubicación
- */
 function formatLocation(
   municipality:
     | string
@@ -673,7 +1280,7 @@ function formatLocation(
 }
 
 /*
- * Sección de filtros
+ * Sección visual
  */
 type FilterSectionProps = {
   title: string;
@@ -686,11 +1293,11 @@ function FilterSection({
 }: FilterSectionProps) {
   return (
     <fieldset className="border-b border-[#EEF1F5] px-5 py-4">
-      <legend className="mb-2 text-[13.5px] font-semibold text-[#131A2C]">
+      <legend className="mb-3 text-[13.5px] font-semibold text-[#131A2C]">
         {title}
       </legend>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         {children}
       </div>
     </fieldset>
@@ -698,26 +1305,75 @@ function FilterSection({
 }
 
 /*
- * Checkbox todavía visual.
- *
- * Lo utilizaremos en los siguientes
- * filtros.
+ * Checkbox reutilizable
  */
-type FilterCheckboxProps = {
+type FilterCheckLabelProps = {
+  name: string;
+  value: string;
   label: string;
+  checked: boolean;
 };
 
-function FilterCheckbox({
+function FilterCheckLabel({
+  name,
+  value,
   label,
-}: FilterCheckboxProps) {
+  checked,
+}: FilterCheckLabelProps) {
   return (
-    <label className="flex min-h-[30px] cursor-pointer items-center gap-2.5 text-sm text-[#131A2C]">
+    <label className="flex min-h-[30px] cursor-pointer items-start gap-2.5 text-sm text-[#131A2C]">
       <input
         type="checkbox"
-        className="h-[18px] w-[18px] rounded border-[#D5DAE3]"
+        name={name}
+        value={value}
+        defaultChecked={checked}
+        className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-[#D5DAE3]"
       />
 
       <span>{label}</span>
     </label>
+  );
+}
+
+/*
+ * Select reutilizable
+ */
+type FilterSelectOption = {
+  value: string;
+  label: string;
+};
+
+type FilterSelectProps = {
+  name: string;
+  defaultValue: string;
+  emptyLabel: string;
+  options: FilterSelectOption[];
+};
+
+function FilterSelect({
+  name,
+  defaultValue,
+  emptyLabel,
+  options,
+}: FilterSelectProps) {
+  return (
+    <select
+      name={name}
+      defaultValue={defaultValue}
+      className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]"
+    >
+      <option value="">
+        {emptyLabel}
+      </option>
+
+      {options.map((option) => (
+        <option
+          key={option.value}
+          value={option.value}
+        >
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }
