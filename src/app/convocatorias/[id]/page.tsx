@@ -8,9 +8,7 @@ import {
   BookmarkPlus,
   BriefcaseBusiness,
   Building2,
-  CalendarDays,
   Check,
-  Clock,
   ExternalLink,
   FileText,
   GraduationCap,
@@ -34,6 +32,51 @@ type SelectionProcessDetailPageProps = {
   }>;
 };
 
+type ApplicationPeriodState =
+  | "open"
+  | "future"
+  | "closed"
+  | "unknown";
+
+type ApplicationPeriod = {
+  state: ApplicationPeriodState;
+  text: string;
+  progress: number | null;
+};
+
+type ProcessTimelineState =
+  | "completed"
+  | "current"
+  | "current-known"
+  | "future"
+  | "unknown";
+
+type ProcessTimelineStep = {
+  key: string;
+  title: string;
+  detail: string;
+  state: ProcessTimelineState;
+  sortDay: number | null;
+  sortPriority: number;
+};
+
+type OfficialSourceType =
+  | "institution"
+  | "application"
+  | "cido"
+  | "publication";
+
+type OfficialSource = {
+  key: string;
+  type: OfficialSourceType;
+  title: string;
+  description: string;
+  url: string;
+};
+
+const MILLISECONDS_PER_DAY =
+  86_400_000;
+
 export default async function SelectionProcessDetailPage({
   params,
 }: SelectionProcessDetailPageProps) {
@@ -41,14 +84,18 @@ export default async function SelectionProcessDetailPage({
     headers: await headers(),
   });
 
-  const isAuthenticated = Boolean(session?.user);
+  const isAuthenticated =
+    Boolean(session?.user);
 
   const { id } = await params;
 
-  const selectionProcessId = Number(id);
+  const selectionProcessId =
+    Number(id);
 
   if (
-    !Number.isInteger(selectionProcessId) ||
+    !Number.isInteger(
+      selectionProcessId,
+    ) ||
     selectionProcessId <= 0
   ) {
     notFound();
@@ -64,27 +111,52 @@ export default async function SelectionProcessDetailPage({
   }
 
   const baseDocument =
-    findBaseDocument(selectionProcess.documents);
+    findBaseDocument(
+      selectionProcess.documents,
+    );
 
   const importantDates =
-    buildImportantDates(selectionProcess);
+    buildImportantDates(
+      selectionProcess,
+    );
 
   const applicationPeriod =
-    getApplicationPeriod(selectionProcess);
+    getApplicationPeriod(
+      selectionProcess,
+    );
+
+  const processTimeline =
+    buildProcessTimeline(
+      selectionProcess,
+      applicationPeriod,
+    );
 
   const informationText =
-    buildInformationText(selectionProcess);
+    buildInformationText(
+      selectionProcess,
+    );
 
   const requirements =
-    buildRequirements(selectionProcess);
+    buildRequirements(
+      selectionProcess,
+    );
 
   const officialSources =
-    buildOfficialSources(selectionProcess);
+    buildOfficialSources(
+      selectionProcess,
+    );
+
+  const processType =
+    selectionProcess.isJobPool
+      ? "Bolsa de trabajo"
+      : "Plaza de plantilla";
 
   return (
     <div className="flex min-h-screen bg-[#F4F6F9]">
       <AppSidebar
-        isAuthenticated={isAuthenticated}
+        isAuthenticated={
+          isAuthenticated
+        }
         activeItem="convocatorias"
       />
 
@@ -94,8 +166,10 @@ export default async function SelectionProcessDetailPage({
           user={
             session?.user
               ? {
-                  name: session.user.name,
-                  email: session.user.email,
+                  name:
+                    session.user.name,
+                  email:
+                    session.user.email,
                 }
               : undefined
           }
@@ -105,33 +179,48 @@ export default async function SelectionProcessDetailPage({
           <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_340px]">
             {/* COLUMNA PRINCIPAL */}
             <div className="flex min-w-0 flex-col gap-5">
-              {/* Cabecera convocatoria */}
+              {/* Cabecera */}
               <header className="flex flex-col gap-3.5 pb-1">
                 <Link
                   href="/convocatorias"
                   className="inline-flex w-fit items-center gap-1.5 text-[13.5px] font-semibold text-[#4E5870] hover:text-[#3B45B5]"
                 >
-                  <ArrowLeft size={15} />
+                  <ArrowLeft
+                    size={15}
+                  />
+
                   Volver a los resultados
                 </Link>
 
                 <div className="flex flex-wrap items-center gap-3">
+                  {/* Tipo de convocatoria */}
+                  <span className="inline-flex h-7 items-center rounded-full bg-[#EEF0FC] px-3 text-[13.5px] font-semibold text-[#3B45B5]">
+                    {processType}
+                  </span>
+
+                  {/* Estado oficial CIDO */}
                   <OfficialStatusBadge
-                    status={selectionProcess.status}
+                    status={
+                      selectionProcess.status
+                    }
                   />
 
                   {selectionProcess.lastDocumentPublicationDate && (
                     <span className="text-[13.5px] text-[#7C859B]">
-                      Última publicación oficial:{" "}
+                      Última publicación
+                      oficial:{" "}
                       {formatDate(
-                        selectionProcess.lastDocumentPublicationDate,
+                        selectionProcess
+                          .lastDocumentPublicationDate,
                       )}
                     </span>
                   )}
                 </div>
 
                 <h1 className="max-w-[900px] text-[34px] font-semibold leading-[1.15] tracking-[-0.025em] text-[#131A2C]">
-                  {selectionProcess.title}
+                  {
+                    selectionProcess.title
+                  }
                 </h1>
 
                 {selectionProcess.institution && (
@@ -141,66 +230,109 @@ export default async function SelectionProcessDetailPage({
                       className="shrink-0 text-[#7C859B]"
                     />
 
-                    {selectionProcess.institution.name}
+                    {
+                      selectionProcess
+                        .institution.name
+                    }
                   </p>
                 )}
               </header>
 
-              {/* Resumen 5 columnas */}
+              {/* Resumen superior */}
               <section className="overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm">
-                <div className="grid sm:grid-cols-2 xl:grid-cols-5">
+                <div className="grid sm:grid-cols-2 xl:grid-cols-6">
+                  {/* Tipo */}
                   <SummaryItem
-                    icon={<Users size={15} />}
+                    icon={
+                      <BriefcaseBusiness
+                        size={15}
+                      />
+                    }
+                    label="Tipo"
+                    value={processType}
+                  />
+
+                  {/* Plazas */}
+                  <SummaryItem
+                    icon={
+                      <Users size={15} />
+                    }
                     label="Plazas"
                     value={
-                      selectionProcess.numberOfPositions !== null
+                      selectionProcess
+                        .numberOfPositions !==
+                      null
                         ? String(
-                            selectionProcess.numberOfPositions,
+                            selectionProcess
+                              .numberOfPositions,
                           )
                         : "—"
                     }
+                    bordered
                   />
 
+                  {/* Grupo */}
                   <SummaryItem
-                    icon={<GraduationCap size={15} />}
+                    icon={
+                      <GraduationCap
+                        size={15}
+                      />
+                    }
                     label="Grupo"
                     value={
-                      selectionProcess.qualificationGroup ??
+                      selectionProcess
+                        .qualificationGroup ??
                       "—"
                     }
                     bordered
                   />
 
+                  {/* Personal */}
                   <SummaryItem
-                    icon={<BriefcaseBusiness size={15} />}
+                    icon={
+                      <BriefcaseBusiness
+                        size={15}
+                      />
+                    }
                     label="Personal"
                     value={
-                      selectionProcess.personnelType ??
+                      selectionProcess
+                        .personnelType ??
                       "—"
                     }
                     bordered
                   />
 
+                  {/* Sistema */}
                   <SummaryItem
-                    icon={<Scale size={15} />}
+                    icon={
+                      <Scale size={15} />
+                    }
                     label="Sistema"
                     value={
-                      selectionProcess.selectionSystem ??
+                      selectionProcess
+                        .selectionSystem ??
                       "—"
                     }
                     bordered
                   />
 
+                  {/* Municipio */}
                   <SummaryItem
-                    icon={<MapPin size={15} />}
+                    icon={
+                      <MapPin size={15} />
+                    }
                     label="Municipio"
                     value={
-                      selectionProcess.institution
+                      selectionProcess
+                        .institution
                         ?.municipality ??
                       "—"
                     }
                     secondary={
-                      selectionProcess.institution?.county ??
+                      selectionProcess
+                        .institution
+                        ?.county ??
                       undefined
                     }
                     bordered
@@ -211,11 +343,18 @@ export default async function SelectionProcessDetailPage({
               {/* Información */}
               <ContentSection title="Información">
                 <div className="flex max-w-[760px] flex-col gap-3 text-[15px] leading-[1.65] text-[#4E5870]">
-                  <p>{informationText}</p>
+                  <p>
+                    {
+                      informationText
+                    }
+                  </p>
 
                   {selectionProcess.observations && (
                     <p className="whitespace-pre-line">
-                      {selectionProcess.observations}
+                      {
+                        selectionProcess
+                          .observations
+                      }
                     </p>
                   )}
 
@@ -228,7 +367,8 @@ export default async function SelectionProcessDetailPage({
 
                       <span>
                         {
-                          selectionProcess.applicationDeadlineNotes
+                          selectionProcess
+                            .applicationDeadlineNotes
                         }
                       </span>
                     </div>
@@ -241,17 +381,24 @@ export default async function SelectionProcessDetailPage({
                 <ContentSection title="Requisitos">
                   <ul className="flex flex-col gap-3">
                     {requirements.map(
-                      (requirement, index) => (
+                      (
+                        requirement,
+                        index,
+                      ) => (
                         <li
                           key={`${index}-${requirement}`}
                           className="flex gap-3 text-[14.5px] leading-[1.55] text-[#131A2C]"
                         >
                           <span className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-[#4F5BD5] text-[#4F5BD5]">
-                            <Check size={12} />
+                            <Check
+                              size={12}
+                            />
                           </span>
 
                           <span className="whitespace-pre-line">
-                            {requirement}
+                            {
+                              requirement
+                            }
                           </span>
                         </li>
                       ),
@@ -262,59 +409,74 @@ export default async function SelectionProcessDetailPage({
 
               {/* Proceso selectivo */}
               <ContentSection title="Proceso selectivo">
-                <ol className="flex flex-col">
-                  <ProcessStep
-                    number={1}
-                    title="Presentación de solicitudes"
-                    detail={formatDateRange(
-                      selectionProcess.applicationStartDate,
-                      selectionProcess.applicationEndDate,
+                {processTimeline.length ===
+                0 ? (
+                  <p className="text-sm text-[#69738A]">
+                    Todavía no
+                    disponemos de
+                    información
+                    suficiente para
+                    construir el proceso
+                    selectivo.
+                  </p>
+                ) : (
+                  <ol className="flex flex-col">
+                    {processTimeline.map(
+                      (
+                        step,
+                        index,
+                      ) => (
+                        <ProcessStep
+                          key={
+                            step.key
+                          }
+                          number={
+                            index + 1
+                          }
+                          step={
+                            step
+                          }
+                          showLine={
+                            index <
+                            processTimeline.length -
+                              1
+                          }
+                        />
+                      ),
                     )}
-                    active={
-                      applicationPeriod.state === "open"
-                    }
-                    showLine
+                  </ol>
+                )}
+
+                <p className="mt-5 flex gap-2.5 rounded-lg bg-[#F4F6F9] px-4 py-3 text-[13px] leading-relaxed text-[#69738A]">
+                  <Info
+                    size={16}
+                    className="mt-0.5 shrink-0"
                   />
 
-                  <ProcessStep
-                    number={2}
-                    title="Última publicación oficial"
-                    detail={
-                      selectionProcess.lastDocumentPublicationDate
-                        ? formatDate(
-                            selectionProcess.lastDocumentPublicationDate,
-                          )
-                        : "Pendiente de publicación"
-                    }
-                    showLine
-                  />
-
-                  <ProcessStep
-                    number={3}
-                    title="Primera prueba"
-                    detail={
-                      selectionProcess.firstExamDate
-                        ? formatDate(
-                            selectionProcess.firstExamDate,
-                          )
-                        : "Fecha pendiente de publicar"
-                    }
-                  />
-                </ol>
-
-                <p className="mt-5 rounded-lg bg-[#F4F6F9] px-4 py-3 text-[13px] leading-relaxed text-[#69738A]">
-                  En el siguiente paso ampliaremos este
-                  timeline automáticamente con las fases
-                  publicadas en los documentos oficiales.
+                  <span>
+                    El proceso se
+                    construye a partir de
+                    las fechas y fases
+                    publicadas en las
+                    fuentes oficiales. Si
+                    una fase todavía no
+                    ha sido publicada, no
+                    se muestra como
+                    confirmada.
+                  </span>
                 </p>
               </ContentSection>
 
               {/* Fechas importantes */}
-              {importantDates.length > 0 && (
+              {importantDates.length >
+                0 && (
                 <ContentSection title="Fechas importantes">
                   <ul className="flex flex-col">
                     {importantDates.map(
-                      (importantDate, index) => (
+                      (
+                        importantDate,
+                        index,
+                      ) => (
                         <li
                           key={`${importantDate.label}-${index}`}
                           className={
@@ -325,16 +487,23 @@ export default async function SelectionProcessDetailPage({
                         >
                           <p className="text-sm font-semibold text-[#4E5870]">
                             {formatDate(
-                              importantDate.date,
+                              importantDate
+                                .date,
                             )}
                           </p>
 
                           <p className="text-sm text-[#4E5870]">
-                            {importantDate.label}
+                            {
+                              importantDate
+                                .label
+                            }
                           </p>
 
                           <DateState
-                            date={importantDate.date}
+                            date={
+                              importantDate
+                                .date
+                            }
                           />
                         </li>
                       ),
@@ -343,66 +512,127 @@ export default async function SelectionProcessDetailPage({
                 </ContentSection>
               )}
 
-              {/* Documentos */}
-              <ContentSection title="Documentos">
-                {selectionProcess.documents.length === 0 ? (
+              {/* Documentos oficiales */}
+              <ContentSection
+                title={`Documentos oficiales (${selectionProcess.documents.length})`}
+              >
+                {selectionProcess
+                  .documents.length ===
+                0 ? (
                   <p className="text-sm text-[#69738A]">
-                    No hay documentos disponibles.
+                    No hay documentos
+                    oficiales
+                    disponibles.
                   </p>
                 ) : (
                   <ul>
                     {selectionProcess.documents.map(
-                      (document, index) => (
-                        <li
-                          key={document.id}
-                          className={
-                            index === 0
-                              ? "flex flex-col gap-3 py-3 sm:flex-row sm:items-center"
-                              : "flex flex-col gap-3 border-t border-[#EEF1F5] py-3 sm:flex-row sm:items-center"
-                          }
-                        >
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF0FC] text-[#3B45B5]">
-                            <FileText size={19} />
-                          </span>
+                      (
+                        document,
+                        index,
+                      ) => {
+                        const metadata =
+                          buildDocumentMetadata(
+                            document,
+                          );
 
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[14.5px] font-semibold text-[#131A2C]">
-                              {document.summary ||
-                                document.phase}
-                            </p>
+                        return (
+                          <li
+                            key={
+                              document.id
+                            }
+                            className={
+                              index ===
+                              0
+                                ? "flex flex-col gap-4 py-3 sm:flex-row sm:items-start"
+                                : "flex flex-col gap-4 border-t border-[#EEF1F5] py-4 sm:flex-row sm:items-start"
+                            }
+                          >
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF0FC] text-[#3B45B5]">
+                              <FileText
+                                size={19}
+                              />
+                            </span>
 
-                            <p className="mt-0.5 text-[13px] text-[#7C859B]">
-                              {buildDocumentMetadata(
-                                document,
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                                {document.phase && (
+                                  <span className="inline-flex rounded-md bg-[#F1F3F7] px-2 py-1 text-[11.5px] font-semibold text-[#4E5870]">
+                                    {
+                                      document.phase
+                                    }
+                                  </span>
+                                )}
+
+                                <span className="text-[12.5px] text-[#7C859B]">
+                                  {formatDate(
+                                    document.publicationDate,
+                                  )}
+                                </span>
+                              </div>
+
+                              <p className="text-[14.5px] font-semibold leading-snug text-[#131A2C]">
+                                {buildDocumentTitle(
+                                  document,
+                                )}
+                              </p>
+
+                              {metadata && (
+                                <p className="mt-1 text-[13px] text-[#7C859B]">
+                                  {
+                                    metadata
+                                  }
+                                </p>
                               )}
-                            </p>
-                          </div>
 
-                          <div className="flex shrink-0 flex-wrap gap-2">
-                            <a
-                              href={document.documentUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 text-[13px] font-semibold text-[#131A2C] shadow-sm hover:bg-[#F4F6F9]"
-                            >
-                              Abrir documento
-                              <ExternalLink size={14} />
-                            </a>
+                              {document.phaseNotes && (
+                                <p className="mt-2 whitespace-pre-line text-[13.5px] leading-relaxed text-[#4E5870]">
+                                  {
+                                    document.phaseNotes
+                                  }
+                                </p>
+                              )}
+                            </div>
 
-                            {document.htmlUrl && (
+                            <div className="flex shrink-0 flex-wrap gap-2">
                               <a
-                                href={document.htmlUrl}
+                                href={
+                                  document.documentUrl
+                                }
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 text-[13px] font-semibold text-[#131A2C] shadow-sm hover:bg-[#F4F6F9]"
+                                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 text-[13px] font-semibold text-[#131A2C] shadow-sm hover:bg-[#F4F6F9]"
                               >
-                                HTML
-                                <ExternalLink size={14} />
+                                Abrir
+                                documento
+
+                                <ExternalLink
+                                  size={14}
+                                />
                               </a>
-                            )}
-                          </div>
-                        </li>
-                      ),
+
+                              {document.htmlUrl && (
+                                <a
+                                  href={
+                                    document.htmlUrl
+                                  }
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 text-[13px] font-semibold text-[#3B45B5] shadow-sm hover:bg-[#F4F6F9]"
+                                >
+                                  Ver
+                                  publicación
+                                  HTML
+
+                                  <ExternalLink
+                                    size={14}
+                                  />
+                                </a>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      },
                     )}
                   </ul>
                 )}
@@ -412,49 +642,72 @@ export default async function SelectionProcessDetailPage({
               <ContentSection title="Fuentes oficiales">
                 <div className="flex flex-col gap-3">
                   <ul className="flex flex-col gap-2">
-                    {officialSources.map((source) => (
-                      <li key={source.url}>
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-3.5 rounded-[10px] border border-[#E3E7EE] bg-[#FAFBFC] px-4 py-3.5 text-[#131A2C] no-underline hover:bg-[#F4F6F9] hover:no-underline"
+                    {officialSources.map(
+                      (source) => (
+                        <li
+                          key={
+                            source.key
+                          }
                         >
-                          <Building2
-                            size={18}
-                            className="shrink-0 text-[#4E5870]"
-                          />
+                          <a
+                            href={
+                              source.url
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-3.5 rounded-[10px] border border-[#E3E7EE] bg-[#FAFBFC] px-4 py-3.5 text-[#131A2C] no-underline transition-colors hover:bg-[#F4F6F9] hover:no-underline"
+                          >
+                            <SourceIcon
+                              type={
+                                source.type
+                              }
+                            />
 
-                          <div className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold">
-                              {source.title}
-                            </span>
+                            <div className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold">
+                                {
+                                  source.title
+                                }
+                              </span>
 
-                            <span className="block truncate text-[13px] text-[#3B45B5]">
-                              {getHostname(source.url)}
-                            </span>
-                          </div>
+                              <span className="mt-0.5 block text-[12.5px] text-[#7C859B]">
+                                {
+                                  source.description
+                                }
+                              </span>
 
-                          <ExternalLink
-                            size={16}
-                            className="shrink-0 text-[#7C859B]"
-                          />
-                        </a>
-                      </li>
-                    ))}
+                              <span className="mt-0.5 block truncate text-[13px] text-[#3B45B5]">
+                                {getHostname(
+                                  source.url,
+                                )}
+                              </span>
+                            </div>
+
+                            <ExternalLink
+                              size={16}
+                              className="shrink-0 text-[#7C859B]"
+                            />
+                          </a>
+                        </li>
+                      ),
+                    )}
                   </ul>
 
-                  <p className="flex gap-2.5 rounded-[10px] bg-[#F1F3F7] px-3.5 py-3 text-[13px] text-[#4E5870]">
+                  <p className="flex gap-2.5 rounded-[10px] bg-[#F1F3F7] px-3.5 py-3 text-[13px] leading-relaxed text-[#4E5870]">
                     <Info
                       size={16}
-                      className="shrink-0 text-[#7C859B]"
+                      className="mt-0.5 shrink-0 text-[#7C859B]"
                     />
 
                     <span>
-                      Convoca&apos;m recopila y organiza
-                      información pública. Antes de presentar
-                      una solicitud, consulta siempre las
-                      fuentes oficiales.
+                      Convoca&apos;m
+                      recopila y organiza
+                      información pública.
+                      Antes de presentar
+                      una solicitud,
+                      consulta siempre las
+                      fuentes y documentos
+                      oficiales.
                     </span>
                   </p>
                 </div>
@@ -472,7 +725,10 @@ export default async function SelectionProcessDetailPage({
                     </p>
 
                     <OfficialStatusBadge
-                      status={selectionProcess.status}
+                      status={
+                        selectionProcess
+                          .status
+                      }
                       small
                     />
                   </div>
@@ -480,29 +736,51 @@ export default async function SelectionProcessDetailPage({
                   <div className="h-px bg-[#EEF1F5]" />
 
                   <div className="flex flex-col gap-2.5">
-                    <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#7C859B]">
-                      Plazo de inscripción
-                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#7C859B]">
+                        Plazo de
+                        inscripción
+                      </p>
+
+                      <ApplicationPeriodBadge
+                        state={
+                          applicationPeriod
+                            .state
+                        }
+                      />
+                    </div>
 
                     <p className="text-[17px] font-semibold tracking-[-0.01em] text-[#131A2C]">
                       {formatDateRange(
-                        selectionProcess.applicationStartDate,
-                        selectionProcess.applicationEndDate,
+                        selectionProcess
+                          .applicationStartDate,
+                        selectionProcess
+                          .applicationEndDate,
                       )}
                     </p>
 
-                    {applicationPeriod.progress !== null && (
+                    {applicationPeriod.progress !==
+                      null && (
                       <div
                         role="progressbar"
                         aria-valuemin={0}
                         aria-valuemax={100}
                         aria-valuenow={
-                          applicationPeriod.progress
+                          applicationPeriod
+                            .progress
                         }
                         className="h-1.5 overflow-hidden rounded-full bg-[#EEF1F5]"
                       >
                         <div
-                          className="h-1.5 rounded-full bg-[#23A26B]"
+                          className={`h-1.5 rounded-full ${
+                            applicationPeriod.state ===
+                            "open"
+                              ? "bg-[#23A26B]"
+                              : applicationPeriod.state ===
+                                  "future"
+                                ? "bg-[#4F5BD5]"
+                                : "bg-[#A0A7B5]"
+                          }`}
                           style={{
                             width: `${applicationPeriod.progress}%`,
                           }}
@@ -510,60 +788,77 @@ export default async function SelectionProcessDetailPage({
                       </div>
                     )}
 
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="text-[22px] font-semibold tracking-[-0.02em] text-[#131A2C]">
-                        {applicationPeriod.text}
-                      </p>
-                    </div>
+                    <p className="text-[22px] font-semibold tracking-[-0.02em] text-[#131A2C]">
+                      {
+                        applicationPeriod
+                          .text
+                      }
+                    </p>
 
                     {selectionProcess.applicationEndTime && (
                       <p className="text-[13px] text-[#7C859B]">
                         Hora límite:{" "}
                         {
-                          selectionProcess.applicationEndTime
+                          selectionProcess
+                            .applicationEndTime
                         }
                       </p>
                     )}
                   </div>
 
-                  {/* Seguir: todavía sin persistencia */}
                   <div className="flex flex-col gap-2.5">
                     <button
                       type="button"
                       disabled
                       className="inline-flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-[10px] border border-[#DDE1FA] bg-[#EEF0FC] px-5 text-[15px] font-semibold text-[#3B45B5] opacity-75"
                     >
-                      <BookmarkPlus size={17} />
+                      <BookmarkPlus
+                        size={17}
+                      />
+
                       Seguir convocatoria
                     </button>
 
                     <p className="text-center text-[12.5px] text-[#7C859B]">
-                      Se activará cuando implementemos
-                      Mis convocatorias.
+                      Se activará cuando
+                      implementemos Mis
+                      convocatorias.
                     </p>
                   </div>
 
                   {selectionProcess.applicationUrl && (
                     <a
-                      href={selectionProcess.applicationUrl}
+                      href={
+                        selectionProcess
+                          .applicationUrl
+                      }
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#4F5BD5] px-4 text-sm font-semibold text-white hover:bg-[#3B45B5]"
                     >
                       Presentar solicitud
-                      <ExternalLink size={16} />
+
+                      <ExternalLink
+                        size={16}
+                      />
                     </a>
                   )}
 
                   {baseDocument && (
                     <a
-                      href={baseDocument.documentUrl}
+                      href={
+                        baseDocument
+                          .documentUrl
+                      }
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#D5DAE3] bg-white px-4 text-sm font-semibold text-[#131A2C] shadow-sm hover:bg-[#F4F6F9]"
                     >
                       Abrir las bases
-                      <ExternalLink size={16} />
+
+                      <ExternalLink
+                        size={16}
+                      />
                     </a>
                   )}
                 </div>
@@ -578,22 +873,33 @@ export default async function SelectionProcessDetailPage({
                     </p>
 
                     <span className="inline-flex items-center gap-1 text-xs text-[#7C859B]">
-                      <Lock size={12} />
+                      <Lock
+                        size={12}
+                      />
+
                       Solo lo ves tú
                     </span>
                   </div>
 
                   <p className="text-[13.5px] leading-relaxed text-[#4E5870]">
-                    Sigue la convocatoria para indicar en qué
+                    Sigue la convocatoria
+                    para indicar en qué
                     punto estás: desde{" "}
-                    <strong>Me interesa</strong> hasta{" "}
-                    <strong>Finalizado</strong>. Tu estado
-                    personal no modifica el estado oficial.
+                    <strong>
+                      Me interesa
+                    </strong>{" "}
+                    hasta{" "}
+                    <strong>
+                      Finalizado
+                    </strong>
+                    . Tu estado personal
+                    no modifica el estado
+                    oficial.
                   </p>
                 </div>
               </section>
 
-              {/* Datos técnicos */}
+              {/* Referencia */}
               <section className="rounded-xl border border-[#E3E7EE] bg-white shadow-sm">
                 <div className="flex flex-col gap-3 px-6 py-5">
                   <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#7C859B]">
@@ -602,19 +908,28 @@ export default async function SelectionProcessDetailPage({
 
                   <SidebarValue
                     label="Identificador CIDO"
-                    value={selectionProcess.cidoIdentifier}
+                    value={
+                      selectionProcess
+                        .cidoIdentifier
+                    }
                   />
 
                   {selectionProcess.fileNumber && (
                     <SidebarValue
                       label="Expediente"
-                      value={selectionProcess.fileNumber}
+                      value={
+                        selectionProcess
+                          .fileNumber
+                      }
                     />
                   )}
 
                   <SidebarValue
                     label="Ámbito"
-                    value={selectionProcess.scope}
+                    value={
+                      selectionProcess
+                        .scope
+                    }
                   />
                 </div>
               </section>
@@ -626,9 +941,6 @@ export default async function SelectionProcessDetailPage({
   );
 }
 
-/*
- * Sección principal de la ficha.
- */
 function ContentSection({
   title,
   children,
@@ -647,9 +959,6 @@ function ContentSection({
   );
 }
 
-/*
- * Resumen superior.
- */
 function SummaryItem({
   icon,
   label,
@@ -674,6 +983,7 @@ function SummaryItem({
       <div className="flex min-w-0 flex-col gap-1.5 px-5 py-[18px]">
         <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#7C859B]">
           {icon}
+
           {label}
         </span>
 
@@ -691,40 +1001,49 @@ function SummaryItem({
   );
 }
 
-/*
- * Timeline.
- *
- * En este paso todavía usamos únicamente
- * datos que sabemos con seguridad.
- */
 function ProcessStep({
   number,
-  title,
-  detail,
-  active = false,
-  showLine = false,
+  step,
+  showLine,
 }: {
   number: number;
-  title: string;
-  detail: string;
-  active?: boolean;
-  showLine?: boolean;
+  step: ProcessTimelineStep;
+  showLine: boolean;
 }) {
+  const completed =
+    step.state === "completed";
+
+  const highlighted =
+    step.state === "current" ||
+    step.state === "current-known";
+
   return (
     <li className="flex gap-4">
       <div className="flex w-7 shrink-0 flex-col items-center">
         <span
           className={
-            active
-              ? "inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#4F5BD5] text-[13px] font-bold text-white shadow-[0_0_0_4px_#EEF0FC]"
-              : "inline-flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#D5DAE3] bg-white text-[13px] font-semibold text-[#7C859B]"
+            completed
+              ? "inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#4F5BD5] text-white"
+              : highlighted
+                ? "inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#4F5BD5] text-[13px] font-bold text-white shadow-[0_0_0_4px_#EEF0FC]"
+                : "inline-flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-[#D5DAE3] bg-white text-[13px] font-semibold text-[#7C859B]"
           }
         >
-          {number}
+          {completed ? (
+            <Check size={15} />
+          ) : (
+            number
+          )}
         </span>
 
         {showLine && (
-          <span className="my-1 min-h-[26px] w-0.5 flex-1 bg-[#E3E7EE]" />
+          <span
+            className={`my-1 min-h-[26px] w-0.5 flex-1 ${
+              completed
+                ? "bg-[#C9CFF8]"
+                : "bg-[#E3E7EE]"
+            }`}
+          />
         )}
       </div>
 
@@ -732,23 +1051,39 @@ function ProcessStep({
         <div className="flex flex-wrap items-center gap-2.5">
           <p
             className={
-              active
+              highlighted ||
+              completed
                 ? "text-[15px] font-semibold text-[#131A2C]"
                 : "text-[15px] font-semibold text-[#4E5870]"
             }
           >
-            {title}
+            {step.title}
           </p>
 
-          {active && (
+          {step.state ===
+            "current" && (
             <span className="inline-flex h-[22px] items-center rounded-md bg-[#EEF0FC] px-2 text-xs font-semibold text-[#3B45B5]">
               Fase actual
             </span>
           )}
+
+          {step.state ===
+            "current-known" && (
+            <span className="inline-flex h-[22px] items-center rounded-md bg-[#F1F3F7] px-2 text-xs font-semibold text-[#4E5870]">
+              Último hito conocido
+            </span>
+          )}
+
+          {step.state ===
+            "future" && (
+            <span className="text-xs font-medium text-[#7C859B]">
+              Pendiente
+            </span>
+          )}
         </div>
 
-        <p className="text-[13.5px] text-[#7C859B]">
-          {detail}
+        <p className="text-[13.5px] leading-relaxed text-[#7C859B]">
+          {step.detail}
         </p>
       </div>
     </li>
@@ -777,24 +1112,110 @@ function OfficialStatusBadge({
   );
 }
 
+function ApplicationPeriodBadge({
+  state,
+}: {
+  state: ApplicationPeriodState;
+}) {
+  if (state === "open") {
+    return (
+      <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-[#E6F4EC] px-2.5 text-[12px] font-semibold text-[#1B7A4B]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#23A26B]" />
+
+        Abierto
+      </span>
+    );
+  }
+
+  if (state === "future") {
+    return (
+      <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-[#EEF0FC] px-2.5 text-[12px] font-semibold text-[#3B45B5]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#4F5BD5]" />
+
+        Próximamente
+      </span>
+    );
+  }
+
+  if (state === "closed") {
+    return (
+      <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-[#F1F3F7] px-2.5 text-[12px] font-semibold text-[#69738A]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#A0A7B5]" />
+
+        Finalizado
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-[#F1F3F7] px-2.5 text-[12px] font-semibold text-[#69738A]">
+      Sin determinar
+    </span>
+  );
+}
+
+function SourceIcon({
+  type,
+}: {
+  type: OfficialSourceType;
+}) {
+  if (type === "institution") {
+    return (
+      <Building2
+        size={18}
+        className="shrink-0 text-[#4E5870]"
+      />
+    );
+  }
+
+  if (type === "publication") {
+    return (
+      <FileText
+        size={18}
+        className="shrink-0 text-[#4E5870]"
+      />
+    );
+  }
+
+  if (type === "application") {
+    return (
+      <ExternalLink
+        size={18}
+        className="shrink-0 text-[#4E5870]"
+      />
+    );
+  }
+
+  return (
+    <Info
+      size={18}
+      className="shrink-0 text-[#4E5870]"
+    />
+  );
+}
+
 function DateState({
   date,
 }: {
   date: Date;
 }) {
-  const today = startOfDay(new Date());
-  const target = startOfDay(date);
+  const todayDay =
+    getTodayInMadridDayNumber();
 
-  if (target.getTime() < today.getTime()) {
+  const targetDay =
+    getDateDayNumber(date);
+
+  if (targetDay < todayDay) {
     return (
       <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-[#7C859B]">
         <Check size={13} />
+
         Realizada
       </span>
     );
   }
 
-  if (target.getTime() === today.getTime()) {
+  if (targetDay === todayDay) {
     return (
       <span className="inline-flex h-[22px] items-center rounded-md bg-[#EEF0FC] px-2 text-xs font-semibold text-[#3B45B5]">
         Hoy
@@ -829,55 +1250,466 @@ function SidebarValue({
   );
 }
 
-/*
- * Información general.
- *
- * No inventamos una descripción:
- * construimos un texto únicamente con
- * datos existentes en PostgreSQL.
- */
+function buildProcessTimeline(
+  selectionProcess: SelectionProcessDetailDto,
+  applicationPeriod: ApplicationPeriod,
+): ProcessTimelineStep[] {
+  const steps:
+    ProcessTimelineStep[] = [];
+
+  const todayDay =
+    getTodayInMadridDayNumber();
+
+  const documentGroups =
+    groupDocumentsByPhase(
+      selectionProcess.documents,
+    );
+
+  documentGroups.forEach(
+    (group, index) => {
+      const sortedDocuments = [
+        ...group.documents,
+      ].sort(
+        (a, b) =>
+          a.publicationDate.getTime() -
+          b.publicationDate.getTime(),
+      );
+
+      const firstDocument =
+        sortedDocuments[0];
+
+      const lastDocument =
+        sortedDocuments[
+          sortedDocuments.length - 1
+        ];
+
+      const firstDay =
+        getDateDayNumber(
+          firstDocument.publicationDate,
+        );
+
+      const lastDay =
+        getDateDayNumber(
+          lastDocument.publicationDate,
+        );
+
+      let state:
+        ProcessTimelineState;
+
+      if (lastDay < todayDay) {
+        state = "completed";
+      } else if (
+        lastDay === todayDay
+      ) {
+        state = "current";
+      } else {
+        state = "future";
+      }
+
+      steps.push({
+        key:
+          `document-${group.key}-${index}`,
+
+        title:
+          group.title,
+
+        detail:
+          buildTimelineDocumentDetail(
+            sortedDocuments,
+          ),
+
+        state,
+
+        sortDay:
+          firstDay,
+
+        sortPriority:
+          10,
+      });
+    },
+  );
+
+  if (
+    selectionProcess.applicationStartDate ||
+    selectionProcess.applicationEndDate
+  ) {
+    const sortDate =
+      selectionProcess.applicationStartDate ??
+      selectionProcess.applicationEndDate;
+
+    steps.push({
+      key:
+        "application-period",
+
+      title:
+        "Presentación de solicitudes",
+
+      detail:
+        formatDateRange(
+          selectionProcess
+            .applicationStartDate,
+          selectionProcess
+            .applicationEndDate,
+        ),
+
+      state:
+        applicationPeriod.state ===
+        "open"
+          ? "current"
+          : applicationPeriod.state ===
+              "future"
+            ? "future"
+            : applicationPeriod.state ===
+                "closed"
+              ? "completed"
+              : "unknown",
+
+      sortDay:
+        sortDate
+          ? getDateDayNumber(
+              sortDate,
+            )
+          : null,
+
+      sortPriority:
+        20,
+    });
+  }
+
+  if (
+    selectionProcess.firstExamDate
+  ) {
+    const examDay =
+      getDateDayNumber(
+        selectionProcess.firstExamDate,
+      );
+
+    let examState:
+      ProcessTimelineState;
+
+    if (examDay < todayDay) {
+      examState =
+        "completed";
+    } else if (
+      examDay === todayDay
+    ) {
+      examState =
+        "current";
+    } else {
+      examState =
+        "future";
+    }
+
+    steps.push({
+      key:
+        "first-exam",
+
+      title:
+        "Primera prueba",
+
+      detail:
+        formatDate(
+          selectionProcess.firstExamDate,
+        ),
+
+      state:
+        examState,
+
+      sortDay:
+        examDay,
+
+      sortPriority:
+        30,
+    });
+  }
+
+  steps.sort(
+    (a, b) => {
+      if (
+        a.sortDay === null &&
+        b.sortDay === null
+      ) {
+        return (
+          a.sortPriority -
+          b.sortPriority
+        );
+      }
+
+      if (
+        a.sortDay === null
+      ) {
+        return 1;
+      }
+
+      if (
+        b.sortDay === null
+      ) {
+        return -1;
+      }
+
+      if (
+        a.sortDay !==
+        b.sortDay
+      ) {
+        return (
+          a.sortDay -
+          b.sortDay
+        );
+      }
+
+      return (
+        a.sortPriority -
+        b.sortPriority
+      );
+    },
+  );
+
+  const hasCurrentStep =
+    steps.some(
+      (step) =>
+        step.state ===
+        "current",
+    );
+
+  if (!hasCurrentStep) {
+    let lastCompletedIndex =
+      -1;
+
+    steps.forEach(
+      (
+        step,
+        index,
+      ) => {
+        if (
+          step.state ===
+          "completed"
+        ) {
+          lastCompletedIndex =
+            index;
+        }
+      },
+    );
+
+    if (
+      lastCompletedIndex >=
+      0
+    ) {
+      steps[
+        lastCompletedIndex
+      ] = {
+        ...steps[
+          lastCompletedIndex
+        ],
+
+        state:
+          "current-known",
+      };
+    }
+  }
+
+  return steps;
+}
+
+function groupDocumentsByPhase(
+  documents: SelectionProcessDetailDto["documents"],
+): {
+  key: string;
+  title: string;
+  documents: SelectionProcessDetailDto["documents"];
+}[] {
+  const groups =
+    new Map<
+      string,
+      {
+        key: string;
+        title: string;
+        documents:
+          SelectionProcessDetailDto["documents"];
+      }
+    >();
+
+  documents.forEach(
+    (document) => {
+      const title =
+        document.phase.trim() ||
+        document.summary.trim() ||
+        "Publicación oficial";
+
+      const key =
+        normalizeTimelineKey(
+          title,
+        );
+
+      const existing =
+        groups.get(key);
+
+      if (existing) {
+        existing.documents.push(
+          document,
+        );
+
+        return;
+      }
+
+      groups.set(key, {
+        key,
+        title,
+
+        documents: [
+          document,
+        ],
+      });
+    },
+  );
+
+  return [
+    ...groups.values(),
+  ];
+}
+
+function buildTimelineDocumentDetail(
+  documents: SelectionProcessDetailDto["documents"],
+): string {
+  if (
+    documents.length ===
+    0
+  ) {
+    return "Publicación oficial";
+  }
+
+  const latest =
+    documents[
+      documents.length - 1
+    ];
+
+  const values:
+    string[] = [];
+
+  if (
+    documents.length ===
+    1
+  ) {
+    values.push(
+      `Publicado el ${formatDate(
+        latest.publicationDate,
+      )}`,
+    );
+  } else {
+    values.push(
+      `${documents.length} publicaciones`,
+    );
+
+    values.push(
+      `última el ${formatDate(
+        latest.publicationDate,
+      )}`,
+    );
+  }
+
+  if (
+    latest.publisher
+  ) {
+    values.push(
+      latest.publisher,
+    );
+  } else if (
+    latest.bulletin
+  ) {
+    values.push(
+      latest.bulletin,
+    );
+  }
+
+  if (
+    latest.phaseNotes
+  ) {
+    values.push(
+      latest.phaseNotes,
+    );
+  }
+
+  return values.join(
+    " · ",
+  );
+}
+
+function normalizeTimelineKey(
+  value: string,
+): string {
+  return value
+    .trim()
+    .toLocaleLowerCase(
+      "es-ES",
+    )
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      "",
+    )
+    .replace(
+      /\s+/g,
+      " ",
+    );
+}
+
 function buildInformationText(
   selectionProcess: SelectionProcessDetailDto,
 ): string {
-  const parts: string[] = [];
+  const parts:
+    string[] = [];
 
-  if (selectionProcess.isJobPool) {
+  if (
+    selectionProcess.isJobPool
+  ) {
     parts.push(
       "Convocatoria para la constitución de una bolsa de trabajo",
     );
   } else if (
-    selectionProcess.numberOfPositions !== null
+    selectionProcess.numberOfPositions !==
+    null
   ) {
     parts.push(
       `Convocatoria para ${selectionProcess.numberOfPositions} ${
-        selectionProcess.numberOfPositions === 1
+        selectionProcess.numberOfPositions ===
+        1
           ? "plaza"
           : "plazas"
       }`,
     );
   } else {
-    parts.push("Proceso selectivo");
+    parts.push(
+      "Proceso selectivo",
+    );
   }
 
-  if (selectionProcess.selectionSystem) {
+  if (
+    selectionProcess.selectionSystem
+  ) {
     parts.push(
       `mediante ${selectionProcess.selectionSystem}`,
     );
   }
 
-  if (selectionProcess.personnelType) {
+  if (
+    selectionProcess.personnelType
+  ) {
     parts.push(
       `para personal ${selectionProcess.personnelType}`,
     );
   }
 
-  if (selectionProcess.qualificationGroup) {
+  if (
+    selectionProcess.qualificationGroup
+  ) {
     parts.push(
       `del grupo ${selectionProcess.qualificationGroup}`,
     );
   }
 
-  if (selectionProcess.institution?.name) {
+  if (
+    selectionProcess.institution
+      ?.name
+  ) {
     parts.push(
       `de ${selectionProcess.institution.name}`,
     );
@@ -886,21 +1718,23 @@ function buildInformationText(
   return `${parts.join(" ")}.`;
 }
 
-/*
- * Requisitos disponibles directamente desde CIDO.
- */
 function buildRequirements(
   selectionProcess: SelectionProcessDetailDto,
 ): string[] {
-  const requirements: string[] = [];
+  const requirements:
+    string[] = [];
 
-  if (selectionProcess.requiredQualification) {
+  if (
+    selectionProcess.requiredQualification
+  ) {
     requirements.push(
       `Titulación requerida: ${selectionProcess.requiredQualification}`,
     );
   }
 
-  if (selectionProcess.otherRequirements) {
+  if (
+    selectionProcess.otherRequirements
+  ) {
     requirements.push(
       selectionProcess.otherRequirements,
     );
@@ -909,9 +1743,6 @@ function buildRequirements(
   return requirements;
 }
 
-/*
- * Fechas que tenemos estructuradas.
- */
 function buildImportantDates(
   selectionProcess: SelectionProcessDetailDto,
 ): {
@@ -924,225 +1755,589 @@ function buildImportantDates(
   }[] = [];
 
   if (
-    selectionProcess.lastDocumentPublicationDate
+    selectionProcess
+      .lastDocumentPublicationDate
   ) {
     dates.push({
       date:
-        selectionProcess.lastDocumentPublicationDate,
-      label: "Última publicación oficial",
+        selectionProcess
+          .lastDocumentPublicationDate,
+
+      label:
+        "Última publicación oficial",
     });
   }
 
-  if (selectionProcess.applicationStartDate) {
+  if (
+    selectionProcess
+      .applicationStartDate
+  ) {
     dates.push({
-      date: selectionProcess.applicationStartDate,
+      date:
+        selectionProcess
+          .applicationStartDate,
+
       label:
         "Inicio del plazo de presentación de solicitudes",
     });
   }
 
-  if (selectionProcess.applicationEndDate) {
+  if (
+    selectionProcess
+      .applicationEndDate
+  ) {
     dates.push({
-      date: selectionProcess.applicationEndDate,
+      date:
+        selectionProcess
+          .applicationEndDate,
+
       label:
         "Fin del plazo de presentación de solicitudes",
     });
   }
 
-  if (selectionProcess.firstExamDate) {
+  if (
+    selectionProcess
+      .firstExamDate
+  ) {
     dates.push({
-      date: selectionProcess.firstExamDate,
-      label: "Primera prueba",
+      date:
+        selectionProcess
+          .firstExamDate,
+
+      label:
+        "Primera prueba",
     });
   }
 
   return dates.sort(
     (a, b) =>
-      a.date.getTime() - b.date.getTime(),
+      a.date.getTime() -
+      b.date.getTime(),
   );
 }
 
-/*
- * Fuentes oficiales que realmente tenemos.
- */
 function buildOfficialSources(
   selectionProcess: SelectionProcessDetailDto,
-): {
-  title: string;
-  url: string;
-}[] {
-  const sources: {
-    title: string;
-    url: string;
-  }[] = [];
+): OfficialSource[] {
+  const sources:
+    OfficialSource[] = [];
 
-  if (selectionProcess.institutionUrl) {
+  const usedUrls =
+    new Set<string>();
+
+  function addSource(
+    source: OfficialSource,
+  ) {
+    const normalizedUrl =
+      source.url.trim();
+
+    if (
+      !normalizedUrl ||
+      usedUrls.has(
+        normalizedUrl,
+      )
+    ) {
+      return;
+    }
+
+    usedUrls.add(
+      normalizedUrl,
+    );
+
     sources.push({
-      title: selectionProcess.institution
-        ? `Web oficial de ${selectionProcess.institution.name}`
-        : "Web oficial del organismo",
-      url: selectionProcess.institutionUrl,
+      ...source,
+
+      url:
+        normalizedUrl,
     });
   }
 
-  if (selectionProcess.applicationUrl) {
-    sources.push({
-      title: "Presentación de solicitudes",
-      url: selectionProcess.applicationUrl,
+  if (
+    selectionProcess.institutionUrl
+  ) {
+    addSource({
+      key:
+        "institution",
+
+      type:
+        "institution",
+
+      title:
+        selectionProcess.institution
+          ? `Web oficial de ${selectionProcess.institution.name}`
+          : "Web oficial del organismo",
+
+      description:
+        "Institución convocante",
+
+      url:
+        selectionProcess.institutionUrl,
     });
   }
 
-  sources.push({
-    title: "CIDO — información de la convocatoria",
-    url: selectionProcess.cidoUrl,
+  if (
+    selectionProcess.applicationUrl
+  ) {
+    addSource({
+      key:
+        "application",
+
+      type:
+        "application",
+
+      title:
+        "Presentación de solicitudes",
+
+      description:
+        "Acceso al trámite oficial",
+
+      url:
+        selectionProcess.applicationUrl,
+    });
+  }
+
+  addSource({
+    key:
+      "cido",
+
+    type:
+      "cido",
+
+    title:
+      "CIDO — información de la convocatoria",
+
+    description:
+      "Fuente de información utilizada por Convoca'm",
+
+    url:
+      selectionProcess.cidoUrl,
   });
+
+  const publicationHosts =
+    new Set<string>();
+
+  selectionProcess.documents.forEach(
+    (document) => {
+      if (
+        !document.htmlUrl
+      ) {
+        return;
+      }
+
+      const hostname =
+        getHostname(
+          document.htmlUrl,
+        );
+
+      if (
+        publicationHosts.has(
+          hostname,
+        )
+      ) {
+        return;
+      }
+
+      publicationHosts.add(
+        hostname,
+      );
+
+      const title =
+        document.bulletin?.trim() ||
+        document.publisher?.trim() ||
+        "Publicación oficial";
+
+      addSource({
+        key:
+          `publication-${hostname}`,
+
+        type:
+          "publication",
+
+        title,
+
+        description:
+          "Fuente oficial de publicación",
+
+        url:
+          document.htmlUrl,
+      });
+    },
+  );
 
   return sources;
 }
 
-/*
- * Busca el documento que parece corresponder
- * a las bases de la convocatoria.
- */
 function findBaseDocument(
   documents: SelectionProcessDetailDto["documents"],
 ) {
-  return documents.find((document) => {
-    const text =
-      `${document.phase} ${document.summary}`.toLowerCase();
+  const candidates =
+    documents.filter(
+      (document) => {
+        const text = [
+          document.phase,
+          document.summary,
+          document.phaseNotes ??
+            "",
+        ]
+          .join(" ")
+          .toLocaleLowerCase(
+            "es-ES",
+          )
+          .normalize("NFD")
+          .replace(
+            /[\u0300-\u036f]/g,
+            "",
+          );
 
-    return (
-      text.includes("base") ||
-      text.includes("bases")
+        return (
+          text.includes(
+            "base",
+          ) ||
+          text.includes(
+            "bases",
+          )
+        );
+      },
     );
-  });
+
+  if (
+    candidates.length ===
+    0
+  ) {
+    return undefined;
+  }
+
+  return [
+    ...candidates,
+  ].sort(
+    (a, b) =>
+      b.publicationDate.getTime() -
+      a.publicationDate.getTime(),
+  )[0];
+}
+
+function buildDocumentTitle(
+  document: SelectionProcessDetailDto["documents"][number],
+): string {
+  const summary =
+    document.summary.trim();
+
+  if (summary) {
+    return summary;
+  }
+
+  const phase =
+    document.phase.trim();
+
+  if (phase) {
+    return phase;
+  }
+
+  return "Documento oficial";
 }
 
 function buildDocumentMetadata(
   document: SelectionProcessDetailDto["documents"][number],
-): string {
-  const values = [
-    document.phase,
-    document.publisher,
-    document.bulletin,
-    formatDate(document.publicationDate),
-  ].filter(
-    (value): value is string =>
-      typeof value === "string" &&
-      value.trim().length > 0,
-  );
+): string | null {
+  const values:
+    string[] = [];
 
-  return [...new Set(values)].join(" · ");
+  if (
+    document.publisher?.trim()
+  ) {
+    values.push(
+      document.publisher.trim(),
+    );
+  }
+
+  if (
+    document.bulletin?.trim()
+  ) {
+    const bulletin =
+      document.bulletinNumber !==
+      null
+        ? `${document.bulletin.trim()} nº ${document.bulletinNumber}`
+        : document.bulletin.trim();
+
+    values.push(
+      bulletin,
+    );
+  }
+
+  const uniqueValues = [
+    ...new Set(values),
+  ];
+
+  return uniqueValues.length >
+    0
+    ? uniqueValues.join(
+        " · ",
+      )
+    : null;
 }
 
 function getApplicationPeriod(
   selectionProcess: SelectionProcessDetailDto,
-): {
-  state: "open" | "future" | "closed" | "unknown";
-  text: string;
-  progress: number | null;
-} {
+): ApplicationPeriod {
   const start =
     selectionProcess.applicationStartDate;
 
   const end =
     selectionProcess.applicationEndDate;
 
-  if (!start || !end) {
+  const todayDay =
+    getTodayInMadridDayNumber();
+
+  const startDay =
+    start
+      ? getDateDayNumber(
+          start,
+        )
+      : null;
+
+  const endDay =
+    end
+      ? getDateDayNumber(
+          end,
+        )
+      : null;
+
+  if (
+    startDay === null &&
+    endDay === null
+  ) {
     return {
-      state: "unknown",
-      text: "Plazo no disponible",
-      progress: null,
+      state:
+        "unknown",
+
+      text:
+        "Plazo no disponible",
+
+      progress:
+        null,
     };
   }
 
-  const today = startOfDay(new Date());
-  const startDate = startOfDay(start);
-  const endDate = startOfDay(end);
-
-  if (today.getTime() < startDate.getTime()) {
+  if (
+    endDay !== null &&
+    todayDay > endDay
+  ) {
     return {
-      state: "future",
-      text: "Todavía no ha comenzado",
-      progress: 0,
+      state:
+        "closed",
+
+      text:
+        "Plazo finalizado",
+
+      progress:
+        startDay !== null
+          ? 100
+          : null,
     };
   }
 
-  if (today.getTime() > endDate.getTime()) {
+  if (
+    startDay !== null &&
+    todayDay < startDay
+  ) {
+    const daysUntilStart =
+      startDay -
+      todayDay;
+
     return {
-      state: "closed",
-      text: "Plazo finalizado",
-      progress: 100,
+      state:
+        "future",
+
+      text:
+        daysUntilStart === 1
+          ? "Empieza mañana"
+          : `Empieza en ${daysUntilStart} días`,
+
+      progress:
+        endDay !== null
+          ? 0
+          : null,
     };
   }
 
-  const totalDays = Math.max(
-    1,
-    differenceInDays(
-      endDate,
-      startDate,
-    ),
-  );
+  if (
+    startDay !== null &&
+    endDay !== null
+  ) {
+    const totalDays =
+      Math.max(
+        1,
+        endDay -
+          startDay,
+      );
 
-  const elapsedDays = Math.max(
-    0,
-    differenceInDays(
-      today,
-      startDate,
-    ),
-  );
+    const elapsedDays =
+      Math.max(
+        0,
+        todayDay -
+          startDay,
+      );
 
-  const remainingDays = Math.max(
-    0,
-    differenceInDays(
-      endDate,
-      today,
-    ),
-  );
+    const remainingDays =
+      Math.max(
+        0,
+        endDay -
+          todayDay,
+      );
 
-  const progress = Math.min(
-    100,
-    Math.max(
-      0,
-      Math.round(
-        (elapsedDays / totalDays) * 100,
-      ),
-    ),
-  );
+    const progress =
+      startDay ===
+      endDay
+        ? 100
+        : Math.min(
+            100,
+            Math.max(
+              0,
+              Math.round(
+                (elapsedDays /
+                  totalDays) *
+                  100,
+              ),
+            ),
+          );
+
+    return {
+      state:
+        "open",
+
+      text:
+        remainingDays === 0
+          ? "Finaliza hoy"
+          : remainingDays ===
+              1
+            ? "Queda 1 día"
+            : `Quedan ${remainingDays} días`,
+
+      progress,
+    };
+  }
+
+  if (
+    startDay !== null &&
+    todayDay >= startDay
+  ) {
+    return {
+      state:
+        "open",
+
+      text:
+        "Plazo iniciado",
+
+      progress:
+        null,
+    };
+  }
+
+  if (
+    endDay !== null
+  ) {
+    const remainingDays =
+      endDay -
+      todayDay;
+
+    return {
+      state:
+        "unknown",
+
+      text:
+        remainingDays === 0
+          ? "Finaliza hoy"
+          : remainingDays ===
+              1
+            ? "Finaliza mañana"
+            : `Finaliza en ${remainingDays} días`,
+
+      progress:
+        null,
+    };
+  }
 
   return {
-    state: "open",
+    state:
+      "unknown",
+
     text:
-      remainingDays === 0
-        ? "Finaliza hoy"
-        : `Quedan ${remainingDays} ${
-            remainingDays === 1
-              ? "día"
-              : "días"
-          }`,
-    progress,
+      "Plazo no disponible",
+
+    progress:
+      null,
   };
 }
 
-function differenceInDays(
-  later: Date,
-  earlier: Date,
+function getDateDayNumber(
+  date: Date,
 ): number {
-  const milliseconds =
-    later.getTime() - earlier.getTime();
-
   return Math.floor(
-    milliseconds / 86_400_000,
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+    ) /
+      MILLISECONDS_PER_DAY,
   );
 }
 
-function startOfDay(
-  date: Date,
-): Date {
-  return new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
+function getTodayInMadridDayNumber(): number {
+  const parts =
+    new Intl.DateTimeFormat(
+      "en-CA",
+      {
+        timeZone:
+          "Europe/Madrid",
+
+        year:
+          "numeric",
+
+        month:
+          "2-digit",
+
+        day:
+          "2-digit",
+      },
+    ).formatToParts(
+      new Date(),
+    );
+
+  const year =
+    Number(
+      parts.find(
+        (part) =>
+          part.type ===
+          "year",
+      )?.value,
+    );
+
+  const month =
+    Number(
+      parts.find(
+        (part) =>
+          part.type ===
+          "month",
+      )?.value,
+    );
+
+  const day =
+    Number(
+      parts.find(
+        (part) =>
+          part.type ===
+          "day",
+      )?.value,
+    );
+
+  return Math.floor(
+    Date.UTC(
+      year,
+      month - 1,
+      day,
+    ) /
+      MILLISECONDS_PER_DAY,
   );
 }
 
@@ -1151,23 +2346,40 @@ function formatDate(
 ): string {
   return new Intl.DateTimeFormat(
     "es-ES",
-  ).format(date);
+    {
+      timeZone:
+        "UTC",
+    },
+  ).format(
+    date,
+  );
 }
 
 function formatDateRange(
   start: Date | null,
   end: Date | null,
 ): string {
-  if (start && end) {
-    return `${formatDate(start)} – ${formatDate(end)}`;
+  if (
+    start &&
+    end
+  ) {
+    return `${formatDate(
+      start,
+    )} – ${formatDate(
+      end,
+    )}`;
   }
 
   if (start) {
-    return `Desde ${formatDate(start)}`;
+    return `Desde ${formatDate(
+      start,
+    )}`;
   }
 
   if (end) {
-    return `Hasta ${formatDate(end)}`;
+    return `Hasta ${formatDate(
+      end,
+    )}`;
   }
 
   return "No especificado";
@@ -1177,7 +2389,9 @@ function getHostname(
   url: string,
 ): string {
   try {
-    return new URL(url).hostname.replace(
+    return new URL(
+      url,
+    ).hostname.replace(
       /^www\./,
       "",
     );
