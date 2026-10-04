@@ -464,6 +464,7 @@ export default async function ConvocatoriasPage({
                       }
                     />
                   </FilterSection>
+
                   {/* Grupo */}
                   <FilterSection title="Grupo de titulación">
                     {filterOptions
@@ -772,14 +773,21 @@ export default async function ConvocatoriasPage({
                             </div>
                           </div>
 
-                          <div className="border-t border-[#EEF1F5] pt-4">
+                          <div className="flex flex-wrap items-center gap-3 border-t border-[#EEF1F5] pt-4">
+                            <Link
+                              href={`/convocatorias/${convocatoria.id}`}
+                              className="inline-flex items-center justify-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
+                            >
+                              Ver detalle
+                            </Link>
+
                             <a
                               href={
                                 convocatoria.cidoUrl
                               }
                               target="_blank"
                               rel="noreferrer"
-                              className="text-sm font-semibold text-[#3B45B5] hover:underline"
+                              className="inline-flex items-center justify-center rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
                             >
                               Ver convocatoria
                               oficial
