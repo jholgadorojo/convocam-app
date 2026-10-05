@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+
 import Link from "next/link";
 import { headers } from "next/headers";
 import {
@@ -18,6 +19,9 @@ import {
   getSelectionProcessFilterOptionsUseCase,
   listActiveSelectionProcessesUseCase,
 } from "@/composition/selection-process";
+
+const FILTER_FORM_ID =
+  "convocatorias-filter-form";
 
 type SearchParams = {
   q?: string;
@@ -75,44 +79,55 @@ type CurrentFilterState = {
 export default async function ConvocatoriasPage({
   searchParams,
 }: ConvocatoriasPageProps) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session =
+    await auth.api.getSession({
+      headers: await headers(),
+    });
 
-  const isAuthenticated = Boolean(session?.user);
+  const isAuthenticated =
+    Boolean(session?.user);
 
-  const params = await searchParams;
+  const params =
+    await searchParams;
 
   /*
-   * Búsqueda libre
+   * Búsqueda libre.
    */
-  const query = params.q?.trim() ?? "";
+  const query =
+    params.q?.trim() ?? "";
 
   /*
-   * Página
+   * Página.
    */
   const page =
-    parsePositiveInteger(params.page) ?? 1;
+    parsePositiveInteger(
+      params.page,
+    ) ?? 1;
 
   /*
-   * Grupos de titulación
+   * Grupos de titulación.
    */
   const selectedQualificationGroups = [
     ...new Set(
       normalizeArray(
         params.qualificationGroup,
       )
-        .map((value) => value.trim())
+        .map(
+          (value) =>
+            value.trim(),
+        )
         .filter(Boolean),
     ),
   ];
 
   /*
-   * Plaza / bolsa
+   * Plaza / bolsa.
    */
   const jobPoolValues = [
     ...new Set(
-      normalizeArray(params.isJobPool).filter(
+      normalizeArray(
+        params.isJobPool,
+      ).filter(
         (value) =>
           value === "true" ||
           value === "false",
@@ -121,43 +136,58 @@ export default async function ConvocatoriasPage({
   ];
 
   const hasRegularPositions =
-    jobPoolValues.includes("false");
+    jobPoolValues.includes(
+      "false",
+    );
 
   const hasJobPools =
-    jobPoolValues.includes("true");
+    jobPoolValues.includes(
+      "true",
+    );
 
   /*
-   * Si ambos están marcados o ninguno está
-   * marcado, no filtramos por isJobPool.
+   * Si ambos están marcados o ninguno
+   * está marcado, no filtramos.
    */
   const isJobPool =
-    hasRegularPositions === hasJobPools
+    hasRegularPositions ===
+    hasJobPools
       ? undefined
       : hasJobPools;
 
   /*
-   * Estado
+   * Estado.
    */
   const statusId =
-    parsePositiveInteger(params.statusId);
+    parsePositiveInteger(
+      params.statusId,
+    );
 
   /*
-   * Ubicación
+   * Ubicación.
    */
   const province =
-    cleanString(params.province);
+    cleanString(
+      params.province,
+    );
 
   const county =
-    cleanString(params.county);
+    cleanString(
+      params.county,
+    );
 
   const municipality =
-    cleanString(params.municipality);
+    cleanString(
+      params.municipality,
+    );
 
   /*
-   * Otros filtros CIDO
+   * Otros filtros CIDO.
    */
   const scopeId =
-    parsePositiveInteger(params.scopeId);
+    parsePositiveInteger(
+      params.scopeId,
+    );
 
   const selectionSystemId =
     parsePositiveInteger(
@@ -170,7 +200,7 @@ export default async function ConvocatoriasPage({
     );
 
   /*
-   * Fechas
+   * Fechas.
    */
   const applicationEndDateFromValue =
     cleanString(
@@ -193,111 +223,145 @@ export default async function ConvocatoriasPage({
     );
 
   /*
-   * Reservas
-   *
-   * Solo aplicamos el filtro cuando
-   * el checkbox está marcado.
+   * Reservas.
    */
   const reservedDisability =
-    params.reservedDisability === "true";
+    params.reservedDisability ===
+    "true";
 
   const reservedUnemployed =
-    params.reservedUnemployed === "true";
+    params.reservedUnemployed ===
+    "true";
 
   const reservedYoung =
-    params.reservedYoung === "true";
+    params.reservedYoung ===
+    "true";
 
   const reservedWomen =
-    params.reservedWomen === "true";
+    params.reservedWomen ===
+    "true";
 
   /*
-   * Estado actual de los filtros.
+   * Estado actual de filtros.
+   */
+  const currentFilters:
+    CurrentFilterState = {
+      qualificationGroups:
+        selectedQualificationGroups,
+
+      jobPoolValues,
+
+      statusId,
+
+      province,
+      county,
+      municipality,
+
+      scopeId,
+      selectionSystemId,
+      personnelTypeId,
+
+      applicationEndDateFrom:
+        applicationEndDateFromValue,
+
+      applicationEndDateTo:
+        applicationEndDateToValue,
+
+      reservedDisability,
+      reservedUnemployed,
+      reservedYoung,
+      reservedWomen,
+    };
+
+  /*
+   * URL exacta del listado actual.
    *
-   * Lo reutilizamos para conservarlos
-   * al buscar y al cambiar de página.
+   * Se utiliza para volver desde
+   * el detalle conservando filtros
+   * y página.
    */
-  const currentFilters: CurrentFilterState = {
-    qualificationGroups:
-      selectedQualificationGroups,
-
-    jobPoolValues,
-
-    statusId,
-
-    province,
-    county,
-    municipality,
-
-    scopeId,
-    selectionSystemId,
-    personnelTypeId,
-
-    applicationEndDateFrom:
-      applicationEndDateFromValue,
-
-    applicationEndDateTo:
-      applicationEndDateToValue,
-
-    reservedDisability,
-    reservedUnemployed,
-    reservedYoung,
-    reservedWomen,
-  };
+  const resultsUrl =
+    buildPageHref(
+      page,
+      query,
+      currentFilters,
+    );
 
   /*
-   * PostgreSQL
+   * Key para reconstruir los controles
+   * cuando cambian los parámetros.
+   *
+   * Es especialmente útil al pulsar
+   * "Limpiar".
    */
-  const [result, filterOptions] =
+  const filterFormKey =
+    buildFilterFormKey(
+      query,
+      page,
+      currentFilters,
+    );
+
+  /*
+   * Consulta PostgreSQL.
+   */
+  const [
+    result,
+    filterOptions,
+  ] =
     await Promise.all([
-      listActiveSelectionProcessesUseCase.execute({
-        page,
-        pageSize: 20,
+      listActiveSelectionProcessesUseCase.execute(
+        {
+          page,
+          pageSize: 20,
 
-        filters: {
-          text: query || undefined,
+          filters: {
+            text:
+              query ||
+              undefined,
 
-          qualificationGroup:
-            selectedQualificationGroups.length >
+            qualificationGroup:
+              selectedQualificationGroups.length >
               0
-              ? selectedQualificationGroups
-              : undefined,
+                ? selectedQualificationGroups
+                : undefined,
 
-          isJobPool,
+            isJobPool,
 
-          statusId,
+            statusId,
 
-          province,
-          county,
-          municipality,
+            province,
+            county,
+            municipality,
 
-          scopeId,
-          selectionSystemId,
-          personnelTypeId,
+            scopeId,
+            selectionSystemId,
+            personnelTypeId,
 
-          applicationEndDateFrom,
-          applicationEndDateTo,
+            applicationEndDateFrom,
+            applicationEndDateTo,
 
-          reservedDisability:
-            reservedDisability
-              ? true
-              : undefined,
+            reservedDisability:
+              reservedDisability
+                ? true
+                : undefined,
 
-          reservedUnemployed:
-            reservedUnemployed
-              ? true
-              : undefined,
+            reservedUnemployed:
+              reservedUnemployed
+                ? true
+                : undefined,
 
-          reservedYoung:
-            reservedYoung
-              ? true
-              : undefined,
+            reservedYoung:
+              reservedYoung
+                ? true
+                : undefined,
 
-          reservedWomen:
-            reservedWomen
-              ? true
-              : undefined,
+            reservedWomen:
+              reservedWomen
+                ? true
+                : undefined,
+          },
         },
-      }),
+      ),
 
       getSelectionProcessFilterOptionsUseCase.execute(),
     ]);
@@ -305,7 +369,9 @@ export default async function ConvocatoriasPage({
   return (
     <div className="flex min-h-screen bg-[#F4F6F9]">
       <AppSidebar
-        isAuthenticated={isAuthenticated}
+        isAuthenticated={
+          isAuthenticated
+        }
         activeItem="convocatorias"
       />
 
@@ -315,10 +381,14 @@ export default async function ConvocatoriasPage({
           user={
             session?.user
               ? {
-                name: session.user.name,
-                email:
-                  session.user.email,
-              }
+                  name:
+                    session.user
+                      .name,
+
+                  email:
+                    session.user
+                      .email,
+                }
               : undefined
           }
         />
@@ -334,16 +404,21 @@ export default async function ConvocatoriasPage({
               <p className="mt-1.5 text-[15px] text-[#4E5870]">
                 Procesos selectivos,
                 oposiciones y bolsas de
-                trabajo de acceso libre en
-                Catalunya.
+                trabajo de acceso libre
+                en Catalunya.
               </p>
             </header>
 
-            {/* Buscador */}
-            <form
-              action="/convocatorias"
-              className="flex gap-2.5"
-            >
+            {/*
+             * BUSCADOR
+             *
+             * Aunque visualmente está fuera
+             * del formulario lateral, tanto
+             * el input como el botón están
+             * asociados al formulario mediante
+             * el atributo "form".
+             */}
+            <div className="flex gap-2.5">
               <div className="relative flex-1">
                 <Search
                   size={18}
@@ -351,25 +426,30 @@ export default async function ConvocatoriasPage({
                 />
 
                 <input
+                  key={`search-${filterFormKey}`}
+                  form={
+                    FILTER_FORM_ID
+                  }
                   type="search"
                   name="q"
-                  defaultValue={query}
+                  defaultValue={
+                    query
+                  }
                   placeholder="Busca por puesto, organismo, municipio..."
                   className="h-[52px] w-full rounded-lg border border-[#D5DAE3] bg-white pl-12 pr-4 text-[15px] outline-none focus:border-[#4F5BD5]"
                 />
               </div>
 
-              <CurrentFilterHiddenInputs
-                filters={currentFilters}
-              />
-
               <button
+                form={
+                  FILTER_FORM_ID
+                }
                 type="submit"
                 className="h-[52px] rounded-[10px] bg-[#4F5BD5] px-7 text-[15px] font-semibold text-white hover:bg-[#3B45B5]"
               >
                 Buscar
               </button>
-            </form>
+            </div>
 
             {/* Contenido */}
             <div className="grid items-start gap-7 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -378,37 +458,43 @@ export default async function ConvocatoriasPage({
                 <div className="flex items-center justify-between border-b border-[#EEF1F5] px-5 py-4">
                   <h2 className="flex items-center gap-2 text-[15px] font-semibold">
                     <SlidersHorizontal
-                      size={16}
+                      size={
+                        16
+                      }
                       className="text-[#4E5870]"
                     />
 
                     Filtros
                   </h2>
 
+                  {/*
+                   * Limpia absolutamente todo:
+                   * texto, filtros y página.
+                   */}
                   <Link
-                    href={
-                      query
-                        ? `/convocatorias?q=${encodeURIComponent(
-                          query,
-                        )}`
-                        : "/convocatorias"
-                    }
+                    href="/convocatorias"
                     className="text-[13.5px] font-semibold text-[#3B45B5]"
                   >
                     Limpiar
                   </Link>
                 </div>
 
-                <form action="/convocatorias">
-                  {/* Conservamos el texto */}
-                  {query && (
-                    <input
-                      type="hidden"
-                      name="q"
-                      value={query}
-                    />
-                  )}
-
+                {/*
+                 * ÚNICO FORMULARIO DE BÚSQUEDA.
+                 *
+                 * El input "q" de arriba pertenece
+                 * también a este formulario gracias
+                 * a form={FILTER_FORM_ID}.
+                 */}
+                <form
+                  key={
+                    filterFormKey
+                  }
+                  id={
+                    FILTER_FORM_ID
+                  }
+                  action="/convocatorias"
+                >
                   {/* Tipo */}
                   <FilterSection title="Tipo de convocatoria">
                     <FilterCheckLabel
@@ -424,7 +510,9 @@ export default async function ConvocatoriasPage({
                       name="isJobPool"
                       value="true"
                       label="Bolsa de trabajo"
-                      checked={hasJobPools}
+                      checked={
+                        hasJobPools
+                      }
                     />
                   </FilterSection>
 
@@ -434,16 +522,22 @@ export default async function ConvocatoriasPage({
                       name="statusId"
                       defaultValue={
                         statusId !==
-                          undefined
-                          ? String(statusId)
+                        undefined
+                          ? String(
+                              statusId,
+                            )
                           : ""
                       }
                       emptyLabel="Todos los estados"
                       options={filterOptions.statuses.map(
-                        (option) => ({
-                          value: String(
-                            option.id,
-                          ),
+                        (
+                          option,
+                        ) => ({
+                          value:
+                            String(
+                              option.id,
+                            ),
+
                           label:
                             option.name,
                         }),
@@ -454,11 +548,16 @@ export default async function ConvocatoriasPage({
                   {/* Ubicación */}
                   <FilterSection title="Ubicación">
                     <TerritoryFilters
+                      key={`territory-${filterFormKey}`}
                       territories={
                         filterOptions.territories
                       }
-                      initialProvince={province}
-                      initialCounty={county}
+                      initialProvince={
+                        province
+                      }
+                      initialCounty={
+                        county
+                      }
                       initialMunicipality={
                         municipality
                       }
@@ -469,19 +568,28 @@ export default async function ConvocatoriasPage({
                   <FilterSection title="Grupo de titulación">
                     {filterOptions
                       .qualificationGroups
-                      .length === 0 ? (
+                      .length ===
+                    0 ? (
                       <p className="text-sm text-[#69738A]">
                         No hay grupos
                         disponibles.
                       </p>
                     ) : (
                       filterOptions.qualificationGroups.map(
-                        (group) => (
+                        (
+                          group,
+                        ) => (
                           <FilterCheckLabel
-                            key={group}
+                            key={
+                              group
+                            }
                             name="qualificationGroup"
-                            value={group}
-                            label={group}
+                            value={
+                              group
+                            }
+                            label={
+                              group
+                            }
                             checked={selectedQualificationGroups.includes(
                               group,
                             )}
@@ -496,16 +604,23 @@ export default async function ConvocatoriasPage({
                     <FilterSelect
                       name="scopeId"
                       defaultValue={
-                        scopeId !== undefined
-                          ? String(scopeId)
+                        scopeId !==
+                        undefined
+                          ? String(
+                              scopeId,
+                            )
                           : ""
                       }
                       emptyLabel="Todos los ámbitos"
                       options={filterOptions.scopes.map(
-                        (option) => ({
-                          value: String(
-                            option.id,
-                          ),
+                        (
+                          option,
+                        ) => ({
+                          value:
+                            String(
+                              option.id,
+                            ),
+
                           label:
                             option.name,
                         }),
@@ -519,18 +634,22 @@ export default async function ConvocatoriasPage({
                       name="selectionSystemId"
                       defaultValue={
                         selectionSystemId !==
-                          undefined
+                        undefined
                           ? String(
-                            selectionSystemId,
-                          )
+                              selectionSystemId,
+                            )
                           : ""
                       }
                       emptyLabel="Todos los sistemas"
                       options={filterOptions.selectionSystems.map(
-                        (option) => ({
-                          value: String(
-                            option.id,
-                          ),
+                        (
+                          option,
+                        ) => ({
+                          value:
+                            String(
+                              option.id,
+                            ),
+
                           label:
                             option.name,
                         }),
@@ -544,18 +663,22 @@ export default async function ConvocatoriasPage({
                       name="personnelTypeId"
                       defaultValue={
                         personnelTypeId !==
-                          undefined
+                        undefined
                           ? String(
-                            personnelTypeId,
-                          )
+                              personnelTypeId,
+                            )
                           : ""
                       }
                       emptyLabel="Todos los tipos"
                       options={filterOptions.personnelTypes.map(
-                        (option) => ({
-                          value: String(
-                            option.id,
-                          ),
+                        (
+                          option,
+                        ) => ({
+                          value:
+                            String(
+                              option.id,
+                            ),
+
                           label:
                             option.name,
                         }),
@@ -622,14 +745,18 @@ export default async function ConvocatoriasPage({
                       name="reservedYoung"
                       value="true"
                       label="Jóvenes"
-                      checked={reservedYoung}
+                      checked={
+                        reservedYoung
+                      }
                     />
 
                     <FilterCheckLabel
                       name="reservedWomen"
                       value="true"
                       label="Mujeres"
-                      checked={reservedWomen}
+                      checked={
+                        reservedWomen
+                      }
                     />
                   </FilterSection>
 
@@ -653,31 +780,41 @@ export default async function ConvocatoriasPage({
                   </h2>
 
                   <p className="mt-1 text-sm text-[#69738A]">
-                    {result.totalItems}{" "}
-                    convocatorias encontradas
+                    {
+                      result.totalItems
+                    }{" "}
+                    convocatorias
+                    encontradas
                   </p>
                 </div>
 
-                {result.items.length === 0 ? (
+                {result.items.length ===
+                0 ? (
                   <div className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
                     <Search
-                      size={30}
+                      size={
+                        30
+                      }
                       className="mx-auto text-[#7C859B]"
                     />
 
                     <h2 className="mt-4 text-lg font-semibold text-[#131A2C]">
-                      No se han encontrado
+                      No se han
+                      encontrado
                       convocatorias
                     </h2>
 
                     <p className="mx-auto mt-2 max-w-[480px] text-sm leading-relaxed text-[#4E5870]">
                       Prueba con otros
-                      criterios de búsqueda.
+                      criterios de
+                      búsqueda.
                     </p>
                   </div>
                 ) : (
                   result.items.map(
-                    (convocatoria) => (
+                    (
+                      convocatoria,
+                    ) => (
                       <article
                         key={
                           convocatoria.id
@@ -710,7 +847,9 @@ export default async function ConvocatoriasPage({
                           <div className="grid gap-2 text-sm text-[#4E5870] md:grid-cols-2">
                             <div className="flex items-start gap-2">
                               <Building2
-                                size={16}
+                                size={
+                                  16
+                                }
                                 className="mt-0.5 shrink-0"
                               />
 
@@ -724,7 +863,9 @@ export default async function ConvocatoriasPage({
 
                             <div className="flex items-start gap-2">
                               <MapPin
-                                size={16}
+                                size={
+                                  16
+                                }
                                 className="mt-0.5 shrink-0"
                               />
 
@@ -733,9 +874,11 @@ export default async function ConvocatoriasPage({
                                   convocatoria
                                     .institution
                                     ?.municipality,
+
                                   convocatoria
                                     .institution
                                     ?.county,
+
                                   convocatoria
                                     .institution
                                     ?.province,
@@ -745,7 +888,9 @@ export default async function ConvocatoriasPage({
 
                             <div className="flex items-start gap-2">
                               <BriefcaseBusiness
-                                size={16}
+                                size={
+                                  16
+                                }
                                 className="mt-0.5 shrink-0"
                               />
 
@@ -758,16 +903,17 @@ export default async function ConvocatoriasPage({
 
                             <div className="flex items-start gap-2">
                               <CalendarDays
-                                size={16}
+                                size={
+                                  16
+                                }
                                 className="mt-0.5 shrink-0"
                               />
 
                               <span>
-                                {convocatoria
-                                  .applicationEndDate
+                                {convocatoria.applicationEndDate
                                   ? `Finaliza el ${formatDate(
-                                    convocatoria.applicationEndDate,
-                                  )}`
+                                      convocatoria.applicationEndDate,
+                                    )}`
                                   : "Fecha límite pendiente"}
                               </span>
                             </div>
@@ -775,7 +921,9 @@ export default async function ConvocatoriasPage({
 
                           <div className="flex flex-wrap items-center gap-3 border-t border-[#EEF1F5] pt-4">
                             <Link
-                              href={`/convocatorias/${convocatoria.id}`}
+                              href={`/convocatorias/${convocatoria.id}?returnTo=${encodeURIComponent(
+                                resultsUrl,
+                              )}`}
                               className="inline-flex items-center justify-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
                             >
                               Ver detalle
@@ -800,12 +948,15 @@ export default async function ConvocatoriasPage({
                 )}
 
                 {/* Paginación */}
-                {result.totalPages > 1 && (
+                {result.totalPages >
+                  1 && (
                   <div className="flex items-center justify-between rounded-xl border border-[#E3E7EE] bg-white px-5 py-4 shadow-sm">
                     <div className="text-sm text-[#4E5870]">
                       Página{" "}
                       <span className="font-semibold text-[#131A2C]">
-                        {result.page}
+                        {
+                          result.page
+                        }
                       </span>{" "}
                       de{" "}
                       <span className="font-semibold text-[#131A2C]">
@@ -816,10 +967,12 @@ export default async function ConvocatoriasPage({
                     </div>
 
                     <div className="flex gap-2">
-                      {result.page > 1 ? (
+                      {result.page >
+                      1 ? (
                         <Link
                           href={buildPageHref(
-                            result.page - 1,
+                            result.page -
+                              1,
                             query,
                             currentFilters,
                           )}
@@ -834,10 +987,11 @@ export default async function ConvocatoriasPage({
                       )}
 
                       {result.page <
-                        result.totalPages ? (
+                      result.totalPages ? (
                         <Link
                           href={buildPageHref(
-                            result.page + 1,
+                            result.page +
+                              1,
                             query,
                             currentFilters,
                           )}
@@ -863,7 +1017,7 @@ export default async function ConvocatoriasPage({
 }
 
 /*
- * Convierte un query param en array.
+ * Convierte query param en array.
  */
 function normalizeArray(
   value:
@@ -871,11 +1025,15 @@ function normalizeArray(
     | string[]
     | undefined,
 ): string[] {
-  if (value === undefined) {
+  if (
+    value === undefined
+  ) {
     return [];
   }
 
-  return Array.isArray(value)
+  return Array.isArray(
+    value,
+  )
     ? value
     : [value];
 }
@@ -884,9 +1042,12 @@ function normalizeArray(
  * Limpia strings.
  */
 function cleanString(
-  value: string | undefined,
+  value:
+    | string
+    | undefined,
 ): string | undefined {
-  const cleaned = value?.trim();
+  const cleaned =
+    value?.trim();
 
   return cleaned
     ? cleaned
@@ -897,16 +1058,21 @@ function cleanString(
  * Convierte IDs.
  */
 function parsePositiveInteger(
-  value: string | undefined,
+  value:
+    | string
+    | undefined,
 ): number | undefined {
   if (!value) {
     return undefined;
   }
 
-  const number = Number(value);
+  const number =
+    Number(value);
 
   if (
-    !Number.isInteger(number) ||
+    !Number.isInteger(
+      number,
+    ) ||
     number < 1
   ) {
     return undefined;
@@ -919,24 +1085,29 @@ function parsePositiveInteger(
  * Convierte YYYY-MM-DD en Date.
  */
 function parseDate(
-  value: string | undefined,
+  value:
+    | string
+    | undefined,
 ): Date | undefined {
   if (!value) {
     return undefined;
   }
 
-  const date = new Date(
-    `${value}T00:00:00.000Z`,
-  );
+  const date =
+    new Date(
+      `${value}T00:00:00.000Z`,
+    );
 
-  return Number.isNaN(date.getTime())
+  return Number.isNaN(
+    date.getTime(),
+  )
     ? undefined
     : date;
 }
 
 /*
- * Genera URL de paginación conservando
- * todos los filtros.
+ * Genera URL conservando búsqueda,
+ * filtros y página.
  */
 function buildPageHref(
   page: number,
@@ -947,7 +1118,10 @@ function buildPageHref(
     new URLSearchParams();
 
   if (query) {
-    params.set("q", query);
+    params.set(
+      "q",
+      query,
+    );
   }
 
   appendFiltersToParams(
@@ -964,14 +1138,77 @@ function buildPageHref(
 }
 
 /*
- * Añade todos los filtros a una URL.
+ * Key utilizada para reconstruir
+ * los controles cuando cambian
+ * los parámetros.
+ */
+function buildFilterFormKey(
+  query: string,
+  page: number,
+  filters: CurrentFilterState,
+): string {
+  return JSON.stringify({
+    query,
+    page,
+
+    qualificationGroups:
+      filters.qualificationGroups,
+
+    jobPoolValues:
+      filters.jobPoolValues,
+
+    statusId:
+      filters.statusId,
+
+    province:
+      filters.province,
+
+    county:
+      filters.county,
+
+    municipality:
+      filters.municipality,
+
+    scopeId:
+      filters.scopeId,
+
+    selectionSystemId:
+      filters.selectionSystemId,
+
+    personnelTypeId:
+      filters.personnelTypeId,
+
+    applicationEndDateFrom:
+      filters.applicationEndDateFrom,
+
+    applicationEndDateTo:
+      filters.applicationEndDateTo,
+
+    reservedDisability:
+      filters.reservedDisability,
+
+    reservedUnemployed:
+      filters.reservedUnemployed,
+
+    reservedYoung:
+      filters.reservedYoung,
+
+    reservedWomen:
+      filters.reservedWomen,
+  });
+}
+
+/*
+ * Añade filtros a URLSearchParams.
  */
 function appendFiltersToParams(
   params: URLSearchParams,
   filters: CurrentFilterState,
 ) {
   filters.qualificationGroups.forEach(
-    (group) => {
+    (
+      group,
+    ) => {
       params.append(
         "qualificationGroup",
         group,
@@ -980,7 +1217,9 @@ function appendFiltersToParams(
   );
 
   filters.jobPoolValues.forEach(
-    (value) => {
+    (
+      value,
+    ) => {
       params.append(
         "isJobPool",
         value,
@@ -988,38 +1227,54 @@ function appendFiltersToParams(
     },
   );
 
-  if (filters.statusId !== undefined) {
+  if (
+    filters.statusId !==
+    undefined
+  ) {
     params.set(
       "statusId",
-      String(filters.statusId),
+      String(
+        filters.statusId,
+      ),
     );
   }
 
-  if (filters.province) {
+  if (
+    filters.province
+  ) {
     params.set(
       "province",
       filters.province,
     );
   }
 
-  if (filters.county) {
+  if (
+    filters.county
+  ) {
     params.set(
       "county",
       filters.county,
     );
   }
 
-  if (filters.municipality) {
+  if (
+    filters.municipality
+  ) {
     params.set(
       "municipality",
       filters.municipality,
     );
   }
 
-  if (filters.scopeId !== undefined) {
+  if (
+    filters.scopeId !==
+    undefined
+  ) {
     params.set(
       "scopeId",
-      String(filters.scopeId),
+      String(
+        filters.scopeId,
+      ),
     );
   }
 
@@ -1065,189 +1320,41 @@ function appendFiltersToParams(
     );
   }
 
-  if (filters.reservedDisability) {
+  if (
+    filters.reservedDisability
+  ) {
     params.set(
       "reservedDisability",
       "true",
     );
   }
 
-  if (filters.reservedUnemployed) {
+  if (
+    filters.reservedUnemployed
+  ) {
     params.set(
       "reservedUnemployed",
       "true",
     );
   }
 
-  if (filters.reservedYoung) {
+  if (
+    filters.reservedYoung
+  ) {
     params.set(
       "reservedYoung",
       "true",
     );
   }
 
-  if (filters.reservedWomen) {
+  if (
+    filters.reservedWomen
+  ) {
     params.set(
       "reservedWomen",
       "true",
     );
   }
-}
-
-/*
- * Hidden inputs del buscador superior.
- *
- * De esta forma buscar texto no elimina
- * los filtros ya seleccionados.
- */
-function CurrentFilterHiddenInputs({
-  filters,
-}: {
-  filters: CurrentFilterState;
-}) {
-  return (
-    <>
-      {filters.qualificationGroups.map(
-        (group) => (
-          <input
-            key={`group-${group}`}
-            type="hidden"
-            name="qualificationGroup"
-            value={group}
-          />
-        ),
-      )}
-
-      {filters.jobPoolValues.map(
-        (value) => (
-          <input
-            key={`job-${value}`}
-            type="hidden"
-            name="isJobPool"
-            value={value}
-          />
-        ),
-      )}
-
-      {filters.statusId !==
-        undefined && (
-          <input
-            type="hidden"
-            name="statusId"
-            value={filters.statusId}
-          />
-        )}
-
-      {filters.province && (
-        <input
-          type="hidden"
-          name="province"
-          value={filters.province}
-        />
-      )}
-
-      {filters.county && (
-        <input
-          type="hidden"
-          name="county"
-          value={filters.county}
-        />
-      )}
-
-      {filters.municipality && (
-        <input
-          type="hidden"
-          name="municipality"
-          value={
-            filters.municipality
-          }
-        />
-      )}
-
-      {filters.scopeId !==
-        undefined && (
-          <input
-            type="hidden"
-            name="scopeId"
-            value={filters.scopeId}
-          />
-        )}
-
-      {filters.selectionSystemId !==
-        undefined && (
-          <input
-            type="hidden"
-            name="selectionSystemId"
-            value={
-              filters.selectionSystemId
-            }
-          />
-        )}
-
-      {filters.personnelTypeId !==
-        undefined && (
-          <input
-            type="hidden"
-            name="personnelTypeId"
-            value={
-              filters.personnelTypeId
-            }
-          />
-        )}
-
-      {filters.applicationEndDateFrom && (
-        <input
-          type="hidden"
-          name="applicationEndDateFrom"
-          value={
-            filters.applicationEndDateFrom
-          }
-        />
-      )}
-
-      {filters.applicationEndDateTo && (
-        <input
-          type="hidden"
-          name="applicationEndDateTo"
-          value={
-            filters.applicationEndDateTo
-          }
-        />
-      )}
-
-      {filters.reservedDisability && (
-        <input
-          type="hidden"
-          name="reservedDisability"
-          value="true"
-        />
-      )}
-
-      {filters.reservedUnemployed && (
-        <input
-          type="hidden"
-          name="reservedUnemployed"
-          value="true"
-        />
-      )}
-
-      {filters.reservedYoung && (
-        <input
-          type="hidden"
-          name="reservedYoung"
-          value="true"
-        />
-      )}
-
-      {filters.reservedWomen && (
-        <input
-          type="hidden"
-          name="reservedWomen"
-          value="true"
-        />
-      )}
-    </>
-  );
 }
 
 function formatDate(
@@ -1277,18 +1384,24 @@ function formatLocation(
     county,
     province,
   ].filter(
-    (value): value is string =>
-      typeof value === "string" &&
+    (
+      value,
+    ): value is string =>
+      typeof value ===
+        "string" &&
       value.length > 0,
   );
 
-  return values.length > 0
-    ? values.join(" · ")
+  return values.length >
+    0
+    ? values.join(
+        " · ",
+      )
     : "Ubicación no disponible";
 }
 
 /*
- * Sección visual
+ * Sección visual.
  */
 type FilterSectionProps = {
   title: string;
@@ -1313,7 +1426,7 @@ function FilterSection({
 }
 
 /*
- * Checkbox reutilizable
+ * Checkbox reutilizable.
  */
 type FilterCheckLabelProps = {
   name: string;
@@ -1332,19 +1445,27 @@ function FilterCheckLabel({
     <label className="flex min-h-[30px] cursor-pointer items-start gap-2.5 text-sm text-[#131A2C]">
       <input
         type="checkbox"
-        name={name}
-        value={value}
-        defaultChecked={checked}
+        name={
+          name
+        }
+        value={
+          value
+        }
+        defaultChecked={
+          checked
+        }
         className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-[#D5DAE3]"
       />
 
-      <span>{label}</span>
+      <span>
+        {label}
+      </span>
     </label>
   );
 }
 
 /*
- * Select reutilizable
+ * Select reutilizable.
  */
 type FilterSelectOption = {
   value: string;
@@ -1355,7 +1476,8 @@ type FilterSelectProps = {
   name: string;
   defaultValue: string;
   emptyLabel: string;
-  options: FilterSelectOption[];
+  options:
+    FilterSelectOption[];
 };
 
 function FilterSelect({
@@ -1366,22 +1488,38 @@ function FilterSelect({
 }: FilterSelectProps) {
   return (
     <select
-      name={name}
-      defaultValue={defaultValue}
+      name={
+        name
+      }
+      defaultValue={
+        defaultValue
+      }
       className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]"
     >
       <option value="">
-        {emptyLabel}
+        {
+          emptyLabel
+        }
       </option>
 
-      {options.map((option) => (
-        <option
-          key={option.value}
-          value={option.value}
-        >
-          {option.label}
-        </option>
-      ))}
+      {options.map(
+        (
+          option,
+        ) => (
+          <option
+            key={
+              option.value
+            }
+            value={
+              option.value
+            }
+          >
+            {
+              option.label
+            }
+          </option>
+        ),
+      )}
     </select>
   );
 }
