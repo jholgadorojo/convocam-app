@@ -1,6 +1,6 @@
-import type {
+import {
   Prisma,
-  PrismaClient,
+  type PrismaClient,
 } from "@/generated/prisma/client";
 
 import type {
@@ -8,29 +8,31 @@ import type {
   SelectionProcessTerritoryOption,
 } from "../../application/selection-process-filter-options";
 
+import type { SelectionProcessListItem } from "../../application/selection-process-list-item";
+
 import type { SelectionProcessPage } from "../../application/selection-process-page";
 
 import type { SelectionProcessQueryRepository } from "../../application/selection-process-query-repository";
 
 import type { SelectionProcessSearchFilters } from "../../application/selection-process-search-filters";
 
-/*
- * Resultado de PostgreSQL para la búsqueda
- * tolerante.
- *
- * score indica la relevancia.
- */
-type TextSearchMatch = {
-  id: number;
-  score: number;
-};
-
-type SelectionProcessWithInstitution =
+type SelectionProcessRow =
   Prisma.SelectionProcessGetPayload<{
     include: {
       institution: true;
     };
   }>;
+
+type TextSearchMatch = {
+  id: number;
+  score: number;
+};
+
+type InstitutionTerritoryRow = {
+  municipality: string | null;
+  county: string | null;
+  province: string | null;
+};
 
 export class PrismaSelectionProcessQueryRepository
   implements SelectionProcessQueryRepository
@@ -47,47 +49,53 @@ export class PrismaSelectionProcessQueryRepository
     const skip =
       (page - 1) * pageSize;
 
-    const text =
-      filters.text?.trim();
-
-    const municipality =
-      filters.municipality?.trim();
-
-    const county =
-      filters.county?.trim();
-
-    const province =
-      filters.province?.trim();
-
     /*
-     * qualificationGroup puede llegar como:
+     * Normalizamos qualificationGroup.
      *
-     * "A2"
+     * El contrato permite:
      *
-     * o:
+     * string
+     * string[]
      *
-     * ["A2", "C1"]
+     * Prisma "in" necesita siempre
+     * un array.
      */
     const qualificationGroups =
-      filters.qualificationGroup ===
-      undefined
-        ? []
-        : Array.isArray(
-              filters.qualificationGroup,
-            )
-          ? filters.qualificationGroup
-              .map((group) =>
-                group.trim(),
-              )
-              .filter(Boolean)
-          : [
-              filters.qualificationGroup.trim(),
-            ].filter(Boolean);
+      normalizeStringArray(
+        filters.qualificationGroup,
+      );
 
     /*
-     * Todas las condiciones normales
-     * de Prisma.
+     * Si existe texto de búsqueda,
+     * primero utilizamos PostgreSQL
+     * para obtener coincidencias
+     * tolerantes y su puntuación.
      */
+    const textMatches =
+      filters.text
+        ? await this.findTextMatches(
+            filters.text,
+          )
+        : null;
+
+    /*
+     * Si existe búsqueda textual
+     * pero no hay ninguna coincidencia,
+     * devolvemos directamente vacío.
+     */
+    if (
+      textMatches !== null &&
+      textMatches.length === 0
+    ) {
+      return {
+        items: [],
+        page,
+        pageSize,
+        totalItems: 0,
+        totalPages: 0,
+      };
+    }
+
     const conditions:
       Prisma.SelectionProcessWhereInput[] =
       [
@@ -97,80 +105,114 @@ export class PrismaSelectionProcessQueryRepository
       ];
 
     /*
-     * --------------------------------
-     * TERRITORIO
-     * --------------------------------
-     *
-     * Provincia, comarca y municipio
-     * pertenecen a la misma Institution.
+     * Búsqueda textual.
      */
-    const institutionConditions:
-      Prisma.InstitutionWhereInput = {};
-
-    if (province) {
-      institutionConditions.province = {
-        equals: province,
-        mode: "insensitive",
-      };
-    }
-
-    if (county) {
-      institutionConditions.county = {
-        equals: county,
-        mode: "insensitive",
-      };
-    }
-
-    if (municipality) {
-      institutionConditions.municipality =
-        {
-          equals: municipality,
-          mode: "insensitive",
-        };
-    }
-
     if (
-      province ||
-      county ||
-      municipality
+      textMatches !== null
     ) {
       conditions.push({
-        institution: {
-          is: institutionConditions,
+        id: {
+          in: textMatches.map(
+            (match) =>
+              match.id,
+          ),
         },
       });
     }
 
     /*
-     * --------------------------------
-     * ESTADO
-     * --------------------------------
+     * Grupo de titulación.
      */
     if (
-      filters.statusId !== undefined
+      qualificationGroups.length >
+      0
     ) {
       conditions.push({
-        statusId: filters.statusId,
+        qualificationGroup: {
+          in:
+            qualificationGroups,
+        },
       });
     }
 
     /*
-     * --------------------------------
-     * ÁMBITO
-     * --------------------------------
+     * Plaza / bolsa.
      */
     if (
-      filters.scopeId !== undefined
+      filters.isJobPool !==
+      undefined
     ) {
       conditions.push({
-        scopeId: filters.scopeId,
+        isJobPool:
+          filters.isJobPool,
       });
     }
 
     /*
-     * --------------------------------
-     * SISTEMA DE SELECCIÓN
-     * --------------------------------
+     * Estado.
+     */
+    if (
+      filters.statusId !==
+      undefined
+    ) {
+      conditions.push({
+        statusId:
+          filters.statusId,
+      });
+    }
+
+    /*
+     * Provincia, comarca
+     * y municipio.
+     */
+    if (
+      filters.province ||
+      filters.county ||
+      filters.municipality
+    ) {
+      conditions.push({
+        institution: {
+          is: {
+            ...(filters.province
+              ? {
+                  province:
+                    filters.province,
+                }
+              : {}),
+
+            ...(filters.county
+              ? {
+                  county:
+                    filters.county,
+                }
+              : {}),
+
+            ...(filters.municipality
+              ? {
+                  municipality:
+                    filters.municipality,
+                }
+              : {}),
+          },
+        },
+      });
+    }
+
+    /*
+     * Ámbito.
+     */
+    if (
+      filters.scopeId !==
+      undefined
+    ) {
+      conditions.push({
+        scopeId:
+          filters.scopeId,
+      });
+    }
+
+    /*
+     * Sistema de selección.
      */
     if (
       filters.selectionSystemId !==
@@ -183,9 +225,7 @@ export class PrismaSelectionProcessQueryRepository
     }
 
     /*
-     * --------------------------------
-     * TIPO DE PERSONAL
-     * --------------------------------
+     * Tipo de personal.
      */
     if (
       filters.personnelTypeId !==
@@ -198,134 +238,83 @@ export class PrismaSelectionProcessQueryRepository
     }
 
     /*
-     * --------------------------------
-     * GRUPO DE TITULACIÓN
-     * --------------------------------
+     * Fecha límite desde.
      */
     if (
-      qualificationGroups.length > 0
+      filters.applicationEndDateFrom
     ) {
       conditions.push({
-        qualificationGroup: {
-          in: qualificationGroups,
+        applicationEndDate: {
+          gte:
+            filters.applicationEndDateFrom,
         },
       });
     }
 
     /*
-     * --------------------------------
-     * PLAZA / BOLSA
-     * --------------------------------
+     * Fecha límite hasta.
      */
     if (
-      filters.isJobPool !== undefined
-    ) {
-      conditions.push({
-        isJobPool:
-          filters.isJobPool,
-      });
-    }
-
-    /*
-     * --------------------------------
-     * FECHA LÍMITE
-     * --------------------------------
-     */
-    if (
-      filters.applicationEndDateFrom ||
       filters.applicationEndDateTo
     ) {
       conditions.push({
         applicationEndDate: {
-          ...(filters.applicationEndDateFrom
-            ? {
-                gte:
-                  filters.applicationEndDateFrom,
-              }
-            : {}),
-
-          ...(filters.applicationEndDateTo
-            ? {
-                lte:
-                  filters.applicationEndDateTo,
-              }
-            : {}),
+          lte:
+            filters.applicationEndDateTo,
         },
       });
     }
 
     /*
-     * --------------------------------
-     * RESERVA DISCAPACIDAD
-     * --------------------------------
+     * Reserva discapacidad.
      */
     if (
-      filters.reservedDisability !==
-      undefined
+      filters.reservedDisability
     ) {
       conditions.push({
         reservedDisabilityPositions:
-          filters.reservedDisability
-            ? {
-                gt: 0,
-              }
-            : 0,
+          {
+            gt: 0,
+          },
       });
     }
 
     /*
-     * --------------------------------
-     * RESERVA DESEMPLEADOS
-     * --------------------------------
+     * Reserva desempleados.
      */
     if (
-      filters.reservedUnemployed !==
-      undefined
+      filters.reservedUnemployed
     ) {
       conditions.push({
         reservedUnemployed:
-          filters.reservedUnemployed,
+          true,
       });
     }
 
     /*
-     * --------------------------------
-     * RESERVA JÓVENES
-     * --------------------------------
+     * Reserva jóvenes.
      */
     if (
-      filters.reservedYoung !==
-      undefined
+      filters.reservedYoung
     ) {
       conditions.push({
         reservedYoung:
-          filters.reservedYoung,
+          true,
       });
     }
 
     /*
-     * --------------------------------
-     * RESERVA MUJERES
-     * --------------------------------
+     * Reserva mujeres.
      */
     if (
-      filters.reservedWomen !==
-      undefined
+      filters.reservedWomen
     ) {
       conditions.push({
         reservedWomen:
-          filters.reservedWomen,
+          true,
       });
     }
 
-    /*
-     * Filtro Prisma completo.
-     *
-     * No incluye la búsqueda de texto.
-     *
-     * La búsqueda tolerante se ejecuta
-     * mediante PostgreSQL.
-     */
     const where:
       Prisma.SelectionProcessWhereInput =
       {
@@ -333,223 +322,157 @@ export class PrismaSelectionProcessQueryRepository
       };
 
     /*
-     * ========================================
-     * BÚSQUEDA CON TEXTO
-     * ========================================
+     * CON TEXTO:
      *
-     * Si existe q, primero calculamos
-     * relevancia mediante:
-     *
-     * unaccent
-     * pg_trgm
-     * word_similarity
-     *
-     * Después aplicamos los filtros Prisma.
+     * Tenemos que mantener el orden
+     * calculado por la búsqueda
+     * tolerante.
      */
-    if (text) {
-      const textMatches =
-        await this.findTextMatches(
-          text,
-        );
+    if (
+      textMatches !== null
+    ) {
+      const [
+        rows,
+        totalItems,
+      ] =
+        await Promise.all([
+          this.prisma.selectionProcess.findMany(
+            {
+              where,
 
-      if (
-        textMatches.length === 0
-      ) {
-        return {
-          items: [],
-          page,
-          pageSize,
-          totalItems: 0,
-          totalPages: 0,
-        };
-      }
-
-      /*
-       * Estos IDs YA están ordenados
-       * por relevancia.
-       */
-      const rankedIds =
-        textMatches.map(
-          (match) => match.id,
-        );
-
-      /*
-       * Aplicamos ahora:
-       *
-       * territorio
-       * estado
-       * grupo
-       * plaza/bolsa
-       * fechas
-       * reservas
-       * etc.
-       */
-      const eligibleRows =
-        await this.prisma.selectionProcess.findMany(
-          {
-            where: {
-              AND: [
-                where,
-                {
-                  id: {
-                    in: rankedIds,
-                  },
-                },
-              ],
-            },
-
-            select: {
-              id: true,
-            },
-          },
-        );
-
-      const eligibleIds =
-        new Set(
-          eligibleRows.map(
-            (row) => row.id,
-          ),
-        );
-
-      /*
-       * Conservamos el ranking original
-       * pero quitamos las convocatorias
-       * que no pasan los otros filtros.
-       */
-      const filteredRankedIds =
-        rankedIds.filter((id) =>
-          eligibleIds.has(id),
-        );
-
-      const totalItems =
-        filteredRankedIds.length;
-
-      const totalPages =
-        totalItems === 0
-          ? 0
-          : Math.ceil(
-              totalItems /
-                pageSize,
-            );
-
-      const start =
-        (page - 1) * pageSize;
-
-      const pageIds =
-        filteredRankedIds.slice(
-          start,
-          start + pageSize,
-        );
-
-      if (
-        pageIds.length === 0
-      ) {
-        return {
-          items: [],
-          page,
-          pageSize,
-          totalItems,
-          totalPages,
-        };
-      }
-
-      /*
-       * Recuperamos los datos completos
-       * de esta página.
-       */
-      const rows =
-        await this.prisma.selectionProcess.findMany(
-          {
-            where: {
-              id: {
-                in: pageIds,
+              include: {
+                institution:
+                  true,
               },
             },
+          ),
 
-            include: {
-              institution: true,
+          this.prisma.selectionProcess.count(
+            {
+              where,
             },
-          },
-        );
+          ),
+        ]);
 
       /*
-       * Prisma no garantiza que:
-       *
-       * WHERE id IN (...)
-       *
-       * respete el orden de pageIds.
-       *
-       * Restauramos el ranking.
+       * textMatches ya viene
+       * ordenado por relevancia.
        */
-      const positionById =
-        new Map(
-          pageIds.map(
-            (id, index) => [
-              id,
-              index,
-            ],
-          ),
-        );
+      const relevanceOrder =
+        new Map<
+          number,
+          number
+        >();
 
-      rows.sort(
-        (a, b) =>
-          (positionById.get(
-            a.id,
-          ) ??
-            Number.MAX_SAFE_INTEGER) -
-          (positionById.get(
-            b.id,
-          ) ??
-            Number.MAX_SAFE_INTEGER),
+      textMatches.forEach(
+        (
+          match,
+          index,
+        ) => {
+          relevanceOrder.set(
+            match.id,
+            index,
+          );
+        },
       );
 
+      rows.sort(
+        (
+          first,
+          second,
+        ) => {
+          const firstOrder =
+            relevanceOrder.get(
+              first.id,
+            ) ??
+            Number.MAX_SAFE_INTEGER;
+
+          const secondOrder =
+            relevanceOrder.get(
+              second.id,
+            ) ??
+            Number.MAX_SAFE_INTEGER;
+
+          return (
+            firstOrder -
+            secondOrder
+          );
+        },
+      );
+
+      const paginatedRows =
+        rows.slice(
+          skip,
+          skip +
+            pageSize,
+        );
+
       return {
-        items: rows.map(
-          mapSelectionProcessListItem,
-        ),
+        items:
+          paginatedRows.map(
+            (
+              row,
+            ) =>
+              mapSelectionProcessListItem(
+                row,
+              ),
+          ),
 
         page,
+
         pageSize,
+
         totalItems,
-        totalPages,
+
+        totalPages:
+          Math.ceil(
+            totalItems /
+              pageSize,
+          ),
       };
     }
 
     /*
-     * ========================================
-     * SIN TEXTO
-     * ========================================
+     * SIN TEXTO:
      *
-     * Si no hay búsqueda libre,
-     * utilizamos el orden normal:
-     *
-     * fecha límite
-     * id
+     * Orden normal por fecha límite.
      */
-    const [rows, totalItems] =
-      await this.prisma.$transaction([
+    const [
+      rows,
+      totalItems,
+    ] =
+      await Promise.all([
         this.prisma.selectionProcess.findMany(
           {
             where,
 
             include: {
-              institution: true,
+              institution:
+                true,
             },
 
             orderBy: [
               {
-                applicationEndDate: {
-                  sort: "asc",
-                  nulls: "last",
-                },
+                applicationEndDate:
+                  {
+                    sort:
+                      "asc",
+
+                    nulls:
+                      "last",
+                  },
               },
+
               {
-                id: "asc",
+                id:
+                  "asc",
               },
             ],
 
             skip,
-            take: pageSize,
+
+            take:
+              pageSize,
           },
         ),
 
@@ -560,676 +483,252 @@ export class PrismaSelectionProcessQueryRepository
         ),
       ]);
 
-    const totalPages =
-      totalItems === 0
-        ? 0
-        : Math.ceil(
-            totalItems /
-              pageSize,
-          );
-
     return {
-      items: rows.map(
-        mapSelectionProcessListItem,
-      ),
+      items:
+        rows.map(
+          (
+            row,
+          ) =>
+            mapSelectionProcessListItem(
+              row,
+            ),
+        ),
 
       page,
+
       pageSize,
+
       totalItems,
-      totalPages,
+
+      totalPages:
+        Math.ceil(
+          totalItems /
+            pageSize,
+        ),
     };
   }
 
   /*
-   * ========================================
-   * BÚSQUEDA TOLERANTE + RELEVANCIA
-   * ========================================
-   */
-  private async findTextMatches(
-    text: string,
-  ): Promise<TextSearchMatch[]> {
-    /*
-     * Ejemplo:
-     *
-     * "cardedeu informatic"
-     *
-     * =>
-     *
-     * ["cardedeu", "informatic"]
-     */
-    const terms = [
-      ...new Set(
-        text
-          .trim()
-          .split(/\s+/)
-          .map((term) =>
-            term.trim(),
-          )
-          .filter(Boolean),
-      ),
-    ];
-
-    if (
-      terms.length === 0
-    ) {
-      return [];
-    }
-
-    /*
-     * ID -> puntuación acumulada.
-     */
-    let accumulatedScores:
-      | Map<number, number>
-      | undefined;
-
-    /*
-     * Cada palabra debe encontrarse.
-     *
-     * Es decir:
-     *
-     * cardedeu AND informatic
-     */
-    for (const term of terms) {
-      const rows =
-        await this.prisma.$queryRaw<
-          TextSearchMatch[]
-        >`
-          WITH scored AS (
-            SELECT
-              sp.id,
-
-              GREATEST(
-
-                /*
-                 * =========================
-                 * TÍTULO
-                 * =========================
-                 *
-                 * Es el campo más importante.
-                 */
-
-                CASE
-                  WHEN
-                    unaccent(
-                      lower(
-                        COALESCE(
-                          sp.title,
-                          ''
-                        )
-                      )
-                    )
-                    LIKE
-                    '%' ||
-                    unaccent(
-                      lower(${term})
-                    ) ||
-                    '%'
-                  THEN 2.0
-                  ELSE 0.0
-                END,
-
-                CASE
-                  WHEN
-                    char_length(${term}) >= 4
-                  THEN
-                    word_similarity(
-                      unaccent(
-                        lower(${term})
-                      ),
-                      unaccent(
-                        lower(
-                          COALESCE(
-                            sp.title,
-                            ''
-                          )
-                        )
-                      )
-                    ) * 1.5
-                  ELSE 0.0
-                END,
-
-                /*
-                 * =========================
-                 * ORGANISMO
-                 * =========================
-                 */
-
-                CASE
-                  WHEN
-                    unaccent(
-                      lower(
-                        COALESCE(
-                          i.name,
-                          ''
-                        )
-                      )
-                    )
-                    LIKE
-                    '%' ||
-                    unaccent(
-                      lower(${term})
-                    ) ||
-                    '%'
-                  THEN 1.4
-                  ELSE 0.0
-                END,
-
-                CASE
-                  WHEN
-                    char_length(${term}) >= 4
-                  THEN
-                    word_similarity(
-                      unaccent(
-                        lower(${term})
-                      ),
-                      unaccent(
-                        lower(
-                          COALESCE(
-                            i.name,
-                            ''
-                          )
-                        )
-                      )
-                    ) * 1.1
-                  ELSE 0.0
-                END,
-
-                /*
-                 * =========================
-                 * MUNICIPIO
-                 * =========================
-                 */
-
-                CASE
-                  WHEN
-                    unaccent(
-                      lower(
-                        COALESCE(
-                          i.municipality,
-                          ''
-                        )
-                      )
-                    )
-                    LIKE
-                    '%' ||
-                    unaccent(
-                      lower(${term})
-                    ) ||
-                    '%'
-                  THEN 1.0
-                  ELSE 0.0
-                END,
-
-                CASE
-                  WHEN
-                    char_length(${term}) >= 4
-                  THEN
-                    word_similarity(
-                      unaccent(
-                        lower(${term})
-                      ),
-                      unaccent(
-                        lower(
-                          COALESCE(
-                            i.municipality,
-                            ''
-                          )
-                        )
-                      )
-                    )
-                  ELSE 0.0
-                END,
-
-                /*
-                 * =========================
-                 * COMARCA
-                 * =========================
-                 */
-
-                CASE
-                  WHEN
-                    unaccent(
-                      lower(
-                        COALESCE(
-                          i.county,
-                          ''
-                        )
-                      )
-                    )
-                    LIKE
-                    '%' ||
-                    unaccent(
-                      lower(${term})
-                    ) ||
-                    '%'
-                  THEN 1.0
-                  ELSE 0.0
-                END,
-
-                CASE
-                  WHEN
-                    char_length(${term}) >= 4
-                  THEN
-                    word_similarity(
-                      unaccent(
-                        lower(${term})
-                      ),
-                      unaccent(
-                        lower(
-                          COALESCE(
-                            i.county,
-                            ''
-                          )
-                        )
-                      )
-                    )
-                  ELSE 0.0
-                END,
-
-                /*
-                 * =========================
-                 * PROVINCIA
-                 * =========================
-                 */
-
-                CASE
-                  WHEN
-                    unaccent(
-                      lower(
-                        COALESCE(
-                          i.province,
-                          ''
-                        )
-                      )
-                    )
-                    LIKE
-                    '%' ||
-                    unaccent(
-                      lower(${term})
-                    ) ||
-                    '%'
-                  THEN 1.0
-                  ELSE 0.0
-                END,
-
-                CASE
-                  WHEN
-                    char_length(${term}) >= 4
-                  THEN
-                    word_similarity(
-                      unaccent(
-                        lower(${term})
-                      ),
-                      unaccent(
-                        lower(
-                          COALESCE(
-                            i.province,
-                            ''
-                          )
-                        )
-                      )
-                    )
-                  ELSE 0.0
-                END,
-
-                /*
-                 * =========================
-                 * GRUPO TITULACIÓN
-                 * =========================
-                 */
-
-                CASE
-                  WHEN
-                    unaccent(
-                      lower(
-                        COALESCE(
-                          sp."qualificationGroup",
-                          ''
-                        )
-                      )
-                    )
-                    LIKE
-                    '%' ||
-                    unaccent(
-                      lower(${term})
-                    ) ||
-                    '%'
-                  THEN 0.8
-                  ELSE 0.0
-                END,
-
-                CASE
-                  WHEN
-                    char_length(${term}) >= 4
-                  THEN
-                    word_similarity(
-                      unaccent(
-                        lower(${term})
-                      ),
-                      unaccent(
-                        lower(
-                          COALESCE(
-                            sp."qualificationGroup",
-                            ''
-                          )
-                        )
-                      )
-                    ) * 0.7
-                  ELSE 0.0
-                END
-
-              )::double precision
-                AS score
-
-            FROM
-              "selection_processes" sp
-
-            LEFT JOIN
-              "institutions" i
-                ON
-                  i.id =
-                  sp."institutionId"
-
-            WHERE
-              sp."sourceActive" = true
-          )
-
-          SELECT
-            id,
-            score
-
-          FROM
-            scored
-
-          WHERE
-            score >= 0.55
-
-          ORDER BY
-            score DESC,
-            id ASC
-        `;
-
-      /*
-       * Resultado de esta palabra.
-       */
-      const termScores =
-        new Map<number, number>();
-
-      for (const row of rows) {
-        termScores.set(
-          row.id,
-          Number(row.score),
-        );
-      }
-
-      /*
-       * Primera palabra:
-       *
-       * guardamos todas las coincidencias.
-       */
-      if (
-        accumulatedScores ===
-        undefined
-      ) {
-        accumulatedScores =
-          termScores;
-
-        continue;
-      }
-
-      /*
-       * Segunda palabra y siguientes:
-       *
-       * hacemos intersección.
-       *
-       * La convocatoria debe cumplir
-       * TODAS las palabras.
-       */
-      const intersection =
-        new Map<
-          number,
-          number
-        >();
-
-      for (const [
-        id,
-        currentScore,
-      ] of accumulatedScores) {
-        const newScore =
-          termScores.get(id);
-
-        if (
-          newScore === undefined
-        ) {
-          continue;
-        }
-
-        /*
-         * Sumamos la relevancia
-         * de todas las palabras.
-         */
-        intersection.set(
-          id,
-          currentScore +
-            newScore,
-        );
-      }
-
-      accumulatedScores =
-        intersection;
-
-      /*
-       * Si ya no queda ninguna
-       * coincidencia, podemos terminar.
-       */
-      if (
-        accumulatedScores.size ===
-        0
-      ) {
-        return [];
-      }
-    }
-
-    if (!accumulatedScores) {
-      return [];
-    }
-
-    /*
-     * Mayor puntuación primero.
-     */
-    return [
-      ...accumulatedScores.entries(),
-    ]
-      .map(
-        ([id, score]) => ({
-          id,
-          score,
-        }),
-      )
-      .sort((a, b) => {
-        if (
-          b.score !== a.score
-        ) {
-          return (
-            b.score -
-            a.score
-          );
-        }
-
-        return a.id - b.id;
-      });
-  }
-
-  /*
-   * ========================================
-   * OPCIONES DE FILTROS
-   * ========================================
+   * Opciones disponibles para
+   * construir los filtros.
    */
   async getFilterOptions(): Promise<SelectionProcessFilterOptions> {
     const [
-      institutions,
+      institutionRows,
       statuses,
       scopes,
       selectionSystems,
       personnelTypes,
       qualificationGroups,
-    ] = await Promise.all([
-      /*
-       * Instituciones que tienen alguna
-       * convocatoria activa.
-       */
-      this.prisma.institution.findMany({
-        where: {
-          selectionProcesses: {
-            some: {
-              sourceActive: true,
-            },
-          },
-        },
+    ] =
+      await Promise.all([
+        /*
+         * Territorio.
+         */
+        this.prisma.selectionProcess.findMany(
+          {
+            where: {
+              sourceActive:
+                true,
 
-        select: {
-          municipality: true,
-          county: true,
-          province: true,
-        },
-      }),
-
-      /*
-       * Estados
-       */
-      this.prisma.selectionProcess.findMany(
-        {
-          where: {
-            sourceActive: true,
-          },
-
-          select: {
-            statusId: true,
-            status: true,
-          },
-
-          distinct: [
-            "statusId",
-          ],
-        },
-      ),
-
-      /*
-       * Ámbitos
-       */
-      this.prisma.selectionProcess.findMany(
-        {
-          where: {
-            sourceActive: true,
-          },
-
-          select: {
-            scopeId: true,
-            scopeName: true,
-          },
-
-          distinct: [
-            "scopeId",
-          ],
-        },
-      ),
-
-      /*
-       * Sistemas de selección
-       */
-      this.prisma.selectionProcess.findMany(
-        {
-          where: {
-            sourceActive: true,
-
-            selectionSystemId: {
-              not: null,
+              institutionId: {
+                not:
+                  null,
+              },
             },
 
-            selectionSystem: {
-              not: null,
+            select: {
+              institution: {
+                select: {
+                  municipality:
+                    true,
+
+                  county:
+                    true,
+
+                  province:
+                    true,
+                },
+              },
             },
           },
+        ),
 
-          select: {
-            selectionSystemId:
-              true,
-
-            selectionSystem:
-              true,
-          },
-
-          distinct: [
-            "selectionSystemId",
-          ],
-        },
-      ),
-
-      /*
-       * Tipos de personal
-       */
-      this.prisma.selectionProcess.findMany(
-        {
-          where: {
-            sourceActive: true,
-
-            personnelTypeId: {
-              not: null,
+        /*
+         * Estados.
+         */
+        this.prisma.selectionProcess.findMany(
+          {
+            where: {
+              sourceActive:
+                true,
             },
 
-            personnelType: {
-              not: null,
+            select: {
+              statusId:
+                true,
+
+              status:
+                true,
             },
+
+            distinct: [
+              "statusId",
+              "status",
+            ],
           },
+        ),
 
-          select: {
-            personnelTypeId:
-              true,
-
-            personnelType:
-              true,
-          },
-
-          distinct: [
-            "personnelTypeId",
-          ],
-        },
-      ),
-
-      /*
-       * Grupos de titulación
-       */
-      this.prisma.selectionProcess.findMany(
-        {
-          where: {
-            sourceActive: true,
-
-            qualificationGroup: {
-              not: null,
+        /*
+         * Ámbitos.
+         */
+        this.prisma.selectionProcess.findMany(
+          {
+            where: {
+              sourceActive:
+                true,
             },
+
+            select: {
+              scopeId:
+                true,
+
+              scopeName:
+                true,
+            },
+
+            distinct: [
+              "scopeId",
+              "scopeName",
+            ],
           },
+        ),
 
-          select: {
-            qualificationGroup:
-              true,
+        /*
+         * Sistemas de selección.
+         */
+        this.prisma.selectionProcess.findMany(
+          {
+            where: {
+              sourceActive:
+                true,
+
+              selectionSystemId:
+                {
+                  not:
+                    null,
+                },
+
+              selectionSystem:
+                {
+                  not:
+                    null,
+                },
+            },
+
+            select: {
+              selectionSystemId:
+                true,
+
+              selectionSystem:
+                true,
+            },
+
+            distinct: [
+              "selectionSystemId",
+              "selectionSystem",
+            ],
           },
+        ),
 
-          distinct: [
-            "qualificationGroup",
-          ],
-        },
-      ),
-    ]);
+        /*
+         * Tipos de personal.
+         */
+        this.prisma.selectionProcess.findMany(
+          {
+            where: {
+              sourceActive:
+                true,
 
-    /*
-     * --------------------------------
-     * TERRITORIO
-     * --------------------------------
-     */
+              personnelTypeId:
+                {
+                  not:
+                    null,
+                },
+
+              personnelType:
+                {
+                  not:
+                    null,
+                },
+            },
+
+            select: {
+              personnelTypeId:
+                true,
+
+              personnelType:
+                true,
+            },
+
+            distinct: [
+              "personnelTypeId",
+              "personnelType",
+            ],
+          },
+        ),
+
+        /*
+         * Grupos de titulación.
+         */
+        this.prisma.selectionProcess.findMany(
+          {
+            where: {
+              sourceActive:
+                true,
+
+              qualificationGroup:
+                {
+                  not:
+                    null,
+                },
+            },
+
+            select: {
+              qualificationGroup:
+                true,
+            },
+
+            distinct: [
+              "qualificationGroup",
+            ],
+          },
+        ),
+      ]);
+
+    const institutions:
+      InstitutionTerritoryRow[] =
+      institutionRows
+        .map(
+          (
+            row,
+          ) =>
+            row.institution,
+        )
+        .filter(
+          (
+            institution,
+          ): institution is InstitutionTerritoryRow =>
+            institution !==
+            null,
+        );
+
     const municipalities =
       uniqueSortedStrings(
         institutions.map(
-          (institution) =>
+          (
+            institution,
+          ) =>
             institution.municipality,
         ),
       );
@@ -1237,7 +736,9 @@ export class PrismaSelectionProcessQueryRepository
     const counties =
       uniqueSortedStrings(
         institutions.map(
-          (institution) =>
+          (
+            institution,
+          ) =>
             institution.county,
         ),
       );
@@ -1245,240 +746,888 @@ export class PrismaSelectionProcessQueryRepository
     const provinces =
       uniqueSortedStrings(
         institutions.map(
-          (institution) =>
+          (
+            institution,
+          ) =>
             institution.province,
         ),
       );
 
-    /*
-     * Relación:
-     *
-     * Provincia
-     *   -> Comarca
-     *       -> Municipio
-     */
     const territories =
       buildTerritories(
         institutions,
       );
 
-    /*
-     * --------------------------------
-     * SISTEMAS DE SELECCIÓN
-     * --------------------------------
-     */
-    const normalizedSelectionSystems =
-      selectionSystems
-        .flatMap((item) => {
-          if (
-            item.selectionSystemId ===
-              null ||
-            item.selectionSystem ===
-              null
-          ) {
-            return [];
-          }
-
-          return [
-            {
-              id:
-                item.selectionSystemId,
-
-              name:
-                item.selectionSystem,
-            },
-          ];
-        })
-        .sort((a, b) =>
-          a.name.localeCompare(
-            b.name,
-            "ca",
-          ),
-        );
-
-    /*
-     * --------------------------------
-     * TIPOS DE PERSONAL
-     * --------------------------------
-     */
-    const normalizedPersonnelTypes =
-      personnelTypes
-        .flatMap((item) => {
-          if (
-            item.personnelTypeId ===
-              null ||
-            item.personnelType ===
-              null
-          ) {
-            return [];
-          }
-
-          return [
-            {
-              id:
-                item.personnelTypeId,
-
-              name:
-                item.personnelType,
-            },
-          ];
-        })
-        .sort((a, b) =>
-          a.name.localeCompare(
-            b.name,
-            "ca",
-          ),
-        );
-
     return {
       municipalities,
+
       counties,
+
       provinces,
+
       territories,
 
-      statuses: statuses
-        .map((item) => ({
-          id: item.statusId,
-          name: item.status,
-        }))
-        .sort((a, b) =>
-          a.name.localeCompare(
-            b.name,
-            "ca",
-          ),
-        ),
+      statuses:
+        statuses
+          .map(
+            (
+              status,
+            ) => ({
+              id:
+                status.statusId,
 
-      scopes: scopes
-        .map((item) => ({
-          id: item.scopeId,
-          name: item.scopeName,
-        }))
-        .sort((a, b) =>
-          a.name.localeCompare(
-            b.name,
-            "ca",
+              name:
+                status.status,
+            }),
+          )
+          .sort(
+            (
+              first,
+              second,
+            ) =>
+              first.name.localeCompare(
+                second.name,
+                "ca",
+              ),
           ),
-        ),
+
+      scopes:
+        scopes
+          .map(
+            (
+              scope,
+            ) => ({
+              id:
+                scope.scopeId,
+
+              name:
+                scope.scopeName,
+            }),
+          )
+          .sort(
+            (
+              first,
+              second,
+            ) =>
+              first.name.localeCompare(
+                second.name,
+                "ca",
+              ),
+          ),
 
       selectionSystems:
-        normalizedSelectionSystems,
+        selectionSystems
+          .filter(
+            (
+              option,
+            ) =>
+              option.selectionSystemId !==
+                null &&
+              option.selectionSystem !==
+                null,
+          )
+          .map(
+            (
+              option,
+            ) => ({
+              id:
+                option.selectionSystemId!,
+
+              name:
+                option.selectionSystem!,
+            }),
+          )
+          .sort(
+            (
+              first,
+              second,
+            ) =>
+              first.name.localeCompare(
+                second.name,
+                "ca",
+              ),
+          ),
 
       personnelTypes:
-        normalizedPersonnelTypes,
+        personnelTypes
+          .filter(
+            (
+              option,
+            ) =>
+              option.personnelTypeId !==
+                null &&
+              option.personnelType !==
+                null,
+          )
+          .map(
+            (
+              option,
+            ) => ({
+              id:
+                option.personnelTypeId!,
+
+              name:
+                option.personnelType!,
+            }),
+          )
+          .sort(
+            (
+              first,
+              second,
+            ) =>
+              first.name.localeCompare(
+                second.name,
+                "ca",
+              ),
+          ),
 
       qualificationGroups:
         uniqueSortedStrings(
           qualificationGroups.map(
-            (item) =>
-              item.qualificationGroup,
+            (
+              option,
+            ) =>
+              option.qualificationGroup,
           ),
         ),
     };
   }
+
+  /*
+   * Búsqueda tolerante.
+   */
+  private async findTextMatches(
+    text: string,
+  ): Promise<
+    TextSearchMatch[]
+  > {
+    const terms =
+      text
+        .trim()
+        .split(/\s+/)
+        .map(
+          (
+            term,
+          ) =>
+            term.trim(),
+        )
+        .filter(Boolean);
+
+    if (
+      terms.length ===
+      0
+    ) {
+      return [];
+    }
+
+    /*
+     * Cada palabra escrita debe
+     * coincidir en alguno de los
+     * campos relevantes.
+     */
+    const matchConditions =
+      terms.map(
+        (
+          term,
+        ) => {
+          const contains =
+            `%${term}%`;
+
+          return Prisma.sql`
+            (
+              unaccent(
+                lower(
+                  coalesce(
+                    sp.title,
+                    ''
+                  )
+                )
+              )
+                LIKE
+              unaccent(
+                lower(
+                  ${contains}
+                )
+              )
+
+              OR
+
+              word_similarity(
+                unaccent(
+                  lower(
+                    ${term}
+                  )
+                ),
+                unaccent(
+                  lower(
+                    coalesce(
+                      sp.title,
+                      ''
+                    )
+                  )
+                )
+              ) >= 0.55
+
+              OR
+
+              unaccent(
+                lower(
+                  coalesce(
+                    i.name,
+                    ''
+                  )
+                )
+              )
+                LIKE
+              unaccent(
+                lower(
+                  ${contains}
+                )
+              )
+
+              OR
+
+              word_similarity(
+                unaccent(
+                  lower(
+                    ${term}
+                  )
+                ),
+                unaccent(
+                  lower(
+                    coalesce(
+                      i.name,
+                      ''
+                    )
+                  )
+                )
+              ) >= 0.55
+
+              OR
+
+              unaccent(
+                lower(
+                  coalesce(
+                    i.municipality,
+                    ''
+                  )
+                )
+              )
+                LIKE
+              unaccent(
+                lower(
+                  ${contains}
+                )
+              )
+
+              OR
+
+              word_similarity(
+                unaccent(
+                  lower(
+                    ${term}
+                  )
+                ),
+                unaccent(
+                  lower(
+                    coalesce(
+                      i.municipality,
+                      ''
+                    )
+                  )
+                )
+              ) >= 0.55
+
+              OR
+
+              unaccent(
+                lower(
+                  coalesce(
+                    i.county,
+                    ''
+                  )
+                )
+              )
+                LIKE
+              unaccent(
+                lower(
+                  ${contains}
+                )
+              )
+
+              OR
+
+              word_similarity(
+                unaccent(
+                  lower(
+                    ${term}
+                  )
+                ),
+                unaccent(
+                  lower(
+                    coalesce(
+                      i.county,
+                      ''
+                    )
+                  )
+                )
+              ) >= 0.55
+
+              OR
+
+              unaccent(
+                lower(
+                  coalesce(
+                    i.province,
+                    ''
+                  )
+                )
+              )
+                LIKE
+              unaccent(
+                lower(
+                  ${contains}
+                )
+              )
+
+              OR
+
+              word_similarity(
+                unaccent(
+                  lower(
+                    ${term}
+                  )
+                ),
+                unaccent(
+                  lower(
+                    coalesce(
+                      i.province,
+                      ''
+                    )
+                  )
+                )
+              ) >= 0.55
+
+              OR
+
+              unaccent(
+                lower(
+                  coalesce(
+                    sp."qualificationGroup",
+                    ''
+                  )
+                )
+              )
+                LIKE
+              unaccent(
+                lower(
+                  ${contains}
+                )
+              )
+
+              OR
+
+              word_similarity(
+                unaccent(
+                  lower(
+                    ${term}
+                  )
+                ),
+                unaccent(
+                  lower(
+                    coalesce(
+                      sp."qualificationGroup",
+                      ''
+                    )
+                  )
+                )
+              ) >= 0.55
+            )
+          `;
+        },
+      );
+
+    /*
+     * Puntuación:
+     *
+     * título
+     * organismo
+     * territorio
+     * grupo
+     */
+    const scoreExpressions =
+      terms.map(
+        (
+          term,
+        ) => {
+          const contains =
+            `%${term}%`;
+
+          return Prisma.sql`
+            GREATEST(
+              CASE
+                WHEN
+                  unaccent(
+                    lower(
+                      coalesce(
+                        sp.title,
+                        ''
+                      )
+                    )
+                  )
+                    LIKE
+                  unaccent(
+                    lower(
+                      ${contains}
+                    )
+                  )
+                THEN 2.0
+                ELSE 0.0
+              END,
+
+              word_similarity(
+                unaccent(
+                  lower(
+                    ${term}
+                  )
+                ),
+                unaccent(
+                  lower(
+                    coalesce(
+                      sp.title,
+                      ''
+                    )
+                  )
+                )
+              ) * 1.5,
+
+              CASE
+                WHEN
+                  unaccent(
+                    lower(
+                      coalesce(
+                        i.name,
+                        ''
+                      )
+                    )
+                  )
+                    LIKE
+                  unaccent(
+                    lower(
+                      ${contains}
+                    )
+                  )
+                THEN 1.4
+                ELSE 0.0
+              END,
+
+              word_similarity(
+                unaccent(
+                  lower(
+                    ${term}
+                  )
+                ),
+                unaccent(
+                  lower(
+                    coalesce(
+                      i.name,
+                      ''
+                    )
+                  )
+                )
+              ) * 1.1,
+
+              CASE
+                WHEN
+                  unaccent(
+                    lower(
+                      coalesce(
+                        i.municipality,
+                        ''
+                      )
+                    )
+                  )
+                    LIKE
+                  unaccent(
+                    lower(
+                      ${contains}
+                    )
+                  )
+
+                  OR
+
+                  unaccent(
+                    lower(
+                      coalesce(
+                        i.county,
+                        ''
+                      )
+                    )
+                  )
+                    LIKE
+                  unaccent(
+                    lower(
+                      ${contains}
+                    )
+                  )
+
+                  OR
+
+                  unaccent(
+                    lower(
+                      coalesce(
+                        i.province,
+                        ''
+                      )
+                    )
+                  )
+                    LIKE
+                  unaccent(
+                    lower(
+                      ${contains}
+                    )
+                  )
+
+                THEN 1.0
+                ELSE 0.0
+              END,
+
+              GREATEST(
+                word_similarity(
+                  unaccent(
+                    lower(
+                      ${term}
+                    )
+                  ),
+                  unaccent(
+                    lower(
+                      coalesce(
+                        i.municipality,
+                        ''
+                      )
+                    )
+                  )
+                ),
+
+                word_similarity(
+                  unaccent(
+                    lower(
+                      ${term}
+                    )
+                  ),
+                  unaccent(
+                    lower(
+                      coalesce(
+                        i.county,
+                        ''
+                      )
+                    )
+                  )
+                ),
+
+                word_similarity(
+                  unaccent(
+                    lower(
+                      ${term}
+                    )
+                  ),
+                  unaccent(
+                    lower(
+                      coalesce(
+                        i.province,
+                        ''
+                      )
+                    )
+                  )
+                )
+              ) * 1.0,
+
+              CASE
+                WHEN
+                  unaccent(
+                    lower(
+                      coalesce(
+                        sp."qualificationGroup",
+                        ''
+                      )
+                    )
+                  )
+                    LIKE
+                  unaccent(
+                    lower(
+                      ${contains}
+                    )
+                  )
+                THEN 0.8
+                ELSE 0.0
+              END,
+
+              word_similarity(
+                unaccent(
+                  lower(
+                    ${term}
+                  )
+                ),
+                unaccent(
+                  lower(
+                    coalesce(
+                      sp."qualificationGroup",
+                      ''
+                    )
+                  )
+                )
+              ) * 0.7
+            )
+          `;
+        },
+      );
+
+    return this.prisma.$queryRaw<
+      TextSearchMatch[]
+    >(
+      Prisma.sql`
+        SELECT
+          sp.id,
+
+          (
+            ${Prisma.join(
+              scoreExpressions,
+              " + ",
+            )}
+          )::double precision
+            AS score
+
+        FROM
+          "selection_processes" sp
+
+        LEFT JOIN
+          "institutions" i
+            ON
+              i.id =
+              sp."institutionId"
+
+        WHERE
+          sp."sourceActive" = true
+
+          AND
+
+          ${Prisma.join(
+            matchConditions,
+            " AND ",
+          )}
+
+        ORDER BY
+          score DESC,
+          sp.id ASC
+      `,
+    );
+  }
 }
 
 /*
- * ========================================
- * MAPEO RESULTADO -> APPLICATION
- * ========================================
+ * Prisma -> Application.
  */
 function mapSelectionProcessListItem(
-  row: SelectionProcessWithInstitution,
-) {
+  row: SelectionProcessRow,
+): SelectionProcessListItem {
   return {
-    id: row.id,
+    id:
+      row.id,
 
     cidoIdentifier:
       row.cidoIdentifier,
 
-    title: row.title,
+    title:
+      row.title,
 
     isJobPool:
       row.isJobPool,
 
-    applicationEndDate:
-      row.applicationEndDate,
-
-    qualificationGroup:
-      row.qualificationGroup,
+    /*
+     * Estado oficial.
+     */
+    statusId:
+      row.statusId,
 
     status:
       row.status,
 
+    /*
+     * Periodo de solicitud.
+     */
+    applicationStartDate:
+      row.applicationStartDate,
+
+    applicationEndDate:
+      row.applicationEndDate,
+
+    /*
+     * Información resumida.
+     */
+    numberOfPositions:
+      row.numberOfPositions,
+
+    qualificationGroup:
+      row.qualificationGroup,
+
+    personnelType:
+      row.personnelType,
+
+    selectionSystem:
+      row.selectionSystem,
+
+    /*
+     * Prisma:
+     *
+     * scopeName
+     *
+     * Application:
+     *
+     * scope
+     */
+    scope:
+      row.scopeName,
+
+    /*
+     * Reservas.
+     */
+    reservedPlaces: {
+      disability:
+        row.reservedDisabilityPositions,
+
+      unemployed:
+        row.reservedUnemployed,
+
+      youngPeople:
+        row.reservedYoung,
+
+      women:
+        row.reservedWomen,
+    },
+
+    /*
+     * Fuente.
+     */
     cidoUrl:
       row.cidoUrl,
 
+    /*
+     * Institución.
+     */
     institution:
       row.institution
         ? {
             name:
-              row.institution.name,
+              row.institution
+                .name,
 
             municipality:
               row.institution
                 .municipality,
 
             county:
-              row.institution.county,
+              row.institution
+                .county,
 
             province:
-              row.institution.province,
+              row.institution
+                .province,
           }
         : null,
   };
 }
 
 /*
- * ========================================
- * STRINGS ÚNICOS Y ORDENADOS
- * ========================================
+ * Normaliza:
+ *
+ * string
+ *
+ * o
+ *
+ * string[]
+ *
+ * a:
+ *
+ * string[]
+ */
+function normalizeStringArray(
+  value:
+    | string
+    | string[]
+    | undefined,
+): string[] {
+  if (
+    value === undefined
+  ) {
+    return [];
+  }
+
+  const values =
+    Array.isArray(
+      value,
+    )
+      ? value
+      : [value];
+
+  return [
+    ...new Set(
+      values
+        .map(
+          (
+            item,
+          ) =>
+            item.trim(),
+        )
+        .filter(Boolean),
+    ),
+  ];
+}
+
+/*
+ * Elimina null, vacíos y duplicados,
+ * y ordena alfabéticamente.
  */
 function uniqueSortedStrings(
-  values: Array<
-    string | null
-  >,
+  values:
+    (
+      | string
+      | null
+    )[],
 ): string[] {
   return [
     ...new Set(
       values
-        .map((value) =>
-          value?.trim(),
-        )
-        .filter(
+        .map(
           (
             value,
-          ): value is string =>
-            value !== undefined &&
-            value.length > 0,
-        ),
+          ) =>
+            value?.trim() ??
+            "",
+        )
+        .filter(Boolean),
     ),
-  ].sort((a, b) =>
-    a.localeCompare(
-      b,
-      "ca",
-    ),
+  ].sort(
+    (
+      first,
+      second,
+    ) =>
+      first.localeCompare(
+        second,
+        "ca",
+      ),
   );
 }
 
 /*
- * ========================================
- * JERARQUÍA TERRITORIAL
- * ========================================
+ * Construye las combinaciones reales:
+ *
+ * provincia
+ * comarca
+ * municipio
  */
 function buildTerritories(
-  institutions: Array<{
-    province:
-      | string
-      | null;
-
-    county:
-      | string
-      | null;
-
-    municipality:
-      | string
-      | null;
-  }>,
+  institutions:
+    InstitutionTerritoryRow[],
 ): SelectionProcessTerritoryOption[] {
   const territories =
     new Map<
@@ -1486,14 +1635,12 @@ function buildTerritories(
       SelectionProcessTerritoryOption
     >();
 
-  for (const institution of institutions) {
+  for (
+    const institution of institutions
+  ) {
     const province =
       institution.province?.trim();
 
-    /*
-     * Para construir la jerarquía
-     * territorial necesitamos provincia.
-     */
     if (!province) {
       continue;
     }
@@ -1506,72 +1653,76 @@ function buildTerritories(
       institution.municipality?.trim() ||
       null;
 
-    const territory:
-      SelectionProcessTerritoryOption =
+    const key =
+      [
+        province,
+        county ?? "",
+        municipality ?? "",
+      ].join("|");
+
+    if (
+      territories.has(
+        key,
+      )
+    ) {
+      continue;
+    }
+
+    territories.set(
+      key,
       {
         province,
         county,
         municipality,
-      };
-
-    /*
-     * Evitamos duplicados.
-     */
-    const key = [
-      province,
-      county ?? "",
-      municipality ?? "",
-    ].join("|");
-
-    territories.set(
-      key,
-      territory,
+      },
     );
   }
 
   return [
     ...territories.values(),
-  ].sort((a, b) => {
-    /*
-     * Provincia
-     */
-    const provinceComparison =
-      a.province.localeCompare(
-        b.province,
-        "ca",
-      );
+  ].sort(
+    (
+      first,
+      second,
+    ) => {
+      const provinceComparison =
+        first.province.localeCompare(
+          second.province,
+          "ca",
+        );
 
-    if (
-      provinceComparison !== 0
-    ) {
-      return provinceComparison;
-    }
+      if (
+        provinceComparison !==
+        0
+      ) {
+        return provinceComparison;
+      }
 
-    /*
-     * Comarca
-     */
-    const countyComparison =
-      (
-        a.county ?? ""
+      const countyComparison =
+        (
+          first.county ??
+          ""
+        ).localeCompare(
+          second.county ??
+            "",
+          "ca",
+        );
+
+      if (
+        countyComparison !==
+        0
+      ) {
+        return countyComparison;
+      }
+
+      return (
+        first.municipality ??
+        ""
       ).localeCompare(
-        b.county ?? "",
+        second.municipality ??
+          "",
         "ca",
       );
-
-    if (
-      countyComparison !== 0
-    ) {
-      return countyComparison;
-    }
-
-    /*
-     * Municipio
-     */
-    return (
-      a.municipality ?? ""
-    ).localeCompare(
-      b.municipality ?? "",
-      "ca",
-    );
-  });
+    },
+  );
 }

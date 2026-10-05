@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+
 import {
   ArrowLeft,
   BookmarkPlus,
@@ -21,9 +22,19 @@ import {
 
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+
 import { getSelectionProcessDetailUseCase } from "@/composition/selection-process";
+
 import { auth } from "@/lib/auth";
+
 import type { SelectionProcessDetailDto } from "@/modules/selection-process/application/dto/selection-process-detail.dto";
+
+import {
+  getApplicationPeriodPresentation,
+  getOfficialStatusPresentation,
+} from "@/modules/selection-process/presentation/selection-process-status";
+
+import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
 
 type SelectionProcessDetailPageProps = {
   params: Promise<{
@@ -33,19 +44,6 @@ type SelectionProcessDetailPageProps = {
   searchParams: Promise<{
     returnTo?: string | string[];
   }>;
-};
-
-type ApplicationPeriodState =
-  | "open"
-  | "future"
-  | "closed"
-  | "unknown";
-
-type ApplicationPeriod = {
-  state: ApplicationPeriodState;
-  label: string;
-  detail: string;
-  progress: number;
 };
 
 type ProcessTimelineState =
@@ -58,10 +56,9 @@ type ProcessTimelineState =
 type ProcessTimelineStep = {
   key: string;
   title: string;
-  detail: string;
+  detail: string | null;
+  date: Date | null;
   state: ProcessTimelineState;
-  sortDay: number | null;
-  sortPriority: number;
 };
 
 type OfficialSourceType =
@@ -71,21 +68,21 @@ type OfficialSourceType =
   | "publication";
 
 type OfficialSource = {
-  key: string;
   type: OfficialSourceType;
   title: string;
-  description: string;
   url: string;
+  host: string;
 };
 
 type ImportantDate = {
-  key: string;
   label: string;
-  date: Date;
+  value: string;
+  state:
+    | "past"
+    | "today"
+    | "future"
+    | "unknown";
 };
-
-const MILLISECONDS_PER_DAY =
-  86_400_000;
 
 export default async function SelectionProcessDetailPage({
   params,
@@ -99,60 +96,38 @@ export default async function SelectionProcessDetailPage({
   const isAuthenticated =
     Boolean(session?.user);
 
-  /*
-   * ID de la convocatoria.
-   */
-  const { id } =
+  const { id: idParam } =
     await params;
 
-  const selectionProcessId =
-    Number(id);
+  const detailSearchParams =
+    await searchParams;
+
+  const rawReturnTo =
+    Array.isArray(
+      detailSearchParams.returnTo,
+    )
+      ? detailSearchParams.returnTo[0]
+      : detailSearchParams.returnTo;
+
+  const resultsHref =
+    getSafeResultsHref(
+      rawReturnTo,
+    );
+
+  const id =
+    Number(idParam);
 
   if (
-    !Number.isInteger(
-      selectionProcessId,
-    ) ||
-    selectionProcessId <= 0
+    !Number.isInteger(id) ||
+    id < 1
   ) {
     notFound();
   }
 
-  /*
-   * URL de retorno al buscador.
-   *
-   * Esta URL llega desde:
-   *
-   * /convocatorias
-   *
-   * y contiene los filtros y
-   * la página donde estaba
-   * el usuario.
-   */
-  const {
-    returnTo,
-  } =
-    await searchParams;
-
-  const returnToValue =
-    Array.isArray(
-      returnTo,
-    )
-      ? returnTo[0]
-      : returnTo;
-
-  const resultsHref =
-    getSafeResultsHref(
-      returnToValue,
-    );
-
-  /*
-   * Recuperamos la convocatoria.
-   */
   const selectionProcess =
     await getSelectionProcessDetailUseCase.execute(
       {
-        id:
-          selectionProcessId,
+        id,
       },
     );
 
@@ -160,69 +135,47 @@ export default async function SelectionProcessDetailPage({
     notFound();
   }
 
-  /*
-   * Tipo de convocatoria.
-   *
-   * Queremos que se vea siempre
-   * claramente nada más entrar.
-   */
   const processType =
     selectionProcess.isJobPool
       ? "Bolsa de trabajo"
       : "Plaza de plantilla";
 
-  /*
-   * Periodo de solicitud.
-   */
-  const applicationPeriod =
-    getApplicationPeriod(
-      selectionProcess,
+  const officialStatus =
+    getOfficialStatusPresentation(
+      selectionProcess.status,
     );
 
-  /*
-   * Línea temporal.
-   */
+  const applicationPeriod =
+    getApplicationPeriodPresentation(
+      selectionProcess.applicationStartDate,
+      selectionProcess.applicationEndDate,
+    );
+
   const processTimeline =
     buildProcessTimeline(
       selectionProcess,
-      applicationPeriod,
     );
 
-  /*
-   * Información general.
-   */
   const informationText =
     buildInformationText(
       selectionProcess,
     );
 
-  /*
-   * Requisitos.
-   */
   const requirements =
     buildRequirements(
       selectionProcess,
     );
 
-  /*
-   * Fechas importantes.
-   */
   const importantDates =
     buildImportantDates(
       selectionProcess,
     );
 
-  /*
-   * Documento de bases.
-   */
   const baseDocument =
     findBaseDocument(
       selectionProcess.documents,
     );
 
-  /*
-   * Fuentes oficiales.
-   */
   const officialSources =
     buildOfficialSources(
       selectionProcess,
@@ -244,12 +197,10 @@ export default async function SelectionProcessDetailPage({
             session?.user
               ? {
                   name:
-                    session.user
-                      .name,
+                    session.user.name,
 
                   email:
-                    session.user
-                      .email,
+                    session.user.email,
                 }
               : undefined
           }
@@ -257,294 +208,260 @@ export default async function SelectionProcessDetailPage({
 
         <main className="flex-1 px-6 py-8 lg:px-10 lg:pb-12">
           <div className="grid w-full items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-            {/* Columna principal */}
             <div className="flex min-w-0 flex-col gap-5">
-              {/* Volver */}
-              <Link
-                href={
-                  resultsHref
-                }
-                className="inline-flex w-fit items-center gap-1.5 text-[13.5px] font-semibold text-[#4E5870] hover:text-[#3B45B5]"
-              >
-                <ArrowLeft
-                  size={15}
-                />
-
-                Volver a los resultados
-              </Link>
-
               {/* Cabecera */}
-              <section className="rounded-xl border border-[#E3E7EE] bg-white shadow-sm">
-                <div className="p-6">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex h-7 items-center rounded-full bg-[#EEF0FC] px-3 text-[13.5px] font-semibold text-[#3B45B5]">
-                      {
-                        processType
-                      }
-                    </span>
+              <section className="flex flex-col gap-4 pb-1">
+                <Link
+                  href={
+                    resultsHref
+                  }
+                  className="inline-flex w-fit items-center gap-1.5 text-[13.5px] font-semibold text-[#4E5870] hover:text-[#3B45B5]"
+                >
+                  <ArrowLeft
+                    size={15}
+                  />
 
-                    <OfficialStatusBadge
-                      status={
-                        selectionProcess.status
-                      }
-                    />
+                  Volver a los
+                  resultados
+                </Link>
 
-                    {selectionProcess.lastDocumentPublicationDate && (
-                      <span className="text-[12.5px] text-[#69738A]">
-                        Última
-                        publicación:{" "}
-                        {formatDate(
-                          selectionProcess.lastDocumentPublicationDate,
-                        )}
-                      </span>
-                    )}
-                  </div>
-
-                  <h1 className="mt-4 text-[27px] font-semibold leading-[1.2] tracking-tight text-[#131A2C]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] px-3 text-xs font-semibold text-[#3B45B5]">
                     {
-                      selectionProcess.title
-                    }
-                  </h1>
-
-                  <div className="mt-3 flex items-start gap-2 text-[14.5px] text-[#4E5870]">
-                    <Building2
-                      size={17}
-                      className="mt-0.5 shrink-0"
-                    />
-
-                    <span>
-                      {selectionProcess
-                        .institution
-                        ?.name ??
-                        "Organismo no disponible"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Resumen */}
-                <div className="grid border-t border-[#EEF1F5] sm:grid-cols-2 xl:grid-cols-6">
-                  <SummaryItem
-                    icon={
-                      <BriefcaseBusiness
-                        size={
-                          15
-                        }
-                      />
-                    }
-                    label="Tipo"
-                    value={
                       processType
                     }
+                  </span>
+
+                  <OfficialStatusBadge
+                    label={
+                      officialStatus.label
+                    }
+                    badgeClassName={
+                      officialStatus.badgeClassName
+                    }
+                    dotClassName={
+                      officialStatus.dotClassName
+                    }
                   />
 
-                  <SummaryItem
-                    icon={
-                      <Users
-                        size={
-                          15
-                        }
+                  {selectionProcess.lastDocumentPublicationDate && (
+                    <span className="text-xs text-[#7C859B]">
+                      Última
+                      publicación:{" "}
+                      {formatDate(
+                        selectionProcess.lastDocumentPublicationDate,
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <h1 className="max-w-[920px] text-[30px] font-semibold leading-[1.15] tracking-[-0.025em] text-[#131A2C]">
+                    {formatSelectionProcessTitle(
+                      selectionProcess.title,
+                    )}
+                  </h1>
+
+                  <div className="mt-3 flex flex-col gap-1.5 text-[14.5px] text-[#4E5870]">
+                    <div className="flex items-start gap-2">
+                      <Building2
+                        size={17}
+                        className="mt-0.5 shrink-0 text-[#7C859B]"
                       />
-                    }
-                    label="Plazas"
-                    value={
-                      selectionProcess.numberOfPositions !==
-                      null
-                        ? String(
-                            selectionProcess.numberOfPositions,
-                          )
-                        : "—"
-                    }
-                    bordered
-                  />
 
-                  <SummaryItem
-                    icon={
-                      <GraduationCap
-                        size={
-                          15
-                        }
-                      />
-                    }
-                    label="Grupo"
-                    value={
-                      selectionProcess.qualificationGroup ??
-                      "—"
-                    }
-                    bordered
-                  />
+                      <span>
+                        {selectionProcess
+                          .institution
+                          ?.name ??
+                          "Organismo no disponible"}
+                      </span>
+                    </div>
 
-                  <SummaryItem
-                    icon={
-                      <Users
-                        size={
-                          15
-                        }
-                      />
-                    }
-                    label="Personal"
-                    value={
-                      selectionProcess.personnelType ??
-                      "—"
-                    }
-                    bordered
-                  />
-
-                  <SummaryItem
-                    icon={
-                      <Scale
-                        size={
-                          15
-                        }
-                      />
-                    }
-                    label="Sistema"
-                    value={
-                      selectionProcess.selectionSystem ??
-                      "—"
-                    }
-                    bordered
-                  />
-
-                  <SummaryItem
-                    icon={
+                    <div className="flex items-start gap-2">
                       <MapPin
-                        size={
-                          15
-                        }
+                        size={17}
+                        className="mt-0.5 shrink-0 text-[#7C859B]"
                       />
-                    }
-                    label="Municipio"
-                    value={
-                      selectionProcess
-                        .institution
-                        ?.municipality ??
-                      "—"
-                    }
-                    bordered
-                  />
+
+                      <span>
+                        {formatLocation(
+                          selectionProcess
+                            .institution
+                            ?.municipality,
+
+                          selectionProcess
+                            .institution
+                            ?.county,
+
+                          selectionProcess
+                            .institution
+                            ?.province,
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </section>
 
+              {/* Resumen */}
+              <section className="grid overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm sm:grid-cols-2 lg:grid-cols-3">
+                <SummaryItem
+                  icon={
+                    <BriefcaseBusiness
+                      size={18}
+                    />
+                  }
+                  label="Tipo"
+                  value={
+                    processType
+                  }
+                />
+
+                <SummaryItem
+                  icon={
+                    <Users
+                      size={18}
+                    />
+                  }
+                  label="Plazas"
+                  value={
+                    selectionProcess.numberOfPositions !==
+                    null
+                      ? String(
+                          selectionProcess.numberOfPositions,
+                        )
+                      : selectionProcess.isJobPool
+                        ? "—"
+                        : "No especificadas"
+                  }
+                />
+
+                <SummaryItem
+                  icon={
+                    <GraduationCap
+                      size={18}
+                    />
+                  }
+                  label="Grupo"
+                  value={
+                    selectionProcess.qualificationGroup ??
+                    "No especificado"
+                  }
+                />
+
+                <SummaryItem
+                  icon={
+                    <Building2
+                      size={18}
+                    />
+                  }
+                  label="Personal"
+                  value={
+                    selectionProcess.personnelType ??
+                    "No especificado"
+                  }
+                />
+
+                <SummaryItem
+                  icon={
+                    <Scale
+                      size={18}
+                    />
+                  }
+                  label="Sistema"
+                  value={
+                    selectionProcess.selectionSystem ??
+                    "No especificado"
+                  }
+                />
+
+                <SummaryItem
+                  icon={
+                    <MapPin
+                      size={18}
+                    />
+                  }
+                  label="Municipio"
+                  value={
+                    selectionProcess
+                      .institution
+                      ?.municipality ??
+                    "No especificado"
+                  }
+                />
+              </section>
+
               {/* Información */}
-              <ContentSection
-                title="Información de la convocatoria"
-                icon={
-                  <Info
-                    size={18}
-                  />
-                }
-              >
-                <p className="text-[14px] leading-6 text-[#4E5870]">
+              <ContentSection title="Información">
+                <p className="text-[14.5px] leading-7 text-[#4E5870]">
                   {
                     informationText
                   }
                 </p>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <SidebarValue
-                    label="Ámbito"
-                    value={
-                      selectionProcess.scope ||
-                      "—"
-                    }
-                  />
-
-                  <SidebarValue
-                    label="Expediente"
-                    value={
-                      selectionProcess.fileNumber ??
-                      "—"
-                    }
-                  />
-
-                  <SidebarValue
-                    label="Oferta pública"
-                    value={
-                      selectionProcess.publicOfferYear !==
-                      null
-                        ? String(
-                            selectionProcess.publicOfferYear,
-                          )
-                        : "—"
-                    }
-                  />
-
-                  <SidebarValue
-                    label="Identificador CIDO"
-                    value={
-                      selectionProcess.cidoIdentifier
-                    }
-                  />
-                </div>
-
                 {selectionProcess.observations && (
-                  <div className="mt-4 rounded-lg bg-[#F7F8FA] p-4">
-                    <p className="text-[13.5px] leading-5 text-[#4E5870]">
+                  <div className="mt-4 flex gap-3 rounded-lg bg-[#F4F6F9] px-4 py-3 text-sm leading-6 text-[#4E5870]">
+                    <Info
+                      size={17}
+                      className="mt-0.5 shrink-0 text-[#7C859B]"
+                    />
+
+                    <span>
                       {
                         selectionProcess.observations
                       }
-                    </p>
+                    </span>
                   </div>
                 )}
               </ContentSection>
 
               {/* Requisitos */}
-              {requirements.length >
-                0 && (
-                <ContentSection
-                  title="Requisitos"
-                  icon={
-                    <Check
-                      size={
-                        18
-                      }
-                    />
-                  }
-                >
-                  <div className="flex flex-col gap-3">
+              <ContentSection title="Requisitos">
+                {requirements.length >
+                0 ? (
+                  <ul className="flex flex-col gap-3">
                     {requirements.map(
                       (
                         requirement,
+                        index,
                       ) => (
-                        <div
-                          key={
-                            requirement
-                          }
-                          className="flex items-start gap-2.5 text-[14px] leading-5 text-[#4E5870]"
+                        <li
+                          key={`${requirement}-${index}`}
+                          className="flex gap-3 text-[14.5px] leading-6 text-[#131A2C]"
                         >
-                          <Check
-                            size={
-                              16
-                            }
-                            className="mt-0.5 shrink-0 text-[#3F8A64]"
-                          />
+                          <span className="mt-0.5 inline-flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] text-[#4F5BD5]">
+                            <Check
+                              size={12}
+                              strokeWidth={2}
+                            />
+                          </span>
 
                           <span>
                             {
                               requirement
                             }
                           </span>
-                        </div>
+                        </li>
                       ),
                     )}
-                  </div>
-                </ContentSection>
-              )}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-[#69738A]">
+                    No hay
+                    información
+                    estructurada de
+                    requisitos.
+                    Consulta las bases
+                    oficiales.
+                  </p>
+                )}
+              </ContentSection>
 
-              {/* Proceso */}
-              {processTimeline.length >
-                0 && (
-                <ContentSection
-                  title="Proceso de la convocatoria"
-                  icon={
-                    <BriefcaseBusiness
-                      size={
-                        18
-                      }
-                    />
-                  }
-                >
-                  <div className="flex flex-col">
+              {/* Cronología */}
+              <ContentSection title="Cronología del proceso">
+                {processTimeline.length >
+                0 ? (
+                  <ol className="flex flex-col">
                     {processTimeline.map(
                       (
                         step,
@@ -565,117 +482,115 @@ export default async function SelectionProcessDetailPage({
                         />
                       ),
                     )}
-                  </div>
-                </ContentSection>
-              )}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-[#69738A]">
+                    Todavía no hay
+                    hitos publicados
+                    para este proceso.
+                  </p>
+                )}
+              </ContentSection>
 
-              {/* Fechas */}
-              {importantDates.length >
-                0 && (
-                <ContentSection
-                  title="Fechas importantes"
-                  icon={
-                    <BriefcaseBusiness
-                      size={
-                        18
-                      }
-                    />
-                  }
-                >
-                  <div className="grid gap-3 sm:grid-cols-2">
+              {/* Fechas importantes */}
+              <ContentSection title="Fechas importantes">
+                {importantDates.length >
+                0 ? (
+                  <ul className="flex flex-col">
                     {importantDates.map(
                       (
-                        item,
+                        importantDate,
                       ) => (
-                        <div
-                          key={
-                            item.key
-                          }
-                          className="rounded-[10px] border border-[#E3E7EE] bg-[#FAFBFC] p-4"
+                        <li
+                          key={`${importantDate.label}-${importantDate.value}`}
+                          className="flex flex-col gap-1 border-t border-[#EEF1F5] py-3 first:border-t-0 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-5"
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#69738A]">
-                                {
-                                  item.label
-                                }
-                              </p>
-
-                              <p className="mt-1.5 text-[15px] font-semibold text-[#131A2C]">
-                                {formatDate(
-                                  item.date,
-                                )}
-                              </p>
-                            </div>
-
-                            <DateState
-                              date={
-                                item.date
+                          <div>
+                            <p className="text-sm font-semibold text-[#131A2C]">
+                              {
+                                importantDate.label
                               }
-                            />
+                            </p>
+
+                            <p className="mt-0.5 text-sm text-[#4E5870]">
+                              {
+                                importantDate.value
+                              }
+                            </p>
                           </div>
-                        </div>
+
+                          <DateState
+                            state={
+                              importantDate.state
+                            }
+                          />
+                        </li>
                       ),
                     )}
-                  </div>
-                </ContentSection>
-              )}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-[#69738A]">
+                    No hay fechas
+                    adicionales
+                    disponibles.
+                  </p>
+                )}
+              </ContentSection>
 
               {/* Documentos */}
               <ContentSection
                 title={`Documentos oficiales (${selectionProcess.documents.length})`}
-                icon={
-                  <FileText
-                    size={18}
-                  />
-                }
               >
-                {selectionProcess.documents.length ===
+                {selectionProcess.documents.length >
                 0 ? (
-                  <p className="text-[14px] text-[#69738A]">
-                    No hay
-                    documentos
-                    oficiales
-                    disponibles.
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-3">
+                  <ul className="flex flex-col">
                     {selectionProcess.documents.map(
                       (
                         document,
+                        index,
                       ) => (
-                        <article
+                        <li
                           key={
                             document.id
                           }
-                          className="rounded-[10px] border border-[#E3E7EE] bg-white p-4"
+                          className={`flex flex-col gap-3 py-4 first:pt-0 last:pb-0 ${
+                            index > 0
+                              ? "border-t border-[#EEF1F5]"
+                              : ""
+                          }`}
                         >
-                          <div className="flex flex-col gap-3">
-                            <div>
+                          <div className="flex items-start gap-3">
+                            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EEF0FC] text-[#3B45B5]">
+                              <FileText
+                                size={19}
+                              />
+                            </span>
+
+                            <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-md bg-[#EEF0FC] px-2 py-1 text-[11.5px] font-semibold text-[#3B45B5]">
+                                <span className="rounded-md bg-[#F4F6F9] px-2 py-1 text-[11.5px] font-semibold text-[#4E5870]">
                                   {
                                     document.phase
                                   }
                                 </span>
 
-                                <span className="text-[12.5px] text-[#69738A]">
+                                <span className="text-xs text-[#7C859B]">
                                   {formatDate(
                                     document.publicationDate,
                                   )}
                                 </span>
                               </div>
 
-                              <h3 className="mt-2 text-[14.5px] font-semibold leading-5 text-[#131A2C]">
+                              <p className="mt-2 text-[14.5px] font-semibold leading-6 text-[#131A2C]">
                                 {buildDocumentTitle(
                                   document,
                                 )}
-                              </h3>
+                              </p>
 
                               {buildDocumentMetadata(
                                 document,
                               ) && (
-                                <p className="mt-1.5 text-[12.5px] leading-5 text-[#69738A]">
+                                <p className="mt-1 text-[13px] text-[#7C859B]">
                                   {buildDocumentMetadata(
                                     document,
                                   )}
@@ -683,262 +598,246 @@ export default async function SelectionProcessDetailPage({
                               )}
 
                               {document.phaseNotes && (
-                                <p className="mt-2 text-[13.5px] leading-5 text-[#4E5870]">
+                                <p className="mt-2 text-sm leading-6 text-[#4E5870]">
                                   {
                                     document.phaseNotes
                                   }
                                 </p>
                               )}
                             </div>
+                          </div>
 
-                            <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2 sm:pl-[52px]">
+                            <a
+                              href={
+                                document.documentUrl
+                              }
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-[13px] font-semibold text-[#131A2C] hover:bg-[#F4F6F9]"
+                            >
+                              Abrir documento
+
+                              <ExternalLink
+                                size={14}
+                              />
+                            </a>
+
+                            {document.htmlUrl && (
                               <a
                                 href={
-                                  document.documentUrl
+                                  document.htmlUrl
                                 }
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-[#4F5BD5] px-3 py-2 text-[13px] font-semibold text-white hover:bg-[#3B45B5]"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-[13px] font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
                               >
+                                Ver publicación
+                                HTML
+
                                 <ExternalLink
-                                  size={
-                                    14
-                                  }
+                                  size={14}
                                 />
-
-                                Abrir
-                                documento
                               </a>
-
-                              {document.htmlUrl && (
-                                <a
-                                  href={
-                                    document.htmlUrl
-                                  }
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-[13px] font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
-                                >
-                                  <ExternalLink
-                                    size={
-                                      14
-                                    }
-                                  />
-
-                                  Ver
-                                  publicación
-                                  HTML
-                                </a>
-                              )}
-                            </div>
+                            )}
                           </div>
-                        </article>
+                        </li>
                       ),
                     )}
-                  </div>
+                  </ul>
+                ) : (
+                  <p className="text-sm text-[#69738A]">
+                    No hay documentos
+                    oficiales asociados.
+                  </p>
                 )}
               </ContentSection>
 
               {/* Fuentes */}
-              <ContentSection
-                title="Fuentes oficiales"
-                icon={
-                  <Building2
-                    size={18}
-                  />
-                }
-              >
-                <div className="flex flex-col gap-2.5">
-                  {officialSources.map(
-                    (
-                      source,
-                    ) => (
-                      <a
-                        key={
-                          source.key
-                        }
-                        href={
-                          source.url
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-3 rounded-[10px] border border-[#E3E7EE] bg-[#FAFBFC] px-4 py-3.5 text-[#131A2C] hover:border-[#C9CED9] hover:bg-white"
-                      >
-                        <SourceIcon
-                          type={
-                            source.type
-                          }
-                        />
-
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-semibold">
-                            {
-                              source.title
+              <ContentSection title="Fuentes oficiales">
+                {officialSources.length >
+                0 ? (
+                  <ul className="flex flex-col gap-2">
+                    {officialSources.map(
+                      (
+                        source,
+                      ) => (
+                        <li
+                          key={`${source.type}-${source.url}`}
+                        >
+                          <a
+                            href={
+                              source.url
                             }
-                          </p>
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-3 rounded-lg border border-[#E3E7EE] bg-[#FAFBFC] px-4 py-3 text-[#131A2C] hover:bg-[#F4F6F9]"
+                          >
+                            <SourceIcon
+                              type={
+                                source.type
+                              }
+                            />
 
-                          <p className="mt-0.5 truncate text-[12.5px] text-[#69738A]">
-                            {
-                              source.description
-                            }
-                          </p>
-                        </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">
+                                {
+                                  source.title
+                                }
+                              </p>
 
-                        <ExternalLink
-                          size={
-                            16
-                          }
-                          className="shrink-0 text-[#7C859B]"
-                        />
-                      </a>
-                    ),
-                  )}
-                </div>
+                              <p className="truncate text-[13px] text-[#3B45B5]">
+                                {
+                                  source.host
+                                }
+                              </p>
+                            </div>
 
-                <div className="mt-4 flex gap-2.5 rounded-[10px] bg-[#F1F3F7] p-3.5">
+                            <ExternalLink
+                              size={15}
+                              className="shrink-0 text-[#7C859B]"
+                            />
+                          </a>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-[#69738A]">
+                    No hay fuentes
+                    adicionales
+                    disponibles.
+                  </p>
+                )}
+
+                <div className="mt-4 flex gap-2.5 rounded-lg bg-[#F1F3F7] px-4 py-3 text-[13px] leading-5 text-[#4E5870]">
                   <Info
-                    size={
-                      16
-                    }
+                    size={16}
                     className="mt-0.5 shrink-0 text-[#7C859B]"
                   />
 
-                  <p className="text-[12.5px] leading-5 text-[#4E5870]">
+                  <span>
                     Convoca&apos;m
-                    recopila y
-                    organiza
+                    recoge y organiza
                     información
-                    pública. Antes
-                    de presentar la
-                    solicitud,
-                    consulta siempre
-                    las fuentes
+                    pública. Antes de
+                    presentar la
+                    solicitud, consulta
+                    siempre las fuentes
                     oficiales.
-                  </p>
+                  </span>
                 </div>
               </ContentSection>
             </div>
 
-            {/* Lateral */}
-            <aside className="flex flex-col gap-4 xl:sticky xl:top-6">
-              {/* Estado */}
+            {/* Columna derecha */}
+            <aside
+              aria-label="Resumen y acciones"
+              className="flex flex-col gap-4 xl:sticky xl:top-6"
+            >
               <section className="rounded-xl border border-[#E3E7EE] bg-white shadow-sm">
                 <div className="flex flex-col gap-4 p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#69738A]">
+                    <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#7C859B]">
                       Estado oficial
                     </p>
 
                     <OfficialStatusBadge
-                      status={
-                        selectionProcess.status
+                      label={
+                        officialStatus.label
+                      }
+                      badgeClassName={
+                        officialStatus.badgeClassName
+                      }
+                      dotClassName={
+                        officialStatus.dotClassName
                       }
                     />
                   </div>
 
-                  <div className="border-t border-[#EEF1F5] pt-4">
-                    <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#69738A]">
-                      Periodo de
-                      solicitud
-                    </p>
+                  <div className="h-px bg-[#EEF1F5]" />
 
-                    <div className="mt-2">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#7C859B]">
+                        Plazo de
+                        inscripción
+                      </p>
+
                       <ApplicationPeriodBadge
-                        state={
-                          applicationPeriod.state
-                        }
                         label={
                           applicationPeriod.label
+                        }
+                        badgeClassName={
+                          applicationPeriod.badgeClassName
+                        }
+                        dotClassName={
+                          applicationPeriod.dotClassName
                         }
                       />
                     </div>
 
-                    <p className="mt-2 text-[13px] leading-5 text-[#4E5870]">
+                    <p className="text-[16px] font-semibold text-[#131A2C]">
+                      {formatDateRange(
+                        selectionProcess.applicationStartDate,
+                        selectionProcess.applicationEndDate,
+                      )}
+                    </p>
+
+                    {selectionProcess.applicationStartDate &&
+                      selectionProcess.applicationEndDate && (
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[#EEF1F5]">
+                          <div
+                            className={`h-full rounded-full ${applicationPeriod.progressClassName}`}
+                            style={{
+                              width: `${applicationPeriod.progress}%`,
+                            }}
+                          />
+                        </div>
+                      )}
+
+                    <p className="text-[19px] font-semibold tracking-[-0.02em] text-[#131A2C]">
                       {
                         applicationPeriod.detail
                       }
                     </p>
 
-                    {applicationPeriod.state !==
-                      "unknown" && (
-                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#E9ECF2]">
-                        <div
-                          className={`h-full rounded-full ${
-                            applicationPeriod.state ===
-                            "open"
-                              ? "bg-[#3F8A64]"
-                              : applicationPeriod.state ===
-                                  "future"
-                                ? "bg-[#4F5BD5]"
-                                : "bg-[#9AA2B1]"
-                          }`}
-                          style={{
-                            width: `${applicationPeriod.progress}%`,
-                          }}
-                        />
+                    {selectionProcess.applicationEndTime && (
+                      <SidebarValue
+                        label="Hora límite"
+                        value={
+                          selectionProcess.applicationEndTime
+                        }
+                      />
+                    )}
+
+                    {selectionProcess.applicationDeadlineNotes && (
+                      <div className="rounded-lg bg-[#FFF8E8] px-3 py-2.5 text-[12.5px] leading-5 text-[#7B5B12]">
+                        {
+                          selectionProcess.applicationDeadlineNotes
+                        }
                       </div>
                     )}
                   </div>
 
-                  {(selectionProcess.applicationStartDate ||
-                    selectionProcess.applicationEndDate) && (
-                    <div className="grid grid-cols-2 gap-3 border-t border-[#EEF1F5] pt-4">
-                      <SidebarValue
-                        label="Inicio"
-                        value={
-                          selectionProcess.applicationStartDate
-                            ? formatDate(
-                                selectionProcess.applicationStartDate,
-                              )
-                            : "—"
-                        }
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex h-12 cursor-not-allowed items-center justify-center gap-2 rounded-[10px] bg-[#E8EAF0] px-5 text-[14px] font-semibold text-[#8B93A3]"
+                    >
+                      <BookmarkPlus
+                        size={17}
                       />
 
-                      <SidebarValue
-                        label="Fin"
-                        value={
-                          selectionProcess.applicationEndDate
-                            ? formatDate(
-                                selectionProcess.applicationEndDate,
-                              )
-                            : "—"
-                        }
-                      />
-                    </div>
-                  )}
+                      Seguir convocatoria
+                    </button>
 
-                  {selectionProcess.applicationEndTime && (
-                    <SidebarValue
-                      label="Hora límite"
-                      value={
-                        selectionProcess.applicationEndTime
-                      }
-                    />
-                  )}
-
-                  {selectionProcess.applicationDeadlineNotes && (
-                    <p className="rounded-lg bg-[#F7F8FA] p-3 text-[12.5px] leading-5 text-[#4E5870]">
-                      {
-                        selectionProcess.applicationDeadlineNotes
-                      }
+                    <p className="text-center text-xs text-[#7C859B]">
+                      Disponible
+                      próximamente.
                     </p>
-                  )}
-
-                  {/* Seguimiento futuro */}
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex h-10 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#D5DAE3] bg-[#F4F6F9] px-4 text-[13.5px] font-semibold text-[#8A92A2]"
-                  >
-                    <BookmarkPlus
-                      size={
-                        16
-                      }
-                    />
-
-                    Seguir
-                    convocatoria
-                  </button>
+                  </div>
 
                   {selectionProcess.applicationUrl && (
                     <a
@@ -947,15 +846,12 @@ export default async function SelectionProcessDetailPage({
                       }
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4F5BD5] px-4 text-[13.5px] font-semibold text-white hover:bg-[#3B45B5]"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4F5BD5] px-4 text-sm font-semibold text-white hover:bg-[#3B45B5]"
                     >
-                      Presentar
-                      solicitud
+                      Presentar solicitud
 
                       <ExternalLink
-                        size={
-                          15
-                        }
+                        size={16}
                       />
                     </a>
                   )}
@@ -967,70 +863,69 @@ export default async function SelectionProcessDetailPage({
                       }
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#D5DAE3] bg-white px-4 text-[13.5px] font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#D5DAE3] bg-white px-4 text-sm font-semibold text-[#131A2C] hover:bg-[#F4F6F9]"
                     >
-                      <FileText
-                        size={
-                          15
-                        }
-                      />
+                      Abrir las bases
 
-                      Abrir las
-                      bases
+                      <ExternalLink
+                        size={16}
+                      />
                     </a>
                   )}
                 </div>
               </section>
 
-              {/* Mi estado */}
               <section className="rounded-xl border border-[#E3E7EE] bg-white shadow-sm">
-                <div className="p-5">
-                  <div className="flex items-center gap-2">
-                    <Lock
-                      size={
-                        16
-                      }
-                      className="text-[#69738A]"
-                    />
-
-                    <h2 className="text-[14.5px] font-semibold text-[#131A2C]">
+                <div className="flex flex-col gap-3 p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#7C859B]">
                       Mi estado
-                    </h2>
+                    </p>
+
+                    <span className="inline-flex items-center gap-1 text-xs text-[#7C859B]">
+                      <Lock
+                        size={12}
+                      />
+
+                      Solo lo ves tú
+                    </span>
                   </div>
 
-                  <p className="mt-2 text-[13px] leading-5 text-[#69738A]">
-                    Próximamente
-                    podrás guardar
-                    esta
-                    convocatoria y
-                    registrar el
-                    estado de tu
-                    proceso.
+                  <p className="text-[13.5px] leading-6 text-[#4E5870]">
+                    Sigue la
+                    convocatoria para
+                    anotar en qué punto
+                    estás: desde{" "}
+                    <strong className="font-semibold text-[#131A2C]">
+                      Me interesa
+                    </strong>{" "}
+                    hasta{" "}
+                    <strong className="font-semibold text-[#131A2C]">
+                      Finalizado
+                    </strong>
+                    . No modifica el
+                    estado oficial.
                   </p>
-
-                  {!isAuthenticated && (
-                    <Link
-                      href="/login"
-                      className="mt-4 inline-flex text-[13px] font-semibold text-[#3B45B5] hover:underline"
-                    >
-                      Iniciar sesión
-                    </Link>
-                  )}
                 </div>
               </section>
 
-              {/* Referencia */}
               <section className="rounded-xl border border-[#E3E7EE] bg-white shadow-sm">
-                <div className="p-5">
-                  <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#69738A]">
-                    Referencia
-                  </p>
-
-                  <p className="mt-2 break-all text-[13px] font-semibold text-[#131A2C]">
-                    {
+                <div className="flex flex-col gap-3 p-5">
+                  <SidebarValue
+                    label="Referencia CIDO"
+                    value={
                       selectionProcess.cidoIdentifier
                     }
-                  </p>
+                  />
+
+                  {selectionProcess.fileNumber && (
+                    <SidebarValue
+                      label="Expediente"
+                      value={
+                        selectionProcess.fileNumber
+                      }
+                    />
+                  )}
 
                   <a
                     href={
@@ -1038,14 +933,12 @@ export default async function SelectionProcessDetailPage({
                     }
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#3B45B5] hover:underline"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#3B45B5] hover:underline"
                   >
-                    Ver en CIDO
+                    Ver ficha en CIDO
 
                     <ExternalLink
-                      size={
-                        14
-                      }
+                      size={14}
                     />
                   </a>
                 </div>
@@ -1059,76 +952,101 @@ export default async function SelectionProcessDetailPage({
 }
 
 /*
- * Sección principal.
+ * ============================================================
+ * COMPONENTES
+ * ============================================================
  */
+
 function ContentSection({
   title,
-  icon,
   children,
 }: {
   title: string;
-  icon: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-[#E3E7EE] bg-white shadow-sm">
-      <div className="flex items-center gap-2 border-b border-[#EEF1F5] px-5 py-4">
-        <span className="text-[#4E5870]">
-          {icon}
-        </span>
+    <section className="rounded-xl border border-[#E3E7EE] bg-white px-6 py-5 shadow-sm">
+      <h2 className="mb-4 text-[18px] font-semibold tracking-[-0.01em] text-[#131A2C]">
+        {title}
+      </h2>
 
-        <h2 className="text-[15px] font-semibold text-[#131A2C]">
-          {title}
-        </h2>
-      </div>
-
-      <div className="p-5">
-        {children}
-      </div>
+      {children}
     </section>
   );
 }
 
-/*
- * Elemento del resumen superior.
- */
 function SummaryItem({
   icon,
   label,
   value,
-  bordered = false,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
-  bordered?: boolean;
 }) {
   return (
-    <div
-      className={`min-w-0 p-4 ${
-        bordered
-          ? "border-t border-[#EEF1F5] sm:border-l xl:border-t-0"
-          : ""
-      }`}
-    >
-      <div className="flex items-center gap-1.5 text-[#69738A]">
+    <div className="flex min-w-0 gap-3 border-b border-r border-[#EEF1F5] px-5 py-4">
+      <span className="mt-0.5 shrink-0 text-[#7C859B]">
         {icon}
+      </span>
 
-        <span className="text-[11.5px] font-semibold uppercase tracking-[0.04em]">
+      <div className="min-w-0">
+        <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
           {label}
-        </span>
-      </div>
+        </p>
 
-      <p className="mt-1.5 truncate text-[13.5px] font-semibold text-[#131A2C]">
-        {value}
-      </p>
+        <p className="mt-1 break-words text-[14px] font-semibold leading-5 text-[#131A2C]">
+          {value}
+        </p>
+      </div>
     </div>
   );
 }
 
-/*
- * Paso de la línea temporal.
- */
+function OfficialStatusBadge({
+  label,
+  badgeClassName,
+  dotClassName,
+}: {
+  label: string;
+  badgeClassName: string;
+  dotClassName: string;
+}) {
+  return (
+    <span
+      className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${badgeClassName}`}
+    >
+      <span
+        className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClassName}`}
+      />
+
+      {label}
+    </span>
+  );
+}
+
+function ApplicationPeriodBadge({
+  label,
+  badgeClassName,
+  dotClassName,
+}: {
+  label: string;
+  badgeClassName: string;
+  dotClassName: string;
+}) {
+  return (
+    <span
+      className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${badgeClassName}`}
+    >
+      <span
+        className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClassName}`}
+      />
+
+      {label}
+    </span>
+  );
+}
+
 function ProcessStep({
   step,
   isLast,
@@ -1136,132 +1054,134 @@ function ProcessStep({
   step: ProcessTimelineStep;
   isLast: boolean;
 }) {
-  const completed =
+  const isCompleted =
     step.state ===
     "completed";
 
-  const current =
+  const isCurrent =
     step.state ===
       "current" ||
     step.state ===
       "current-known";
 
   return (
-    <div className="relative flex gap-3.5">
-      {/* Línea */}
+    <li className="relative flex gap-4 pb-5 last:pb-0">
       {!isLast && (
-        <div className="absolute left-[10px] top-[22px] h-[calc(100%-4px)] w-px bg-[#DDE1E8]" />
+        <span className="absolute left-[14px] top-8 h-[calc(100%-20px)] w-px bg-[#DDE1E8]" />
       )}
 
-      {/* Punto */}
-      <div
-        className={`relative z-10 mt-0.5 flex h-[21px] w-[21px] shrink-0 items-center justify-center rounded-full border ${
-          completed
-            ? "border-[#3F8A64] bg-[#3F8A64] text-white"
-            : current
-              ? "border-[#4F5BD5] bg-[#EEF0FC] text-[#4F5BD5]"
-              : "border-[#CBD1DC] bg-white text-[#8992A3]"
+      <span
+        className={`relative z-10 mt-0.5 inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+          isCompleted
+            ? "border-[#4F5BD5] bg-[#4F5BD5] text-white"
+            : isCurrent
+              ? "border-[#4F5BD5] bg-[#EEF0FC] text-[#3B45B5]"
+              : "border-[#D5DAE3] bg-white text-[#7C859B]"
         }`}
       >
-        {completed ? (
+        {isCompleted ? (
           <Check
-            size={12}
+            size={14}
           />
         ) : (
-          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+          "•"
         )}
-      </div>
+      </span>
 
-      <div
-        className={`min-w-0 flex-1 ${
-          isLast
-            ? ""
-            : "pb-5"
-        }`}
-      >
+      <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-[14px] font-semibold text-[#131A2C]">
+          <p className="text-[14px] font-semibold text-[#131A2C]">
             {
               step.title
             }
-          </h3>
+          </p>
 
           {step.state ===
             "current" && (
-            <span className="rounded-full bg-[#EAF5EF] px-2 py-0.5 text-[11px] font-semibold text-[#317553]">
+            <span className="rounded-full bg-[#EEF0FC] px-2 py-0.5 text-[11.5px] font-semibold text-[#3B45B5]">
               Actual
             </span>
           )}
 
           {step.state ===
             "current-known" && (
-            <span className="rounded-full bg-[#EEF0FC] px-2 py-0.5 text-[11px] font-semibold text-[#3B45B5]">
-              Último hito
-              conocido
+            <span className="rounded-full bg-[#FFF4DB] px-2 py-0.5 text-[11.5px] font-semibold text-[#9A6700]">
+              Último hito conocido
             </span>
           )}
         </div>
 
-        <p className="mt-1 text-[13px] leading-5 text-[#69738A]">
-          {
-            step.detail
-          }
-        </p>
+        {step.detail && (
+          <p className="mt-1 text-sm leading-5 text-[#4E5870]">
+            {
+              step.detail
+            }
+          </p>
+        )}
+
+        {step.date && (
+          <p className="mt-1 text-xs font-medium text-[#7C859B]">
+            {formatDate(
+              step.date,
+            )}
+          </p>
+        )}
       </div>
-    </div>
+    </li>
   );
 }
 
-/*
- * Estado oficial de CIDO.
- */
-function OfficialStatusBadge({
-  status,
-}: {
-  status: string;
-}) {
-  return (
-    <span className="inline-flex h-7 items-center rounded-full bg-[#EAF5EF] px-3 text-[13px] font-semibold text-[#317553]">
-      {status}
-    </span>
-  );
-}
-
-/*
- * Estado calculado del periodo.
- */
-function ApplicationPeriodBadge({
+function DateState({
   state,
-  label,
 }: {
-  state: ApplicationPeriodState;
-  label: string;
+  state:
+    ImportantDate["state"];
 }) {
-  const className =
-    state === "open"
-      ? "bg-[#EAF5EF] text-[#317553]"
-      : state === "future"
-        ? "bg-[#EEF0FC] text-[#3B45B5]"
-        : state === "closed"
-          ? "bg-[#EFF1F4] text-[#626C7E]"
-          : "bg-[#F4F6F9] text-[#69738A]";
+  if (
+    state ===
+    "today"
+  ) {
+    return (
+      <span className="w-fit rounded-full bg-[#FDECEC] px-2.5 py-1 text-xs font-semibold text-[#B42318]">
+        Hoy
+      </span>
+    );
+  }
+
+  if (
+    state ===
+    "future"
+  ) {
+    return (
+      <span className="w-fit rounded-full bg-[#EEF0FC] px-2.5 py-1 text-xs font-semibold text-[#3B45B5]">
+        Próxima
+      </span>
+    );
+  }
+
+  if (
+    state ===
+    "past"
+  ) {
+    return (
+      <span className="w-fit rounded-full bg-[#EFF1F4] px-2.5 py-1 text-xs font-semibold text-[#69738A]">
+        Finalizada
+      </span>
+    );
+  }
 
   return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-[12px] font-semibold ${className}`}
-    >
-      {label}
+    <span className="w-fit rounded-full bg-[#F4F6F9] px-2.5 py-1 text-xs font-semibold text-[#7C859B]">
+      Sin determinar
     </span>
   );
 }
 
-/*
- * Icono de fuente oficial.
- */
 function SourceIcon({
   type,
 }: {
-  type: OfficialSourceType;
+  type:
+    OfficialSourceType;
 }) {
   if (
     type ===
@@ -1288,10 +1208,11 @@ function SourceIcon({
   }
 
   if (
-    type === "cido"
+    type ===
+    "cido"
   ) {
     return (
-      <Scale
+      <BriefcaseBusiness
         size={18}
         className="shrink-0 text-[#4E5870]"
       />
@@ -1306,58 +1227,6 @@ function SourceIcon({
   );
 }
 
-/*
- * Estado de una fecha.
- */
-function DateState({
-  date,
-}: {
-  date: Date;
-}) {
-  const today =
-    getTodayInMadridDayNumber();
-
-  const dateDay =
-    getDateDayNumber(
-      date,
-    );
-
-  if (
-    dateDay === null
-  ) {
-    return null;
-  }
-
-  if (
-    dateDay < today
-  ) {
-    return (
-      <span className="rounded-full bg-[#EFF1F4] px-2 py-1 text-[11px] font-semibold text-[#626C7E]">
-        Pasada
-      </span>
-    );
-  }
-
-  if (
-    dateDay === today
-  ) {
-    return (
-      <span className="rounded-full bg-[#EAF5EF] px-2 py-1 text-[11px] font-semibold text-[#317553]">
-        Hoy
-      </span>
-    );
-  }
-
-  return (
-    <span className="rounded-full bg-[#EEF0FC] px-2 py-1 text-[11px] font-semibold text-[#3B45B5]">
-      Próxima
-    </span>
-  );
-}
-
-/*
- * Valor sencillo del lateral/resumen.
- */
 function SidebarValue({
   label,
   value,
@@ -1367,11 +1236,11 @@ function SidebarValue({
 }) {
   return (
     <div>
-      <p className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-[#69738A]">
+      <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
         {label}
       </p>
 
-      <p className="mt-1 text-[13.5px] font-semibold leading-5 text-[#131A2C]">
+      <p className="mt-1 break-words text-sm font-semibold text-[#131A2C]">
         {value}
       </p>
     </div>
@@ -1379,143 +1248,99 @@ function SidebarValue({
 }
 
 /*
- * Construye la línea temporal real.
+ * ============================================================
+ * CRONOLOGÍA
+ * ============================================================
  */
-function buildProcessTimeline(
-  selectionProcess: SelectionProcessDetailDto,
-  applicationPeriod: ApplicationPeriod,
-): ProcessTimelineStep[] {
-  const today =
-    getTodayInMadridDayNumber();
 
+function buildProcessTimeline(
+  selectionProcess:
+    SelectionProcessDetailDto,
+): ProcessTimelineStep[] {
   const steps:
     ProcessTimelineStep[] =
     [];
 
-  /*
-   * Documentos publicados agrupados
-   * por fase.
-   */
-  const groupedDocuments =
+  const documentGroups =
     groupDocumentsByPhase(
       selectionProcess.documents,
     );
 
   for (
-    const group of groupedDocuments
+    const group of documentGroups
   ) {
-    const firstDocument =
+    const latestDocument =
       group.documents[0];
-
-    const publicationDay =
-      getDateDayNumber(
-        firstDocument.publicationDate,
-      );
 
     steps.push({
       key:
         `document-${group.key}`,
 
       title:
-        group.phase,
+        group.title,
 
       detail:
         buildTimelineDocumentDetail(
           group.documents,
         ),
 
+      date:
+        latestDocument
+          ?.publicationDate ??
+        null,
+
       state:
-        publicationDay !==
-          null &&
-        publicationDay >
-          today
-          ? "future"
-          : "completed",
-
-      sortDay:
-        publicationDay,
-
-      sortPriority:
-        10,
+        "unknown",
     });
   }
 
-  /*
-   * Periodo de solicitud.
-   */
   if (
-    selectionProcess.applicationStartDate ||
-    selectionProcess.applicationEndDate
+    selectionProcess.applicationStartDate
   ) {
-    const startDay =
-      getDateDayNumber(
-        selectionProcess.applicationStartDate,
-      );
-
-    const endDay =
-      getDateDayNumber(
-        selectionProcess.applicationEndDate,
-      );
-
-    let state:
-      ProcessTimelineState =
-      "unknown";
-
-    if (
-      applicationPeriod.state ===
-      "open"
-    ) {
-      state =
-        "current";
-    } else if (
-      applicationPeriod.state ===
-      "future"
-    ) {
-      state =
-        "future";
-    } else if (
-      applicationPeriod.state ===
-      "closed"
-    ) {
-      state =
-        "completed";
-    }
-
     steps.push({
       key:
-        "application-period",
+        "application-start",
 
       title:
-        "Presentación de solicitudes",
+        "Inicio del plazo de solicitudes",
 
       detail:
-        formatDateRange(
-          selectionProcess.applicationStartDate,
-          selectionProcess.applicationEndDate,
-        ),
+        null,
 
-      state,
+      date:
+        selectionProcess.applicationStartDate,
 
-      sortDay:
-        startDay ??
-        endDay,
-
-      sortPriority:
-        20,
+      state:
+        "unknown",
     });
   }
 
-  /*
-   * Primera prueba.
-   */
+  if (
+    selectionProcess.applicationEndDate
+  ) {
+    steps.push({
+      key:
+        "application-end",
+
+      title:
+        "Fin del plazo de solicitudes",
+
+      detail:
+        selectionProcess.applicationEndTime
+          ? `Hora límite: ${selectionProcess.applicationEndTime}`
+          : null,
+
+      date:
+        selectionProcess.applicationEndDate,
+
+      state:
+        "unknown",
+    });
+  }
+
   if (
     selectionProcess.firstExamDate
   ) {
-    const examDay =
-      getDateDayNumber(
-        selectionProcess.firstExamDate,
-      );
-
     steps.push({
       key:
         "first-exam",
@@ -1524,93 +1349,97 @@ function buildProcessTimeline(
         "Primera prueba",
 
       detail:
-        formatDate(
-          selectionProcess.firstExamDate,
-        ),
+        null,
+
+      date:
+        selectionProcess.firstExamDate,
 
       state:
-        examDay === null
-          ? "unknown"
-          : examDay >
-              today
-            ? "future"
-            : examDay ===
-                today
-              ? "current"
-              : "completed",
-
-      sortDay:
-        examDay,
-
-      sortPriority:
-        30,
+        "unknown",
     });
   }
 
-  /*
-   * Orden cronológico.
-   */
   steps.sort(
     (
-      a,
-      b,
+      first,
+      second,
     ) => {
       if (
-        a.sortDay ===
-          null &&
-        b.sortDay ===
-          null
+        !first.date &&
+        !second.date
       ) {
-        return (
-          a.sortPriority -
-          b.sortPriority
-        );
+        return 0;
       }
 
-      if (
-        a.sortDay ===
-        null
-      ) {
+      if (!first.date) {
         return 1;
       }
 
-      if (
-        b.sortDay ===
-        null
-      ) {
+      if (!second.date) {
         return -1;
       }
 
-      if (
-        a.sortDay !==
-        b.sortDay
-      ) {
-        return (
-          a.sortDay -
-          b.sortDay
-        );
-      }
-
       return (
-        a.sortPriority -
-        b.sortPriority
+        first.date.getTime() -
+        second.date.getTime()
       );
     },
   );
 
-  /*
-   * Si no existe un paso marcado
-   * explícitamente como actual,
-   * señalamos el último hito conocido.
-   */
-  const hasCurrent =
-    steps.some(
-      (
-        step,
-      ) =>
-        step.state ===
-        "current",
-    );
+  const today =
+    getTodayInMadridDayNumber();
+
+  let hasCurrent =
+    false;
+
+  for (
+    const step of steps
+  ) {
+    if (!step.date) {
+      step.state =
+        "unknown";
+
+      continue;
+    }
+
+    const day =
+      getDateDayNumber(
+        step.date,
+      );
+
+    if (
+      day === null
+    ) {
+      step.state =
+        "unknown";
+
+      continue;
+    }
+
+    if (
+      day < today
+    ) {
+      step.state =
+        "completed";
+
+      continue;
+    }
+
+    if (
+      day === today
+    ) {
+      step.state =
+        "current";
+
+      hasCurrent =
+        true;
+
+      continue;
+    }
+
+    step.state =
+      "future";
+  }
 
   if (!hasCurrent) {
     for (
@@ -1623,11 +1452,8 @@ function buildProcessTimeline(
         steps[index].state ===
         "completed"
       ) {
-        steps[index] = {
-          ...steps[index],
-          state:
-            "current-known",
-        };
+        steps[index].state =
+          "current-known";
 
         break;
       }
@@ -1637,9 +1463,6 @@ function buildProcessTimeline(
   return steps;
 }
 
-/*
- * Agrupa documentos de la misma fase.
- */
 function groupDocumentsByPhase(
   documents:
     SelectionProcessDetailDto["documents"],
@@ -1649,7 +1472,7 @@ function groupDocumentsByPhase(
       string,
       {
         key: string;
-        phase: string;
+        title: string;
         documents:
           SelectionProcessDetailDto["documents"];
       }
@@ -1679,7 +1502,7 @@ function groupDocumentsByPhase(
       {
         key,
 
-        phase:
+        title:
           document.phase,
 
         documents: [
@@ -1689,56 +1512,47 @@ function groupDocumentsByPhase(
     );
   }
 
+  for (
+    const group of groups.values()
+  ) {
+    group.documents.sort(
+      (
+        first,
+        second,
+      ) =>
+        second.publicationDate.getTime() -
+        first.publicationDate.getTime(),
+    );
+  }
+
   return [
     ...groups.values(),
   ];
 }
 
-/*
- * Descripción de documentos
- * dentro de la línea temporal.
- */
 function buildTimelineDocumentDetail(
   documents:
     SelectionProcessDetailDto["documents"],
-): string {
-  const sorted = [
-    ...documents,
-  ].sort(
-    (
-      a,
-      b,
-    ) =>
-      a.publicationDate.getTime() -
-      b.publicationDate.getTime(),
-  );
-
+): string | null {
   if (
-    sorted.length === 1
+    documents.length === 0
   ) {
-    return `${formatDate(
-      sorted[0].publicationDate,
-    )} · ${sorted[0].summary}`;
+    return null;
   }
 
-  const first =
-    sorted[0];
+  if (
+    documents.length === 1
+  ) {
+    return (
+      documents[0].summary ||
+      documents[0].phaseNotes ||
+      null
+    );
+  }
 
-  const last =
-    sorted[
-      sorted.length - 1
-    ];
-
-  return `${sorted.length} publicaciones · ${formatDate(
-    first.publicationDate,
-  )} - ${formatDate(
-    last.publicationDate,
-  )}`;
+  return `${documents.length} publicaciones oficiales`;
 }
 
-/*
- * Normaliza la fase para agruparla.
- */
 function normalizeTimelineKey(
   value: string,
 ): string {
@@ -1752,91 +1566,67 @@ function normalizeTimelineKey(
     .toLowerCase()
     .replace(
       /\s+/g,
-      "-",
+      " ",
     );
 }
 
 /*
- * Texto informativo.
+ * ============================================================
+ * INFORMACIÓN
+ * ============================================================
  */
+
 function buildInformationText(
   selectionProcess:
     SelectionProcessDetailDto,
 ): string {
-  const institution =
-    selectionProcess
-      .institution
-      ?.name;
+  const parts:
+    string[] =
+    [];
 
-  const location =
-    [
-      selectionProcess
-        .institution
-        ?.municipality,
-
-      selectionProcess
-        .institution
-        ?.county,
-
-      selectionProcess
-        .institution
-        ?.province,
-    ]
-      .filter(
-        (
-          value,
-        ): value is string =>
-          Boolean(value),
-      )
-      .join(", ");
+  parts.push(
+    selectionProcess.isJobPool
+      ? "La convocatoria corresponde a una bolsa de trabajo."
+      : selectionProcess.numberOfPositions !==
+          null
+        ? `La convocatoria ofrece ${selectionProcess.numberOfPositions} plaza${
+            selectionProcess.numberOfPositions ===
+            1
+              ? ""
+              : "s"
+          }.`
+        : "La convocatoria corresponde a un proceso de selección de personal.",
+  );
 
   if (
-    selectionProcess.isJobPool
+    selectionProcess.personnelType
   ) {
-    return [
-      "Convocatoria para la constitución de una bolsa de trabajo",
-
-      institution
-        ? `del organismo ${institution}`
-        : null,
-
-      location
-        ? `en ${location}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" ") +
-      ".";
+    parts.push(
+      `El tipo de personal indicado es ${selectionProcess.personnelType}.`,
+    );
   }
 
-  const positions =
-    selectionProcess.numberOfPositions;
+  if (
+    selectionProcess.selectionSystem
+  ) {
+    parts.push(
+      `El sistema de selección es ${selectionProcess.selectionSystem}.`,
+    );
+  }
 
-  return [
-    positions !== null
-      ? `Convocatoria para ${positions} ${
-          positions === 1
-            ? "plaza"
-            : "plazas"
-        }`
-      : "Convocatoria de plaza de plantilla",
+  if (
+    selectionProcess.scope
+  ) {
+    parts.push(
+      `El ámbito de la convocatoria es ${selectionProcess.scope}.`,
+    );
+  }
 
-    institution
-      ? `del organismo ${institution}`
-      : null,
-
-    location
-      ? `en ${location}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" ") +
-    ".";
+  return parts.join(
+    " ",
+  );
 }
 
-/*
- * Requisitos.
- */
 function buildRequirements(
   selectionProcess:
     SelectionProcessDetailDto,
@@ -1861,12 +1651,27 @@ function buildRequirements(
     );
   }
 
-  return requirements;
+  if (
+    selectionProcess.qualificationGroup
+  ) {
+    requirements.push(
+      `Grupo de titulación: ${selectionProcess.qualificationGroup}.`,
+    );
+  }
+
+  return [
+    ...new Set(
+      requirements,
+    ),
+  ];
 }
 
 /*
- * Fechas importantes.
+ * ============================================================
+ * FECHAS
+ * ============================================================
  */
+
 function buildImportantDates(
   selectionProcess:
     SelectionProcessDetailDto,
@@ -1879,14 +1684,18 @@ function buildImportantDates(
     selectionProcess.applicationStartDate
   ) {
     dates.push({
-      key:
-        "application-start",
-
       label:
         "Inicio de solicitudes",
 
-      date:
-        selectionProcess.applicationStartDate,
+      value:
+        formatDate(
+          selectionProcess.applicationStartDate,
+        ),
+
+      state:
+        getImportantDateState(
+          selectionProcess.applicationStartDate,
+        ),
     });
   }
 
@@ -1894,14 +1703,22 @@ function buildImportantDates(
     selectionProcess.applicationEndDate
   ) {
     dates.push({
-      key:
-        "application-end",
-
       label:
         "Fin de solicitudes",
 
-      date:
-        selectionProcess.applicationEndDate,
+      value:
+        selectionProcess.applicationEndTime
+          ? `${formatDate(
+              selectionProcess.applicationEndDate,
+            )} · ${selectionProcess.applicationEndTime}`
+          : formatDate(
+              selectionProcess.applicationEndDate,
+            ),
+
+      state:
+        getImportantDateState(
+          selectionProcess.applicationEndDate,
+        ),
     });
   }
 
@@ -1909,14 +1726,18 @@ function buildImportantDates(
     selectionProcess.firstExamDate
   ) {
     dates.push({
-      key:
-        "first-exam",
-
       label:
         "Primera prueba",
 
-      date:
-        selectionProcess.firstExamDate,
+      value:
+        formatDate(
+          selectionProcess.firstExamDate,
+        ),
+
+      state:
+        getImportantDateState(
+          selectionProcess.firstExamDate,
+        ),
     });
   }
 
@@ -1924,244 +1745,131 @@ function buildImportantDates(
     selectionProcess.lastDocumentPublicationDate
   ) {
     dates.push({
-      key:
-        "last-publication",
-
       label:
-        "Última publicación",
+        "Última publicación oficial",
 
-      date:
-        selectionProcess.lastDocumentPublicationDate,
+      value:
+        formatDate(
+          selectionProcess.lastDocumentPublicationDate,
+        ),
+
+      state:
+        getImportantDateState(
+          selectionProcess.lastDocumentPublicationDate,
+        ),
     });
   }
 
-  return dates.sort(
-    (
-      a,
-      b,
-    ) =>
-      a.date.getTime() -
-      b.date.getTime(),
-  );
+  return dates;
 }
 
-/*
- * Fuentes oficiales.
- */
-function buildOfficialSources(
-  selectionProcess:
-    SelectionProcessDetailDto,
-): OfficialSource[] {
-  const sources:
-    OfficialSource[] =
-    [];
+function getImportantDateState(
+  date: Date,
+): ImportantDate["state"] {
+  const day =
+    getDateDayNumber(
+      date,
+    );
 
-  const usedUrls =
-    new Set<string>();
-
-  const publicationHosts =
-    new Set<string>();
-
-  function addSource(
-    source:
-      OfficialSource,
+  if (
+    day === null
   ) {
-    if (
-      usedUrls.has(
-        source.url,
-      )
-    ) {
-      return;
-    }
+    return "unknown";
+  }
 
-    usedUrls.add(
-      source.url,
-    );
+  const today =
+    getTodayInMadridDayNumber();
 
-    sources.push(
-      source,
-    );
+  if (
+    day < today
+  ) {
+    return "past";
   }
 
   if (
-    selectionProcess.institutionUrl
+    day === today
   ) {
-    addSource({
-      key:
-        "institution",
-
-      type:
-        "institution",
-
-      title:
-        selectionProcess
-          .institution
-          ?.name ??
-        "Organismo convocante",
-
-      description:
-        getHostname(
-          selectionProcess.institutionUrl,
-        ),
-
-      url:
-        selectionProcess.institutionUrl,
-    });
+    return "today";
   }
 
-  if (
-    selectionProcess.applicationUrl
-  ) {
-    addSource({
-      key:
-        "application",
-
-      type:
-        "application",
-
-      title:
-        "Presentación de solicitudes",
-
-      description:
-        getHostname(
-          selectionProcess.applicationUrl,
-        ),
-
-      url:
-        selectionProcess.applicationUrl,
-    });
-  }
-
-  addSource({
-    key:
-      "cido",
-
-    type:
-      "cido",
-
-    title:
-      "CIDO — Diputació de Barcelona",
-
-    description:
-      getHostname(
-        selectionProcess.cidoUrl,
-      ),
-
-    url:
-      selectionProcess.cidoUrl,
-  });
-
-  for (
-    const document of selectionProcess.documents
-  ) {
-    if (
-      !document.htmlUrl
-    ) {
-      continue;
-    }
-
-    const hostname =
-      getHostname(
-        document.htmlUrl,
-      );
-
-    if (
-      publicationHosts.has(
-        hostname,
-      )
-    ) {
-      continue;
-    }
-
-    publicationHosts.add(
-      hostname,
-    );
-
-    addSource({
-      key:
-        `publication-${hostname}`,
-
-      type:
-        "publication",
-
-      title:
-        document.bulletin,
-
-      description:
-        hostname,
-
-      url:
-        document.htmlUrl,
-    });
-  }
-
-  return sources;
+  return "future";
 }
 
 /*
- * Busca el documento de bases
- * más reciente.
+ * ============================================================
+ * DOCUMENTOS
+ * ============================================================
  */
+
 function findBaseDocument(
   documents:
     SelectionProcessDetailDto["documents"],
 ) {
-  return [
-    ...documents,
-  ]
-    .filter(
+  const candidates =
+    documents.filter(
       (
         document,
       ) => {
-        const text =
+        const searchable =
           [
             document.phase,
             document.summary,
-            document.phaseNotes,
+            document.phaseNotes ??
+              "",
           ]
-            .filter(Boolean)
             .join(" ")
-            .normalize(
-              "NFD",
-            )
+            .normalize("NFD")
             .replace(
               /[\u0300-\u036f]/g,
               "",
             )
             .toLowerCase();
 
-        return text.includes(
-          "base",
+        return (
+          searchable.includes(
+            "base",
+          ) ||
+          searchable.includes(
+            "bases",
+          )
         );
       },
-    )
-    .sort(
-      (
-        a,
-        b,
-      ) =>
-        b.publicationDate.getTime() -
-        a.publicationDate.getTime(),
-    )[0];
+    );
+
+  candidates.sort(
+    (
+      first,
+      second,
+    ) =>
+      second.publicationDate.getTime() -
+      first.publicationDate.getTime(),
+  );
+
+  return (
+    candidates[0] ??
+    null
+  );
 }
 
-/*
- * Título visible del documento.
- */
 function buildDocumentTitle(
   document:
     SelectionProcessDetailDto["documents"][number],
 ): string {
-  return (
-    document.summary ||
-    document.phase
-  );
+  if (
+    document.summary
+  ) {
+    return document.summary;
+  }
+
+  if (
+    document.phaseNotes
+  ) {
+    return document.phaseNotes;
+  }
+
+  return document.phase;
 }
 
-/*
- * Información secundaria
- * del documento.
- */
 function buildDocumentMetadata(
   document:
     SelectionProcessDetailDto["documents"][number],
@@ -2183,8 +1891,8 @@ function buildDocumentMetadata(
   ) {
     parts.push(
       document.bulletinNumber !==
-        null
-        ? `${document.bulletin} núm. ${document.bulletinNumber}`
+      null
+        ? `${document.bulletin} ${document.bulletinNumber}`
         : document.bulletin,
     );
   }
@@ -2195,213 +1903,171 @@ function buildDocumentMetadata(
 }
 
 /*
- * Calcula el estado del plazo
- * de solicitudes.
+ * ============================================================
+ * FUENTES
+ * ============================================================
  */
-function getApplicationPeriod(
+
+function buildOfficialSources(
   selectionProcess:
     SelectionProcessDetailDto,
-): ApplicationPeriod {
-  const start =
-    selectionProcess.applicationStartDate;
+): OfficialSource[] {
+  const sources:
+    OfficialSource[] =
+    [];
 
-  const end =
-    selectionProcess.applicationEndDate;
+  const seenUrls =
+    new Set<string>();
 
-  if (
-    !start &&
-    !end
+  const publicationHosts =
+    new Set<string>();
+
+  function addSource(
+    source:
+      OfficialSource,
   ) {
-    return {
-      state:
-        "unknown",
-
-      label:
-        "Sin información",
-
-      detail:
-        "No consta un periodo de solicitud.",
-
-      progress:
-        0,
-    };
-  }
-
-  const today =
-    getTodayInMadridDayNumber();
-
-  const startDay =
-    getDateDayNumber(
-      start,
-    );
-
-  const endDay =
-    getDateDayNumber(
-      end,
-    );
-
-  /*
-   * Todavía no ha empezado.
-   */
-  if (
-    startDay !== null &&
-    today < startDay
-  ) {
-    const days =
-      startDay -
-      today;
-
-    return {
-      state:
-        "future",
-
-      label:
-        "Próximamente",
-
-      detail:
-        days === 1
-          ? "Empieza mañana."
-          : `Empieza en ${days} días.`,
-
-      progress:
-        0,
-    };
-  }
-
-  /*
-   * Ya ha terminado.
-   */
-  if (
-    endDay !== null &&
-    today > endDay
-  ) {
-    return {
-      state:
-        "closed",
-
-      label:
-        "Finalizado",
-
-      detail:
-        `El plazo finalizó el ${formatDate(
-          end!,
-        )}.`,
-
-      progress:
-        100,
-    };
-  }
-
-  /*
-   * Está abierto.
-   */
-  if (
-    endDay !== null
-  ) {
-    const remainingDays =
-      Math.max(
-        0,
-        endDay -
-          today,
-      );
-
-    let progress =
-      0;
-
     if (
-      startDay !== null &&
-      endDay >
-        startDay
+      seenUrls.has(
+        source.url,
+      )
     ) {
-      const total =
-        endDay -
-        startDay;
-
-      const elapsed =
-        Math.max(
-          0,
-          Math.min(
-            total,
-            today -
-              startDay,
-          ),
-        );
-
-      progress =
-        Math.round(
-          (elapsed /
-            total) *
-            100,
-        );
+      return;
     }
 
-    return {
-      state:
-        "open",
+    seenUrls.add(
+      source.url,
+    );
 
-      label:
-        "Abierto",
-
-      detail:
-        remainingDays ===
-        0
-          ? "El plazo termina hoy."
-          : remainingDays ===
-              1
-            ? "Queda 1 día."
-            : `Quedan ${remainingDays} días.`,
-
-      progress,
-    };
+    sources.push(
+      source,
+    );
   }
 
-  /*
-   * Tenemos inicio pero no fin.
-   */
   if (
-    startDay !== null &&
-    today >= startDay
+    selectionProcess.institutionUrl
   ) {
-    return {
-      state:
-        "open",
+    addSource({
+      type:
+        "institution",
 
-      label:
-        "Abierto",
+      title:
+        selectionProcess
+          .institution
+          ?.name ??
+        "Sede del organismo",
 
-      detail:
-        "El plazo está iniciado. No consta fecha de finalización.",
+      url:
+        selectionProcess.institutionUrl,
 
-      progress:
-        0,
-    };
+      host:
+        getHostname(
+          selectionProcess.institutionUrl,
+        ),
+    });
   }
 
-  return {
-    state:
-      "unknown",
+  if (
+    selectionProcess.applicationUrl
+  ) {
+    addSource({
+      type:
+        "application",
 
-    label:
-      "Sin información",
+      title:
+        "Presentación de solicitudes",
 
-    detail:
-      "No se puede determinar el estado del plazo.",
+      url:
+        selectionProcess.applicationUrl,
 
-    progress:
-      0,
-  };
+      host:
+        getHostname(
+          selectionProcess.applicationUrl,
+        ),
+    });
+  }
+
+  addSource({
+    type:
+      "cido",
+
+    title:
+      "CIDO — Diputació de Barcelona",
+
+    url:
+      selectionProcess.cidoUrl,
+
+    host:
+      getHostname(
+        selectionProcess.cidoUrl,
+      ),
+  });
+
+  for (
+    const document of selectionProcess.documents
+  ) {
+    if (
+      !document.htmlUrl
+    ) {
+      continue;
+    }
+
+    const host =
+      getHostname(
+        document.htmlUrl,
+      );
+
+    if (
+      publicationHosts.has(
+        host,
+      )
+    ) {
+      continue;
+    }
+
+    publicationHosts.add(
+      host,
+    );
+
+    addSource({
+      type:
+        "publication",
+
+      title:
+        document.bulletin ||
+        document.publisher ||
+        "Publicación oficial",
+
+      url:
+        document.htmlUrl,
+
+      host,
+    });
+  }
+
+  return sources;
 }
 
 /*
- * Convierte una fecha en número
- * de día calendario.
+ * ============================================================
+ * FORMATO
+ * ============================================================
  */
+
 function getDateDayNumber(
   date:
     | Date
-    | null,
+    | null
+    | undefined,
 ): number | null {
   if (!date) {
+    return null;
+  }
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
     return null;
   }
 
@@ -2411,13 +2077,10 @@ function getDateDayNumber(
       date.getUTCMonth(),
       date.getUTCDate(),
     ) /
-      MILLISECONDS_PER_DAY,
+      86_400_000,
   );
 }
 
-/*
- * Día actual según Europe/Madrid.
- */
 function getTodayInMadridDayNumber(): number {
   const formatter =
     new Intl.DateTimeFormat(
@@ -2481,16 +2144,20 @@ function getTodayInMadridDayNumber(): number {
       month - 1,
       day,
     ) /
-      MILLISECONDS_PER_DAY,
+      86_400_000,
   );
 }
 
-/*
- * Formato de fecha.
- */
 function formatDate(
-  date: Date,
+  date:
+    | Date
+    | null
+    | undefined,
 ): string {
+  if (!date) {
+    return "No disponible";
+  }
+
   return new Intl.DateTimeFormat(
     "es-ES",
     {
@@ -2506,82 +2173,111 @@ function formatDate(
       timeZone:
         "UTC",
     },
-  ).format(date);
+  ).format(
+    date,
+  );
 }
 
-/*
- * Rango de fechas.
- */
 function formatDateRange(
-  start:
+  startDate:
     | Date
     | null,
-  end:
+
+  endDate:
     | Date
     | null,
 ): string {
   if (
-    start &&
-    end
+    startDate &&
+    endDate
   ) {
     return `${formatDate(
-      start,
-    )} - ${formatDate(
-      end,
+      startDate,
+    )} – ${formatDate(
+      endDate,
     )}`;
   }
 
-  if (start) {
-    return `Desde el ${formatDate(
-      start,
+  if (
+    startDate
+  ) {
+    return `Desde ${formatDate(
+      startDate,
     )}`;
   }
 
-  if (end) {
-    return `Hasta el ${formatDate(
-      end,
+  if (
+    endDate
+  ) {
+    return `Hasta ${formatDate(
+      endDate,
     )}`;
   }
 
-  return "Fecha no disponible";
+  return "Fechas no disponibles";
 }
 
-/*
- * Devuelve el dominio de una URL.
- */
+function formatLocation(
+  municipality:
+    | string
+    | null
+    | undefined,
+
+  county:
+    | string
+    | null
+    | undefined,
+
+  province:
+    | string
+    | null
+    | undefined,
+): string {
+  const values = [
+    municipality,
+    county,
+    province,
+  ].filter(
+    (
+      value,
+    ): value is string =>
+      typeof value ===
+        "string" &&
+      value.length > 0,
+  );
+
+  return values.length >
+    0
+    ? values.join(
+        " · ",
+      )
+    : "Ubicación no disponible";
+}
+
 function getHostname(
   url: string,
 ): string {
   try {
     return new URL(
       url,
-    ).hostname;
+    ).hostname.replace(
+      /^www\./,
+      "",
+    );
   } catch {
     return url;
   }
 }
 
 /*
- * NUEVO:
- *
- * URL segura para volver
- * a los resultados.
- *
- * Solo aceptamos:
- *
- * /convocatorias
- *
- * o
- *
- * /convocatorias?...
- *
- * Así evitamos que returnTo pueda
- * redirigir a una web externa.
+ * ============================================================
+ * RETURN TO
+ * ============================================================
  */
+
 function getSafeResultsHref(
   returnTo:
-    | string
-    | undefined,
+    string | undefined,
 ): string {
   if (!returnTo) {
     return "/convocatorias";

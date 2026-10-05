@@ -3,9 +3,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import {
-  BriefcaseBusiness,
   Building2,
-  CalendarDays,
+  ExternalLink,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -15,10 +14,18 @@ import { auth } from "@/lib/auth";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { TerritoryFilters } from "./territory-filters";
+
 import {
   getSelectionProcessFilterOptionsUseCase,
   listActiveSelectionProcessesUseCase,
 } from "@/composition/selection-process";
+
+import {
+  getApplicationPeriodPresentation,
+  getOfficialStatusPresentation,
+} from "@/modules/selection-process/presentation/selection-process-status";
+
+import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
 
 const FILTER_FORM_ID =
   "convocatorias-filter-form";
@@ -91,22 +98,31 @@ export default async function ConvocatoriasPage({
     await searchParams;
 
   /*
-   * Búsqueda libre.
+   * ==========================================================
+   * BÚSQUEDA
+   * ==========================================================
    */
+
   const query =
     params.q?.trim() ?? "";
 
   /*
-   * Página.
+   * ==========================================================
+   * PAGINACIÓN
+   * ==========================================================
    */
+
   const page =
     parsePositiveInteger(
       params.page,
     ) ?? 1;
 
   /*
-   * Grupos de titulación.
+   * ==========================================================
+   * GRUPO DE TITULACIÓN
+   * ==========================================================
    */
+
   const selectedQualificationGroups = [
     ...new Set(
       normalizeArray(
@@ -121,8 +137,11 @@ export default async function ConvocatoriasPage({
   ];
 
   /*
-   * Plaza / bolsa.
+   * ==========================================================
+   * PLAZA / BOLSA
+   * ==========================================================
    */
+
   const jobPoolValues = [
     ...new Set(
       normalizeArray(
@@ -145,10 +164,6 @@ export default async function ConvocatoriasPage({
       "true",
     );
 
-  /*
-   * Si ambos están marcados o ninguno
-   * está marcado, no filtramos.
-   */
   const isJobPool =
     hasRegularPositions ===
     hasJobPools
@@ -156,16 +171,22 @@ export default async function ConvocatoriasPage({
       : hasJobPools;
 
   /*
-   * Estado.
+   * ==========================================================
+   * ESTADO
+   * ==========================================================
    */
+
   const statusId =
     parsePositiveInteger(
       params.statusId,
     );
 
   /*
-   * Ubicación.
+   * ==========================================================
+   * TERRITORIO
+   * ==========================================================
    */
+
   const province =
     cleanString(
       params.province,
@@ -182,8 +203,11 @@ export default async function ConvocatoriasPage({
     );
 
   /*
-   * Otros filtros CIDO.
+   * ==========================================================
+   * OTROS FILTROS
+   * ==========================================================
    */
+
   const scopeId =
     parsePositiveInteger(
       params.scopeId,
@@ -200,8 +224,11 @@ export default async function ConvocatoriasPage({
     );
 
   /*
-   * Fechas.
+   * ==========================================================
+   * FECHAS
+   * ==========================================================
    */
+
   const applicationEndDateFromValue =
     cleanString(
       params.applicationEndDateFrom,
@@ -223,8 +250,11 @@ export default async function ConvocatoriasPage({
     );
 
   /*
-   * Reservas.
+   * ==========================================================
+   * RESERVAS
+   * ==========================================================
    */
+
   const reservedDisability =
     params.reservedDisability ===
     "true";
@@ -241,9 +271,6 @@ export default async function ConvocatoriasPage({
     params.reservedWomen ===
     "true";
 
-  /*
-   * Estado actual de filtros.
-   */
   const currentFilters:
     CurrentFilterState = {
       qualificationGroups:
@@ -273,13 +300,6 @@ export default async function ConvocatoriasPage({
       reservedWomen,
     };
 
-  /*
-   * URL exacta del listado actual.
-   *
-   * Se utiliza para volver desde
-   * el detalle conservando filtros
-   * y página.
-   */
   const resultsUrl =
     buildPageHref(
       page,
@@ -287,13 +307,6 @@ export default async function ConvocatoriasPage({
       currentFilters,
     );
 
-  /*
-   * Key para reconstruir los controles
-   * cuando cambian los parámetros.
-   *
-   * Es especialmente útil al pulsar
-   * "Limpiar".
-   */
   const filterFormKey =
     buildFilterFormKey(
       query,
@@ -302,8 +315,11 @@ export default async function ConvocatoriasPage({
     );
 
   /*
-   * Consulta PostgreSQL.
+   * ==========================================================
+   * POSTGRESQL
+   * ==========================================================
    */
+
   const [
     result,
     filterOptions,
@@ -409,15 +425,7 @@ export default async function ConvocatoriasPage({
               </p>
             </header>
 
-            {/*
-             * BUSCADOR
-             *
-             * Aunque visualmente está fuera
-             * del formulario lateral, tanto
-             * el input como el botón están
-             * asociados al formulario mediante
-             * el atributo "form".
-             */}
+            {/* Buscador */}
             <div className="flex gap-2.5">
               <div className="relative flex-1">
                 <Search
@@ -458,34 +466,21 @@ export default async function ConvocatoriasPage({
                 <div className="flex items-center justify-between border-b border-[#EEF1F5] px-5 py-4">
                   <h2 className="flex items-center gap-2 text-[15px] font-semibold">
                     <SlidersHorizontal
-                      size={
-                        16
-                      }
+                      size={16}
                       className="text-[#4E5870]"
                     />
 
                     Filtros
                   </h2>
 
-                  {/*
-                   * Limpia absolutamente todo:
-                   * texto, filtros y página.
-                   */}
                   <Link
                     href="/convocatorias"
-                    className="text-[13.5px] font-semibold text-[#3B45B5]"
+                    className="text-[13.5px] font-semibold text-[#3B45B5] hover:text-[#2E3794]"
                   >
                     Limpiar
                   </Link>
                 </div>
 
-                {/*
-                 * ÚNICO FORMULARIO DE BÚSQUEDA.
-                 *
-                 * El input "q" de arriba pertenece
-                 * también a este formulario gracias
-                 * a form={FILTER_FORM_ID}.
-                 */}
                 <form
                   key={
                     filterFormKey
@@ -568,8 +563,7 @@ export default async function ConvocatoriasPage({
                   <FilterSection title="Grupo de titulación">
                     {filterOptions
                       .qualificationGroups
-                      .length ===
-                    0 ? (
+                      .length === 0 ? (
                       <p className="text-sm text-[#69738A]">
                         No hay grupos
                         disponibles.
@@ -628,7 +622,7 @@ export default async function ConvocatoriasPage({
                     />
                   </FilterSection>
 
-                  {/* Sistema selección */}
+                  {/* Sistema */}
                   <FilterSection title="Sistema de selección">
                     <FilterSelect
                       name="selectionSystemId"
@@ -657,7 +651,7 @@ export default async function ConvocatoriasPage({
                     />
                   </FilterSection>
 
-                  {/* Tipo personal */}
+                  {/* Personal */}
                   <FilterSection title="Tipo de personal">
                     <FilterSelect
                       name="personnelTypeId"
@@ -760,7 +754,6 @@ export default async function ConvocatoriasPage({
                     />
                   </FilterSection>
 
-                  {/* Aplicar */}
                   <div className="p-5">
                     <button
                       type="submit"
@@ -792,9 +785,7 @@ export default async function ConvocatoriasPage({
                 0 ? (
                   <div className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
                     <Search
-                      size={
-                        30
-                      }
+                      size={30}
                       className="mx-auto text-[#7C859B]"
                     />
 
@@ -814,136 +805,250 @@ export default async function ConvocatoriasPage({
                   result.items.map(
                     (
                       convocatoria,
-                    ) => (
-                      <article
-                        key={
-                          convocatoria.id
-                        }
-                        className="rounded-xl border border-[#E3E7EE] bg-white p-5 shadow-sm"
-                      >
-                        <div className="flex flex-col gap-4">
-                          <div>
-                            <div className="mb-2 flex flex-wrap items-center gap-2">
-                              <span className="rounded-md bg-[#EEF0FF] px-2 py-1 text-xs font-semibold text-[#4F5BD5]">
+                    ) => {
+                      const officialStatus =
+                        getOfficialStatusPresentation(
+                          convocatoria.status,
+                          convocatoria.statusId,
+                        );
+
+                      const applicationPeriod =
+                        getApplicationPeriodPresentation(
+                          convocatoria.applicationStartDate,
+                          convocatoria.applicationEndDate,
+                        );
+
+                      const hasReservations =
+                        hasReservedPlaces(
+                          convocatoria.reservedPlaces,
+                        );
+
+                      return (
+                        <article
+                          key={
+                            convocatoria.id
+                          }
+                          className="overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm transition-shadow hover:shadow-md"
+                        >
+                          <div className="flex flex-col gap-5 p-5">
+                            {/* Badges */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] px-3 text-xs font-semibold text-[#3B45B5]">
                                 {convocatoria.isJobPool
                                   ? "Bolsa de trabajo"
-                                  : "Plaza"}
+                                  : "Plaza de plantilla"}
                               </span>
 
-                              <span className="rounded-md bg-[#F4F6F9] px-2 py-1 text-xs font-medium text-[#4E5870]">
+                              <span
+                                className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${officialStatus.badgeClassName}`}
+                              >
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${officialStatus.dotClassName}`}
+                                />
+
                                 {
-                                  convocatoria.status
+                                  officialStatus.label
                                 }
                               </span>
-                            </div>
 
-                            <h3 className="text-[17px] font-semibold leading-snug text-[#131A2C]">
-                              {
-                                convocatoria.title
-                              }
-                            </h3>
-                          </div>
+                              <span
+                                className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${applicationPeriod.badgeClassName}`}
+                              >
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${applicationPeriod.dotClassName}`}
+                                />
 
-                          <div className="grid gap-2 text-sm text-[#4E5870] md:grid-cols-2">
-                            <div className="flex items-start gap-2">
-                              <Building2
-                                size={
-                                  16
-                                }
-                                className="mt-0.5 shrink-0"
-                              />
-
-                              <span>
-                                {convocatoria
-                                  .institution
-                                  ?.name ??
-                                  "Organismo no disponible"}
-                              </span>
-                            </div>
-
-                            <div className="flex items-start gap-2">
-                              <MapPin
-                                size={
-                                  16
-                                }
-                                className="mt-0.5 shrink-0"
-                              />
-
-                              <span>
-                                {formatLocation(
-                                  convocatoria
-                                    .institution
-                                    ?.municipality,
-
-                                  convocatoria
-                                    .institution
-                                    ?.county,
-
-                                  convocatoria
-                                    .institution
-                                    ?.province,
+                                {buildApplicationPeriodBadgeText(
+                                  applicationPeriod,
                                 )}
                               </span>
                             </div>
 
-                            <div className="flex items-start gap-2">
-                              <BriefcaseBusiness
-                                size={
-                                  16
-                                }
-                                className="mt-0.5 shrink-0"
+                            {/* Título */}
+                            <div>
+                              <h3 className="text-[18px] font-semibold leading-snug tracking-[-0.01em] text-[#131A2C]">
+                                {formatSelectionProcessTitle(
+                                  convocatoria.title,
+                                )}
+                              </h3>
+
+                              <div className="mt-3 flex flex-col gap-2 text-sm text-[#4E5870]">
+                                <div className="flex items-start gap-2">
+                                  <Building2
+                                    size={16}
+                                    className="mt-0.5 shrink-0 text-[#7C859B]"
+                                  />
+
+                                  <span>
+                                    {convocatoria
+                                      .institution
+                                      ?.name ??
+                                      "Organismo no disponible"}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-start gap-2">
+                                  <MapPin
+                                    size={16}
+                                    className="mt-0.5 shrink-0 text-[#7C859B]"
+                                  />
+
+                                  <span>
+                                    {formatLocation(
+                                      convocatoria
+                                        .institution
+                                        ?.municipality,
+
+                                      convocatoria
+                                        .institution
+                                        ?.county,
+
+                                      convocatoria
+                                        .institution
+                                        ?.province,
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Información */}
+                            <div className="grid overflow-hidden rounded-lg border border-[#E7EAF0] bg-[#FAFBFC] sm:grid-cols-2 xl:grid-cols-3">
+                              <ResultInfoItem
+                                label="Plazas"
+                                value={formatNumberOfPositions(
+                                  convocatoria.numberOfPositions,
+                                  convocatoria.isJobPool,
+                                )}
                               />
 
-                              <span>
+                              <ResultInfoItem
+                                label="Grupo"
+                                value={
+                                  convocatoria.qualificationGroup ??
+                                  "No especificado"
+                                }
+                              />
+
+                              <ResultInfoItem
+                                label="Personal"
+                                value={
+                                  convocatoria.personnelType ??
+                                  "No especificado"
+                                }
+                              />
+
+                              <ResultInfoItem
+                                label="Sistema"
+                                value={
+                                  convocatoria.selectionSystem ??
+                                  "No especificado"
+                                }
+                              />
+
+                              <ResultInfoItem
+                                label="Ámbito"
+                                value={
+                                  convocatoria.scope ||
+                                  "No especificado"
+                                }
+                              />
+
+                              <ResultInfoItem
+                                label="Fin de solicitudes"
+                                value={
+                                  convocatoria.applicationEndDate
+                                    ? formatDate(
+                                        convocatoria.applicationEndDate,
+                                      )
+                                    : "No disponible"
+                                }
+                              />
+                            </div>
+
+                            {/* Reservas */}
+                            {hasReservations && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="mr-1 text-xs font-semibold uppercase tracking-[0.04em] text-[#7C859B]">
+                                  Reservas
+                                </span>
+
                                 {convocatoria
-                                  .qualificationGroup ??
-                                  "Grupo no especificado"}
-                              </span>
-                            </div>
+                                  .reservedPlaces
+                                  .disability !==
+                                  null &&
+                                  convocatoria
+                                    .reservedPlaces
+                                    .disability >
+                                    0 && (
+                                    <ReservationBadge>
+                                      Discapacidad:{" "}
+                                      {
+                                        convocatoria
+                                          .reservedPlaces
+                                          .disability
+                                      }
+                                    </ReservationBadge>
+                                  )}
 
-                            <div className="flex items-start gap-2">
-                              <CalendarDays
-                                size={
-                                  16
+                                {convocatoria
+                                  .reservedPlaces
+                                  .unemployed && (
+                                  <ReservationBadge>
+                                    Personas
+                                    desempleadas
+                                  </ReservationBadge>
+                                )}
+
+                                {convocatoria
+                                  .reservedPlaces
+                                  .youngPeople && (
+                                  <ReservationBadge>
+                                    Jóvenes
+                                  </ReservationBadge>
+                                )}
+
+                                {convocatoria
+                                  .reservedPlaces
+                                  .women && (
+                                  <ReservationBadge>
+                                    Mujeres
+                                  </ReservationBadge>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Acciones */}
+                            <div className="flex flex-wrap items-center gap-3 border-t border-[#EEF1F5] pt-4">
+                              <Link
+                                href={`/convocatorias/${convocatoria.id}?returnTo=${encodeURIComponent(
+                                  resultsUrl,
+                                )}`}
+                                className="inline-flex items-center justify-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
+                              >
+                                Ver detalle
+                              </Link>
+
+                              <a
+                                href={
+                                  convocatoria.cidoUrl
                                 }
-                                className="mt-0.5 shrink-0"
-                              />
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
+                              >
+                                Ver convocatoria
+                                oficial
 
-                              <span>
-                                {convocatoria.applicationEndDate
-                                  ? `Finaliza el ${formatDate(
-                                      convocatoria.applicationEndDate,
-                                    )}`
-                                  : "Fecha límite pendiente"}
-                              </span>
+                                <ExternalLink
+                                  size={14}
+                                />
+                              </a>
                             </div>
                           </div>
-
-                          <div className="flex flex-wrap items-center gap-3 border-t border-[#EEF1F5] pt-4">
-                            <Link
-                              href={`/convocatorias/${convocatoria.id}?returnTo=${encodeURIComponent(
-                                resultsUrl,
-                              )}`}
-                              className="inline-flex items-center justify-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
-                            >
-                              Ver detalle
-                            </Link>
-
-                            <a
-                              href={
-                                convocatoria.cidoUrl
-                              }
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center justify-center rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
-                            >
-                              Ver convocatoria
-                              oficial
-                            </a>
-                          </div>
-                        </div>
-                      </article>
-                    ),
+                        </article>
+                      );
+                    },
                   )
                 )}
 
@@ -1017,8 +1122,130 @@ export default async function ConvocatoriasPage({
 }
 
 /*
- * Convierte query param en array.
+ * ============================================================
+ * RESULTADOS
+ * ============================================================
  */
+
+type ResultInfoItemProps = {
+  label: string;
+  value: string;
+};
+
+function ResultInfoItem({
+  label,
+  value,
+}: ResultInfoItemProps) {
+  return (
+    <div className="min-w-0 border-b border-r border-[#E7EAF0] px-4 py-3">
+      <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+        {label}
+      </p>
+
+      <p className="mt-1 break-words text-[13.5px] font-medium leading-snug text-[#131A2C]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ReservationBadge({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1E8] bg-[#F4F6F9] px-3 text-xs font-medium text-[#4E5870]">
+      {children}
+    </span>
+  );
+}
+
+function hasReservedPlaces(
+  reservedPlaces: {
+    disability:
+      number | null;
+
+    unemployed:
+      boolean;
+
+    youngPeople:
+      boolean;
+
+    women:
+      boolean;
+  },
+): boolean {
+  return (
+    (
+      reservedPlaces.disability ??
+      0
+    ) > 0 ||
+    reservedPlaces.unemployed ||
+    reservedPlaces.youngPeople ||
+    reservedPlaces.women
+  );
+}
+
+function formatNumberOfPositions(
+  numberOfPositions:
+    number | null,
+  isJobPool:
+    boolean,
+): string {
+  if (
+    numberOfPositions !==
+    null
+  ) {
+    return String(
+      numberOfPositions,
+    );
+  }
+
+  if (
+    isJobPool
+  ) {
+    return "—";
+  }
+
+  return "No especificadas";
+}
+
+function buildApplicationPeriodBadgeText(
+  period: ReturnType<
+    typeof getApplicationPeriodPresentation
+  >,
+): string {
+  if (
+    period.state ===
+    "open"
+  ) {
+    if (
+      period.label ===
+      "Finaliza hoy"
+    ) {
+      return period.label;
+    }
+
+    return `${period.label} · ${period.detail}`;
+  }
+
+  if (
+    period.state ===
+    "future"
+  ) {
+    return `${period.label} · ${period.detail}`;
+  }
+
+  return period.label;
+}
+
+/*
+ * ============================================================
+ * QUERY PARAMS
+ * ============================================================
+ */
+
 function normalizeArray(
   value:
     | string
@@ -1038,9 +1265,6 @@ function normalizeArray(
     : [value];
 }
 
-/*
- * Limpia strings.
- */
 function cleanString(
   value:
     | string
@@ -1054,9 +1278,6 @@ function cleanString(
     : undefined;
 }
 
-/*
- * Convierte IDs.
- */
 function parsePositiveInteger(
   value:
     | string
@@ -1081,9 +1302,6 @@ function parsePositiveInteger(
   return number;
 }
 
-/*
- * Convierte YYYY-MM-DD en Date.
- */
 function parseDate(
   value:
     | string
@@ -1106,9 +1324,11 @@ function parseDate(
 }
 
 /*
- * Genera URL conservando búsqueda,
- * filtros y página.
+ * ============================================================
+ * URLS
+ * ============================================================
  */
+
 function buildPageHref(
   page: number,
   query: string,
@@ -1137,11 +1357,6 @@ function buildPageHref(
   return `/convocatorias?${params.toString()}`;
 }
 
-/*
- * Key utilizada para reconstruir
- * los controles cuando cambian
- * los parámetros.
- */
 function buildFilterFormKey(
   query: string,
   page: number,
@@ -1198,12 +1413,12 @@ function buildFilterFormKey(
   });
 }
 
-/*
- * Añade filtros a URLSearchParams.
- */
 function appendFiltersToParams(
-  params: URLSearchParams,
-  filters: CurrentFilterState,
+  params:
+    URLSearchParams,
+
+  filters:
+    CurrentFilterState,
 ) {
   filters.qualificationGroups.forEach(
     (
@@ -1357,12 +1572,33 @@ function appendFiltersToParams(
   }
 }
 
+/*
+ * ============================================================
+ * FORMATO
+ * ============================================================
+ */
+
 function formatDate(
   date: Date,
 ): string {
   return new Intl.DateTimeFormat(
     "es-ES",
-  ).format(date);
+    {
+      day:
+        "2-digit",
+
+      month:
+        "2-digit",
+
+      year:
+        "numeric",
+
+      timeZone:
+        "UTC",
+    },
+  ).format(
+    date,
+  );
 }
 
 function formatLocation(
@@ -1370,10 +1606,12 @@ function formatLocation(
     | string
     | null
     | undefined,
+
   county:
     | string
     | null
     | undefined,
+
   province:
     | string
     | null
@@ -1401,8 +1639,11 @@ function formatLocation(
 }
 
 /*
- * Sección visual.
+ * ============================================================
+ * COMPONENTES DE FILTROS
+ * ============================================================
  */
+
 type FilterSectionProps = {
   title: string;
   children: ReactNode;
@@ -1425,9 +1666,6 @@ function FilterSection({
   );
 }
 
-/*
- * Checkbox reutilizable.
- */
 type FilterCheckLabelProps = {
   name: string;
   value: string;
@@ -1464,9 +1702,6 @@ function FilterCheckLabel({
   );
 }
 
-/*
- * Select reutilizable.
- */
 type FilterSelectOption = {
   value: string;
   label: string;
