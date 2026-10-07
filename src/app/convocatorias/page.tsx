@@ -44,6 +44,14 @@ import {
 
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
 
+import type {
+
+  SelectionProcessApplicationPeriodFilter,
+
+  SelectionProcessSort,
+
+} from "@/modules/selection-process/application/selection-process-search-filters";
+
 const FILTER_FORM_ID =
 
   "convocatorias-filter-form";
@@ -54,11 +62,15 @@ type SearchParams = {
 
   page?: string;
 
+  sort?: string;
+
   qualificationGroup?: string | string[];
 
   isJobPool?: string | string[];
 
   statusId?: string;
+
+  applicationPeriod?: string;
 
   province?: string;
 
@@ -96,11 +108,17 @@ type ConvocatoriasPageProps = {
 
 type CurrentFilterState = {
 
+  sort: SelectionProcessSort;
+
   qualificationGroups: string[];
 
   jobPoolValues: string[];
 
   statusId?: number;
+
+  applicationPeriod?:
+
+    SelectionProcessApplicationPeriodFilter;
 
   province?: string;
 
@@ -165,6 +183,24 @@ export default async function ConvocatoriasPage({
   const query =
 
     params.q?.trim() ?? "";
+
+  const requestedSort =
+
+    parseSelectionProcessSort(
+
+      params.sort,
+
+    );
+
+  const sort =
+
+    resolveSelectionProcessSort(
+
+      requestedSort,
+
+      Boolean(query),
+
+    );
 
 /**
 
@@ -291,6 +327,14 @@ export default async function ConvocatoriasPage({
     parsePositiveInteger(
 
       params.statusId,
+
+    );
+
+  const applicationPeriod =
+
+    parseSelectionProcessApplicationPeriod(
+
+      params.applicationPeriod,
 
     );
 
@@ -454,6 +498,8 @@ export default async function ConvocatoriasPage({
 
     CurrentFilterState = {
 
+      sort,
+
       qualificationGroups:
 
         selectedQualificationGroups,
@@ -461,6 +507,8 @@ export default async function ConvocatoriasPage({
       jobPoolValues,
 
       statusId,
+
+      applicationPeriod,
 
       province,
 
@@ -548,6 +596,8 @@ export default async function ConvocatoriasPage({
 
           filters: {
 
+            sort,
+
             text:
 
               query ||
@@ -567,6 +617,8 @@ export default async function ConvocatoriasPage({
             isJobPool,
 
             statusId,
+
+            applicationPeriod,
 
             province,
 
@@ -860,9 +912,9 @@ export default async function ConvocatoriasPage({
 
                   </FilterSection>
 
-                  {/* Estado */}
+                  {/* Estado oficial CIDO */}
 
-                  <FilterSection title="Estado">
+                  <FilterSection title="Estado oficial CIDO">
 
                     <FilterSelect
 
@@ -909,6 +961,64 @@ export default async function ConvocatoriasPage({
                         }),
 
                       )}
+
+                    />
+
+                  </FilterSection>
+
+                  {/* Plazo de solicitud */}
+
+                  <FilterSection title="Plazo de solicitud">
+
+                    <FilterSelect
+
+                      name="applicationPeriod"
+
+                      defaultValue={
+
+                        applicationPeriod ??
+
+                        ""
+
+                      }
+
+                      emptyLabel="Todos los plazos"
+
+                      options={[
+
+                        {
+
+                          value: "open",
+
+                          label: "Abierto ahora",
+
+                        },
+
+                        {
+
+                          value: "future",
+
+                          label: "Próximo a abrir",
+
+                        },
+
+                        {
+
+                          value: "closed",
+
+                          label: "Finalizado",
+
+                        },
+
+                        {
+
+                          value: "unknown",
+
+                          label: "Sin fechas disponibles",
+
+                        },
+
+                      ]}
 
                     />
 
@@ -1258,7 +1368,7 @@ export default async function ConvocatoriasPage({
 
                   {/* Fechas */}
 
-                  <FilterSection title="Fecha límite">
+                  <FilterSection title="Fin del plazo de solicitud">
 
                     <label className="flex flex-col gap-1.5 text-sm text-[#131A2C]">
 
@@ -1412,27 +1522,115 @@ export default async function ConvocatoriasPage({
 
               <section className="flex min-w-0 flex-col gap-4">
 
-                <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 
-                  <h2 className="text-[17px] font-semibold text-[#131A2C]">
+                  <div>
 
-                    Convocatorias
+                    <h2 className="text-[17px] font-semibold text-[#131A2C]">
 
-                  </h2>
+                      Convocatorias
 
-                  <p className="mt-1 text-sm text-[#69738A]">
+                    </h2>
 
-                    {
+                    <p className="mt-1 text-sm text-[#69738A]">
 
-                      result.totalItems
+                      {
 
-                    }{" "}
+                        result.totalItems
 
-                    convocatorias
+                      }{" "}
 
-                    encontradas
+                      convocatorias
 
-                  </p>
+                      encontradas
+
+                    </p>
+
+                  </div>
+
+                  <div className="flex flex-wrap items-end gap-2">
+
+                    <label className="flex min-w-[230px] flex-col gap-1.5 text-sm text-[#131A2C]">
+
+                      <span className="text-xs font-medium text-[#69738A]">
+
+                        Ordenar por
+
+                      </span>
+
+                      <select
+
+                        form={
+
+                          FILTER_FORM_ID
+
+                        }
+
+                        name="sort"
+
+                        defaultValue={
+
+                          sort
+
+                        }
+
+                        className="h-10 rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]"
+
+                      >
+
+                        <option value="relevance">
+
+                          Relevancia
+
+                        </option>
+
+                        <option value="publication-desc">
+
+                          Última publicación oficial
+
+                        </option>
+
+                        <option value="deadline-asc">
+
+                          Plazo: finaliza antes
+
+                        </option>
+
+                        <option value="deadline-desc">
+
+                          Plazo: finaliza después
+
+                        </option>
+
+                        <option value="municipality-asc">
+
+                          Municipio: A → Z
+
+                        </option>
+
+                      </select>
+
+                    </label>
+
+                    <button
+
+                      form={
+
+                        FILTER_FORM_ID
+
+                      }
+
+                      type="submit"
+
+                      className="h-10 rounded-lg border border-[#D5DAE3] bg-white px-4 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
+
+                    >
+
+                      Ordenar
+
+                    </button>
+
+                  </div>
 
                 </div>
 
@@ -1552,11 +1750,7 @@ export default async function ConvocatoriasPage({
 
                                 />
 
-                                {
-
-                                  officialStatus.label
-
-                                }
+                                Oficial: {officialStatus.label}
 
                               </span>
 
@@ -1572,10 +1766,8 @@ export default async function ConvocatoriasPage({
 
                                 />
 
-                                {buildApplicationPeriodBadgeText(
-
+                                Solicitudes: {buildApplicationPeriodBadgeText(
                                   applicationPeriod,
-
                                 )}
 
                               </span>
@@ -1740,7 +1932,7 @@ export default async function ConvocatoriasPage({
 
                               <ResultInfoItem
 
-                                label="Fin de solicitudes"
+                                label="Fin del plazo de solicitud"
 
                                 value={
 
@@ -2163,45 +2355,21 @@ function hasReservedPlaces(
 }
 
 function formatNumberOfPositions(
-
-  numberOfPositions:
-
-    number | null,
-
-  isJobPool:
-
-    boolean,
-
+  numberOfPositions: number | null,
+  isJobPool: boolean,
 ): string {
-
-  if (
-
-    numberOfPositions !==
-
-    null
-
-  ) {
-
-    return String(
-
-      numberOfPositions,
-
-    );
-
-  }
-
-  if (
-
-    isJobPool
-
-  ) {
-
+  if (isJobPool) {
     return "—";
-
   }
 
-  return "No especificadas";
+  if (
+    numberOfPositions === null ||
+    numberOfPositions <= 0
+  ) {
+    return "Sin definir";
+  }
 
+  return String(numberOfPositions);
 }
 
 function buildApplicationPeriodBadgeText(
@@ -2406,6 +2574,116 @@ function parseRadiusKm(
 
 }
 
+function parseSelectionProcessApplicationPeriod(
+
+  value:
+
+    | string
+
+    | undefined,
+
+): SelectionProcessApplicationPeriodFilter | undefined {
+
+  if (
+
+    value === "open" ||
+
+    value === "future" ||
+
+    value === "closed" ||
+
+    value === "unknown"
+
+  ) {
+
+    return value;
+
+  }
+
+  return undefined;
+
+}
+
+function parseSelectionProcessSort(
+
+  value:
+
+    | string
+
+    | undefined,
+
+): SelectionProcessSort | undefined {
+
+  const allowedSortValues:
+
+    SelectionProcessSort[] = [
+
+      "relevance",
+
+      "publication-desc",
+
+      "deadline-asc",
+
+      "deadline-desc",
+
+      "municipality-asc",
+
+    ];
+
+  return allowedSortValues.includes(
+
+    value as SelectionProcessSort,
+
+  )
+
+    ? (value as SelectionProcessSort)
+
+    : undefined;
+
+}
+
+function resolveSelectionProcessSort(
+
+  sort:
+
+    | SelectionProcessSort
+
+    | undefined,
+
+  hasTextSearch: boolean,
+
+): SelectionProcessSort {
+
+  if (
+
+    sort === undefined
+
+  ) {
+
+    return hasTextSearch
+
+      ? "relevance"
+
+      : "deadline-asc";
+
+  }
+
+  if (
+
+    sort === "relevance" &&
+
+    !hasTextSearch
+
+  ) {
+
+    return "deadline-asc";
+
+  }
+
+  return sort;
+
+}
+
 function parseDate(
 
   value:
@@ -2514,6 +2792,10 @@ function buildFilterFormKey(
 
     page,
 
+    sort:
+
+      filters.sort,
+
     qualificationGroups:
 
       filters.qualificationGroups,
@@ -2525,6 +2807,10 @@ function buildFilterFormKey(
     statusId:
 
       filters.statusId,
+
+    applicationPeriod:
+
+      filters.applicationPeriod,
 
     province:
 
@@ -2594,6 +2880,14 @@ function appendFiltersToParams(
 
 ) {
 
+  params.set(
+
+    "sort",
+
+    filters.sort,
+
+  );
+
   filters.qualificationGroups.forEach(
 
     (
@@ -2651,6 +2945,22 @@ function appendFiltersToParams(
         filters.statusId,
 
       ),
+
+    );
+
+  }
+
+  if (
+
+    filters.applicationPeriod
+
+  ) {
+
+    params.set(
+
+      "applicationPeriod",
+
+      filters.applicationPeriod,
 
     );
 

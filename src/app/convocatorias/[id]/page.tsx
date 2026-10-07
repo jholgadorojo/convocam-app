@@ -78,10 +78,10 @@ type ImportantDate = {
   label: string;
   value: string;
   state:
-    | "past"
-    | "today"
-    | "future"
-    | "unknown";
+  | "past"
+  | "today"
+  | "future"
+  | "unknown";
 };
 
 export default async function SelectionProcessDetailPage({
@@ -196,12 +196,12 @@ export default async function SelectionProcessDetailPage({
           user={
             session?.user
               ? {
-                  name:
-                    session.user.name,
+                name:
+                  session.user.name,
 
-                  email:
-                    session.user.email,
-                }
+                email:
+                  session.user.email,
+              }
               : undefined
           }
         />
@@ -241,7 +241,7 @@ export default async function SelectionProcessDetailPage({
                     selectionProcess
                       .reservedPlaces
                       .disability >
-                      0 && (
+                    0 && (
                       <ReservationBadge>
                         Reserva
                         discapacidad ·{" "}
@@ -253,7 +253,7 @@ export default async function SelectionProcessDetailPage({
                         {selectionProcess
                           .reservedPlaces
                           .disability ===
-                        1
+                          1
                           ? "plaza"
                           : "plazas"}
                       </ReservationBadge>
@@ -263,29 +263,29 @@ export default async function SelectionProcessDetailPage({
                   {selectionProcess
                     .reservedPlaces
                     .unemployed && (
-                    <ReservationBadge>
-                      Reserva personas
-                      desempleadas
-                    </ReservationBadge>
-                  )}
+                      <ReservationBadge>
+                        Reserva personas
+                        desempleadas
+                      </ReservationBadge>
+                    )}
 
                   {/* Reserva jóvenes */}
                   {selectionProcess
                     .reservedPlaces
                     .youngPeople && (
-                    <ReservationBadge>
-                      Reserva jóvenes
-                    </ReservationBadge>
-                  )}
+                      <ReservationBadge>
+                        Reserva jóvenes
+                      </ReservationBadge>
+                    )}
 
                   {/* Reserva mujeres */}
                   {selectionProcess
                     .reservedPlaces
                     .women && (
-                    <ReservationBadge>
-                      Reserva mujeres
-                    </ReservationBadge>
-                  )}
+                      <ReservationBadge>
+                        Reserva mujeres
+                      </ReservationBadge>
+                    )}
 
                   {/* Estado oficial */}
                   <OfficialStatusBadge
@@ -381,14 +381,14 @@ export default async function SelectionProcessDetailPage({
                   }
                   label="Plazas"
                   value={
-                    selectionProcess.numberOfPositions !==
-                    null
-                      ? String(
+                    selectionProcess.isJobPool
+                      ? "—"
+                      : selectionProcess.numberOfPositions !== null &&
+                        selectionProcess.numberOfPositions > 0
+                        ? String(
                           selectionProcess.numberOfPositions,
                         )
-                      : selectionProcess.isJobPool
-                        ? "—"
-                        : "No especificadas"
+                        : "Sin definir"
                   }
                 />
 
@@ -474,7 +474,7 @@ export default async function SelectionProcessDetailPage({
               {/* Requisitos */}
               <ContentSection title="Requisitos">
                 {requirements.length >
-                0 ? (
+                  0 ? (
                   <ul className="flex flex-col gap-3">
                     {requirements.map(
                       (
@@ -517,7 +517,7 @@ export default async function SelectionProcessDetailPage({
               {/* Cronología */}
               <ContentSection title="Cronología del proceso">
                 {processTimeline.length >
-                0 ? (
+                  0 ? (
                   <ol className="flex flex-col">
                     {processTimeline.map(
                       (
@@ -534,7 +534,7 @@ export default async function SelectionProcessDetailPage({
                           isLast={
                             index ===
                             processTimeline.length -
-                              1
+                            1
                           }
                         />
                       ),
@@ -552,7 +552,7 @@ export default async function SelectionProcessDetailPage({
               {/* Fechas importantes */}
               <ContentSection title="Fechas importantes">
                 {importantDates.length >
-                0 ? (
+                  0 ? (
                   <ul className="flex flex-col">
                     {importantDates.map(
                       (
@@ -599,7 +599,7 @@ export default async function SelectionProcessDetailPage({
                 title={`Documentos oficiales (${selectionProcess.documents.length})`}
               >
                 {selectionProcess.documents.length >
-                0 ? (
+                  0 ? (
                   <ul className="flex flex-col">
                     {selectionProcess.documents.map(
                       (
@@ -610,11 +610,10 @@ export default async function SelectionProcessDetailPage({
                           key={
                             document.id
                           }
-                          className={`flex flex-col gap-3 py-4 first:pt-0 last:pb-0 ${
-                            index > 0
+                          className={`flex flex-col gap-3 py-4 first:pt-0 last:pb-0 ${index > 0
                               ? "border-t border-[#EEF1F5]"
                               : ""
-                          }`}
+                            }`}
                         >
                           <div className="flex items-start gap-3">
                             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EEF0FC] text-[#3B45B5]">
@@ -647,12 +646,12 @@ export default async function SelectionProcessDetailPage({
                               {buildDocumentMetadata(
                                 document,
                               ) && (
-                                <p className="mt-1 text-[13px] text-[#7C859B]">
-                                  {buildDocumentMetadata(
-                                    document,
-                                  )}
-                                </p>
-                              )}
+                                  <p className="mt-1 text-[13px] text-[#7C859B]">
+                                    {buildDocumentMetadata(
+                                      document,
+                                    )}
+                                  </p>
+                                )}
 
                               {document.phaseNotes && (
                                 <p className="mt-2 text-sm leading-6 text-[#4E5870]">
@@ -715,7 +714,7 @@ export default async function SelectionProcessDetailPage({
               {/* Fuentes oficiales */}
               <ContentSection title="Fuentes oficiales">
                 {officialSources.length >
-                0 ? (
+                  0 ? (
                   <ul className="flex flex-col gap-2">
                     {officialSources.map(
                       (
@@ -1141,9 +1140,9 @@ function ProcessStep({
 
   const isCurrent =
     step.state ===
-      "current" ||
+    "current" ||
     step.state ===
-      "current-known";
+    "current-known";
 
   return (
     <li className="relative flex gap-4 pb-5 last:pb-0">
@@ -1152,13 +1151,12 @@ function ProcessStep({
       )}
 
       <span
-        className={`relative z-10 mt-0.5 inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
-          isCompleted
+        className={`relative z-10 mt-0.5 inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full border text-xs font-bold ${isCompleted
             ? "border-[#4F5BD5] bg-[#4F5BD5] text-white"
             : isCurrent
               ? "border-[#4F5BD5] bg-[#EEF0FC] text-[#3B45B5]"
               : "border-[#D5DAE3] bg-white text-[#7C859B]"
-        }`}
+          }`}
       >
         {isCompleted ? (
           <Check
@@ -1179,17 +1177,17 @@ function ProcessStep({
 
           {step.state ===
             "current" && (
-            <span className="rounded-full bg-[#EEF0FC] px-2 py-0.5 text-[11.5px] font-semibold text-[#3B45B5]">
-              Actual
-            </span>
-          )}
+              <span className="rounded-full bg-[#EEF0FC] px-2 py-0.5 text-[11.5px] font-semibold text-[#3B45B5]">
+                Actual
+              </span>
+            )}
 
           {step.state ===
             "current-known" && (
-            <span className="rounded-full bg-[#FFF4DB] px-2 py-0.5 text-[11.5px] font-semibold text-[#9A6700]">
-              Último hito conocido
-            </span>
-          )}
+              <span className="rounded-full bg-[#FFF4DB] px-2 py-0.5 text-[11.5px] font-semibold text-[#9A6700]">
+                Último hito conocido
+              </span>
+            )}
         </div>
 
         {step.detail && (
@@ -1216,7 +1214,7 @@ function DateState({
   state,
 }: {
   state:
-    ImportantDate["state"];
+  ImportantDate["state"];
 }) {
   if (
     state ===
@@ -1262,7 +1260,7 @@ function SourceIcon({
   type,
 }: {
   type:
-    OfficialSourceType;
+  OfficialSourceType;
 }) {
   if (
     type ===
@@ -1555,7 +1553,7 @@ function groupDocumentsByPhase(
         key: string;
         title: string;
         documents:
-          SelectionProcessDetailDto["documents"];
+        SelectionProcessDetailDto["documents"];
       }
     >();
 
@@ -1671,13 +1669,12 @@ function buildInformationText(
     selectionProcess.isJobPool
       ? "La convocatoria corresponde a una bolsa de trabajo."
       : selectionProcess.numberOfPositions !==
-          null
-        ? `La convocatoria ofrece ${selectionProcess.numberOfPositions} plaza${
-            selectionProcess.numberOfPositions ===
-            1
-              ? ""
-              : "s"
-          }.`
+        null
+        ? `La convocatoria ofrece ${selectionProcess.numberOfPositions} plaza${selectionProcess.numberOfPositions ===
+          1
+          ? ""
+          : "s"
+        }.`
         : "La convocatoria corresponde a un proceso de selección de personal.",
   );
 
@@ -1792,11 +1789,11 @@ function buildImportantDates(
       value:
         selectionProcess.applicationEndTime
           ? `${formatDate(
-              selectionProcess.applicationEndDate,
-            )} · ${selectionProcess.applicationEndTime}`
+            selectionProcess.applicationEndDate,
+          )} · ${selectionProcess.applicationEndTime}`
           : formatDate(
-              selectionProcess.applicationEndDate,
-            ),
+            selectionProcess.applicationEndDate,
+          ),
 
       state:
         getImportantDateState(
@@ -1898,7 +1895,7 @@ function findBaseDocument(
             document.phase,
             document.summary,
             document.phaseNotes ??
-              "",
+            "",
           ]
             .join(" ")
             .normalize("NFD")
@@ -1974,7 +1971,7 @@ function buildDocumentMetadata(
   ) {
     parts.push(
       document.bulletinNumber !==
-      null
+        null
         ? `${document.bulletin} ${document.bulletinNumber}`
         : document.bulletin,
     );
@@ -2160,7 +2157,7 @@ function getDateDayNumber(
       date.getUTCMonth(),
       date.getUTCDate(),
     ) /
-      86_400_000,
+    86_400_000,
   );
 }
 
@@ -2227,7 +2224,7 @@ function getTodayInMadridDayNumber(): number {
       month - 1,
       day,
     ) /
-      86_400_000,
+    86_400_000,
   );
 }
 
@@ -2325,15 +2322,15 @@ function formatLocation(
       value,
     ): value is string =>
       typeof value ===
-        "string" &&
+      "string" &&
       value.length > 0,
   );
 
   return values.length >
     0
     ? values.join(
-        " · ",
-      )
+      " · ",
+    )
     : "Ubicación no disponible";
 }
 
@@ -2368,7 +2365,7 @@ function getSafeResultsHref(
 
   if (
     returnTo ===
-      "/convocatorias" ||
+    "/convocatorias" ||
     returnTo.startsWith(
       "/convocatorias?",
     )

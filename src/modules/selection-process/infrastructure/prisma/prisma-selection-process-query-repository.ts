@@ -3,7 +3,7 @@ import type { SelectionProcessFilterOptions, SelectionProcessTerritoryOption, } 
 import type { SelectionProcessListItem } from "../../application/selection-process-list-item";
 import type { SelectionProcessPage } from "../../application/selection-process-page";
 import type { SelectionProcessQueryRepository } from "../../application/selection-process-query-repository";
-import type { SelectionProcessSearchFilters } from "../../application/selection-process-search-filters";
+import type { SelectionProcessApplicationPeriodFilter, SelectionProcessSearchFilters, SelectionProcessSort } from "../../application/selection-process-search-filters";
 type SelectionProcessRow = Prisma.SelectionProcessGetPayload<{
     include: {
         institution: true;
@@ -128,6 +128,12 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
                 personnelTypeId: filters.personnelTypeId,
             });
         }
+        if (filters.applicationPeriod) {
+            conditions.push(buildApplicationPeriodWhereInput(
+                filters.applicationPeriod,
+                getCataloniaTodayUtc(),
+            ));
+        }
         if (filters.applicationEndDateFrom) {
             conditions.push({
                 applicationEndDate: {
@@ -167,7 +173,8 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
         const where: Prisma.SelectionProcessWhereInput = {
             AND: conditions,
         };
-        if (textMatches !== null) {
+        const sort = resolveSelectionProcessSort(filters.sort, textMatches !== null);
+        if (textMatches !== null && sort === "relevance") {
             const [rows, totalItems,] = await Promise.all([
                 this.prisma.selectionProcess.findMany({
                     where,
@@ -202,23 +209,14 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
                     pageSize),
             };
         }
+        const orderBy = buildSelectionProcessOrderBy(sort);
         const [rows, totalItems,] = await Promise.all([
             this.prisma.selectionProcess.findMany({
                 where,
                 include: {
                     institution: true,
                 },
-                orderBy: [
-                    {
-                        applicationEndDate: {
-                            sort: "asc",
-                            nulls: "last",
-                        },
-                    },
-                    {
-                        id: "asc",
-                    },
-                ],
+                orderBy,
                 skip,
                 take: pageSize,
             }),
@@ -1323,6 +1321,156 @@ function mapSelectionProcessListItem(row: SelectionProcessRow): SelectionProcess
             }
             : null,
     };
+}
+function buildApplicationPeriodWhereInput(period: SelectionProcessApplicationPeriodFilter, today: Date): Prisma.SelectionProcessWhereInput {
+    switch (period) {
+        case "open":
+            return {
+                AND: [
+                    {
+                        applicationStartDate: {
+                            lte: today,
+                        },
+                    },
+                    {
+                        applicationEndDate: {
+                            gte: today,
+                        },
+                    },
+                ],
+            };
+        case "future":
+            return {
+                AND: [
+                    {
+                        applicationStartDate: {
+                            gt: today,
+                        },
+                    },
+                    {
+                        OR: [
+                            {
+                                applicationEndDate: null,
+                            },
+                            {
+                                applicationEndDate: {
+                                    gte: today,
+                                },
+                            },
+                        ],
+                    },
+                ],
+            };
+        case "closed":
+            return {
+                applicationEndDate: {
+                    lt: today,
+                },
+            };
+        case "unknown":
+            return {
+                OR: [
+                    {
+                        applicationStartDate: null,
+                        applicationEndDate: null,
+                    },
+                    {
+                        applicationStartDate: null,
+                        applicationEndDate: {
+                            gte: today,
+                        },
+                    },
+                    {
+                        applicationStartDate: {
+                            lte: today,
+                        },
+                        applicationEndDate: null,
+                    },
+                ],
+            };
+    }
+}
+function getCataloniaTodayUtc(): Date {
+    const dateParts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Madrid",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(new Date());
+    const year = Number(dateParts.find((part) => part.type === "year")?.value);
+    const month = Number(dateParts.find((part) => part.type === "month")?.value);
+    const day = Number(dateParts.find((part) => part.type === "day")?.value);
+    return new Date(Date.UTC(year, month - 1, day));
+}
+function resolveSelectionProcessSort(sort: SelectionProcessSort | undefined, hasTextSearch: boolean): SelectionProcessSort {
+    if (sort === undefined) {
+        return hasTextSearch
+            ? "relevance"
+            : "deadline-asc";
+    }
+    if (sort === "relevance" && !hasTextSearch) {
+        return "deadline-asc";
+    }
+    return sort;
+}
+function buildSelectionProcessOrderBy(sort: SelectionProcessSort): Prisma.SelectionProcessOrderByWithRelationInput[] {
+    switch (sort) {
+        case "publication-desc":
+            return [
+                {
+                    lastDocumentPublicationDate: {
+                        sort: "desc",
+                        nulls: "last",
+                    },
+                },
+                {
+                    id: "asc",
+                },
+            ];
+        case "deadline-desc":
+            return [
+                {
+                    applicationEndDate: {
+                        sort: "desc",
+                        nulls: "last",
+                    },
+                },
+                {
+                    id: "asc",
+                },
+            ];
+        case "municipality-asc":
+            return [
+                {
+                    institution: {
+                        municipality: "asc",
+                    },
+                },
+                {
+                    applicationEndDate: {
+                        sort: "asc",
+                        nulls: "last",
+                    },
+                },
+                {
+                    id: "asc",
+                },
+            ];
+        case "relevance":
+        case "deadline-asc":
+        default:
+            return [
+                {
+                    applicationEndDate: {
+                        sort: "asc",
+                        nulls: "last",
+                    },
+                },
+                {
+                    id: "asc",
+                },
+            ];
+    }
 }
 function normalizeRadiusKm(value: number | undefined): number | undefined {
     if (value === undefined ||
