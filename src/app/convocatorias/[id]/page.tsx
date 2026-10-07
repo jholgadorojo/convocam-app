@@ -226,12 +226,68 @@ export default async function SelectionProcessDetailPage({
                 </Link>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* Tipo de convocatoria */}
                   <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] px-3 text-xs font-semibold text-[#3B45B5]">
                     {
                       processType
                     }
                   </span>
 
+                  {/* Reserva discapacidad */}
+                  {selectionProcess
+                    .reservedPlaces
+                    .disability !==
+                    null &&
+                    selectionProcess
+                      .reservedPlaces
+                      .disability >
+                      0 && (
+                      <ReservationBadge>
+                        Reserva
+                        discapacidad ·{" "}
+                        {
+                          selectionProcess
+                            .reservedPlaces
+                            .disability
+                        }{" "}
+                        {selectionProcess
+                          .reservedPlaces
+                          .disability ===
+                        1
+                          ? "plaza"
+                          : "plazas"}
+                      </ReservationBadge>
+                    )}
+
+                  {/* Reserva personas desempleadas */}
+                  {selectionProcess
+                    .reservedPlaces
+                    .unemployed && (
+                    <ReservationBadge>
+                      Reserva personas
+                      desempleadas
+                    </ReservationBadge>
+                  )}
+
+                  {/* Reserva jóvenes */}
+                  {selectionProcess
+                    .reservedPlaces
+                    .youngPeople && (
+                    <ReservationBadge>
+                      Reserva jóvenes
+                    </ReservationBadge>
+                  )}
+
+                  {/* Reserva mujeres */}
+                  {selectionProcess
+                    .reservedPlaces
+                    .women && (
+                    <ReservationBadge>
+                      Reserva mujeres
+                    </ReservationBadge>
+                  )}
+
+                  {/* Estado oficial */}
                   <OfficialStatusBadge
                     label={
                       officialStatus.label
@@ -432,7 +488,9 @@ export default async function SelectionProcessDetailPage({
                           <span className="mt-0.5 inline-flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] text-[#4F5BD5]">
                             <Check
                               size={12}
-                              strokeWidth={2}
+                              strokeWidth={
+                                2
+                              }
                             />
                           </span>
 
@@ -447,8 +505,7 @@ export default async function SelectionProcessDetailPage({
                   </ul>
                 ) : (
                   <p className="text-sm text-[#69738A]">
-                    No hay
-                    información
+                    No hay información
                     estructurada de
                     requisitos.
                     Consulta las bases
@@ -616,7 +673,8 @@ export default async function SelectionProcessDetailPage({
                               rel="noreferrer"
                               className="inline-flex items-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-[13px] font-semibold text-[#131A2C] hover:bg-[#F4F6F9]"
                             >
-                              Abrir documento
+                              Abrir
+                              documento
 
                               <ExternalLink
                                 size={14}
@@ -648,12 +706,13 @@ export default async function SelectionProcessDetailPage({
                 ) : (
                   <p className="text-sm text-[#69738A]">
                     No hay documentos
-                    oficiales asociados.
+                    oficiales
+                    asociados.
                   </p>
                 )}
               </ContentSection>
 
-              {/* Fuentes */}
+              {/* Fuentes oficiales */}
               <ContentSection title="Fuentes oficiales">
                 {officialSources.length >
                 0 ? (
@@ -848,7 +907,8 @@ export default async function SelectionProcessDetailPage({
                       rel="noreferrer"
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4F5BD5] px-4 text-sm font-semibold text-white hover:bg-[#3B45B5]"
                     >
-                      Presentar solicitud
+                      Presentar
+                      solicitud
 
                       <ExternalLink
                         size={16}
@@ -894,8 +954,9 @@ export default async function SelectionProcessDetailPage({
                   <p className="text-[13.5px] leading-6 text-[#4E5870]">
                     Sigue la
                     convocatoria para
-                    anotar en qué punto
-                    estás: desde{" "}
+                    anotar en qué
+                    punto estás:
+                    desde{" "}
                     <strong className="font-semibold text-[#131A2C]">
                       Me interesa
                     </strong>{" "}
@@ -1000,6 +1061,26 @@ function SummaryItem({
         </p>
       </div>
     </div>
+  );
+}
+
+/*
+ * Badge reservado para condiciones
+ * especiales de acceso.
+ *
+ * Utiliza un tono violeta para no
+ * confundirse con el tipo, el estado
+ * oficial o el plazo.
+ */
+function ReservationBadge({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDD6FE] bg-[#F5F3FF] px-3 text-xs font-semibold text-[#6D28D9]">
+      {children}
+    </span>
   );
 }
 
@@ -1535,13 +1616,15 @@ function buildTimelineDocumentDetail(
     SelectionProcessDetailDto["documents"],
 ): string | null {
   if (
-    documents.length === 0
+    documents.length ===
+    0
   ) {
     return null;
   }
 
   if (
-    documents.length === 1
+    documents.length ===
+    1
   ) {
     return (
       documents[0].summary ||
