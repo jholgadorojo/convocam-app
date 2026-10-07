@@ -1,658 +1,804 @@
 # SPEC-004 — Buscador de convocatorias
 
-## Estado
-**Completada**
+**Proyecto:** Convoca'm  
+**Estado:** ✅ Cerrada  
+**Versión actualizada:** 2026-10-07  
+**Fuente principal de datos:** CIDO — Diputació de Barcelona  
 
-## Objetivo
-Construir el buscador real de convocatorias de Convoca'm utilizando los datos sincronizados desde CIDO y almacenados en PostgreSQL.
+---
 
-Debe permitir consultar convocatorias sin autenticación, combinar múltiples filtros, realizar búsquedas tolerantes a acentos y pequeñas variaciones de escritura, ordenar resultados por relevancia cuando existe texto de búsqueda y mantener paginación y filtros durante la navegación.
+## 1. Objetivo
 
-## Alcance
-Incluye:
-- listado real desde PostgreSQL;
-- búsqueda libre;
-- filtros combinables;
-- filtros territoriales dependientes;
-- búsqueda tolerante;
-- ranking por relevancia;
+Construir el buscador real de convocatorias de Convoca'm sobre los datos sincronizados desde CIDO y almacenados en PostgreSQL.
+
+El buscador debe permitir a cualquier persona, autenticada o no, localizar procesos selectivos y bolsas de trabajo de acceso libre en Catalunya mediante búsqueda textual, filtros, territorio, fechas y ordenación, manteniendo una experiencia comprensible para una persona opositora.
+
+El buscador forma parte del acceso público de Convoca'm. El inicio de sesión no es obligatorio para consultar convocatorias; será necesario únicamente para funcionalidades personales como seguir una convocatoria.
+
+---
+
+## 2. Principios funcionales
+
+1. Los datos mostrados proceden de PostgreSQL, previamente sincronizados desde CIDO.
+2. Solo se muestran por defecto convocatorias activas en origen mediante `sourceActive = true`.
+3. El buscador no depende de llamadas directas a CIDO durante la navegación normal.
+4. Los textos visibles de la interfaz están en castellano.
+5. Los nombres técnicos del código pueden mantenerse en inglés.
+6. La implementación respeta la arquitectura Clean Architecture del proyecto.
+7. Los datos oficiales y los estados calculados por Convoca'm deben distinguirse visualmente.
+8. Los filtros deben mantenerse al paginar, ordenar, entrar en el detalle y volver al listado.
+
+---
+
+## 3. Arquitectura
+
+El buscador se mantiene separado por capas.
+
+### Application
+
+Contratos y modelos de aplicación relacionados con:
+
+- filtros de búsqueda;
+- ordenación;
 - paginación;
-- conservación de filtros;
-- opciones de filtro obtenidas desde base de datos;
-- tests unitarios;
-- tests de integración contra PostgreSQL.
+- opciones disponibles para los filtros;
+- DTO/list item de convocatoria;
+- repositorio de consulta;
+- casos de uso de listado y obtención de filtros.
 
-Queda fuera:
-- detalle individual de convocatoria;
-- favoritos;
-- análisis inteligente de documentos;
-- clasificación por tipo de administración;
-- mapa territorial interactivo.
+### Infrastructure
 
-# 1. Arquitectura
+La implementación Prisma es responsable de:
+
+- consultar PostgreSQL;
+- construir las condiciones de filtrado;
+- realizar la búsqueda textual tolerante;
+- aplicar la ordenación;
+- calcular los resultados territoriales por radio;
+- paginar;
+- devolver las opciones reales disponibles para los filtros.
+
+Implementación principal:
+
+```text
+PrismaSelectionProcessQueryRepository
+```
+
+### Presentation / Next.js
+
+La ruta principal es:
 
 ```text
 /convocatorias
-      ↓
-Next.js page.tsx
-      ↓
-ListActiveSelectionProcesses
-      ↓
-SelectionProcessQueryRepository
-      ↓
-PrismaSelectionProcessQueryRepository
-      ↓
-PostgreSQL
 ```
 
-La capa Application desconoce Prisma, PostgreSQL, `unaccent` y `pg_trgm`.
+La URL representa el estado de búsqueda para permitir:
 
-# 2. Archivos principales
+- recargar la página;
+- compartir una búsqueda;
+- conservar filtros al paginar;
+- conservar filtros al entrar en el detalle;
+- volver desde el detalle al mismo estado del listado.
 
-## Application
+---
+
+## 4. Búsqueda textual
+
+El buscador dispone de búsqueda libre por texto.
+
+Ejemplos:
 
 ```text
-src/modules/selection-process/application/
+informática
+auxiliar administratiu
+cardedeu
+ajuntament granollers
 ```
 
-### `selection-process-list-item.ts`
-Define el formato necesario para mostrar una convocatoria:
-- `id`
-- `cidoIdentifier`
-- `title`
-- `isJobPool`
-- `applicationEndDate`
-- `qualificationGroup`
-- `status`
-- `cidoUrl`
-- `institution.name`
-- `institution.municipality`
-- `institution.county`
-- `institution.province`
+La búsqueda no se limita a una igualdad exacta.
 
-### `selection-process-page.ts`
+### 4.1. Búsqueda tolerante
 
-```ts
-export type SelectionProcessPage = {
-  items: SelectionProcessListItem[];
-  page: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-};
-```
-
-### `selection-process-search-filters.ts`
-
-```ts
-export type SelectionProcessSearchFilters = {
-  text?: string;
-  municipality?: string;
-  county?: string;
-  province?: string;
-  statusId?: number;
-  scopeId?: number;
-  selectionSystemId?: number;
-  personnelTypeId?: number;
-  qualificationGroup?: string | string[];
-  isJobPool?: boolean;
-  applicationEndDateFrom?: Date;
-  applicationEndDateTo?: Date;
-  reservedDisability?: boolean;
-  reservedUnemployed?: boolean;
-  reservedYoung?: boolean;
-  reservedWomen?: boolean;
-};
-```
-
-### `selection-process-query-repository.ts`
-
-```ts
-export interface SelectionProcessQueryRepository {
-  findActive(
-    page: number,
-    pageSize: number,
-    filters: SelectionProcessSearchFilters,
-  ): Promise<SelectionProcessPage>;
-
-  getFilterOptions(): Promise<SelectionProcessFilterOptions>;
-}
-```
-
-### `list-active-selection-processes.ts`
-Responsable de:
-- valores por defecto;
-- validación de `page`;
-- validación de `pageSize`;
-- delegar la consulta al repositorio.
-
-Valores por defecto:
+Se utiliza PostgreSQL con:
 
 ```text
-page = 1
-pageSize = 20
+unaccent
+pg_trgm
+word_similarity
 ```
 
-Restricciones:
+Esto permite tolerar:
 
-```text
-page >= 1
-1 <= pageSize <= 100
-```
+- diferencias de acentos;
+- pequeñas variaciones de escritura;
+- coincidencias parciales;
+- errores menores;
+- palabras similares.
 
-### `selection-process-filter-options.ts`
-Incluye:
-- municipios;
-- comarcas;
-- provincias;
-- jerarquía territorial;
-- estados;
-- ámbitos;
-- sistemas de selección;
-- tipos de personal;
-- grupos de titulación.
+### 4.2. Términos múltiples
 
-Jerarquía territorial:
+Cuando el usuario introduce varios términos, todos deben contribuir a localizar la convocatoria.
 
-```ts
-export type SelectionProcessTerritoryOption = {
-  province: string;
-  county: string | null;
-  municipality: string | null;
-};
-```
+La búsqueda se diseñó para evitar que una consulta con varias palabras se convierta en una coincidencia excesivamente amplia.
 
-### `get-selection-process-filter-options.ts`
-Obtiene las opciones reales disponibles desde PostgreSQL.
+### 4.3. Campos relevantes
 
-# 3. Infrastructure
+La relevancia textual tiene en cuenta principalmente información como:
 
-## `PrismaSelectionProcessQueryRepository`
-
-Ruta:
-
-```text
-src/modules/selection-process/infrastructure/prisma/
-prisma-selection-process-query-repository.ts
-```
-
-Responsabilidades:
-- consultar convocatorias activas;
-- aplicar filtros;
-- aplicar paginación;
-- construir opciones de filtro;
-- construir jerarquía territorial;
-- ejecutar búsqueda tolerante;
-- calcular ranking por relevancia.
-
-# 4. Convocatorias activas
-
-El listado devuelve únicamente:
-
-```text
-sourceActive = true
-```
-
-Las convocatorias históricas permanecen almacenadas, pero no aparecen en el buscador principal mientras `sourceActive = false`.
-
-# 5. Filtros implementados
-
-Todos los filtros se combinan mediante **AND**.
-
-Ejemplo:
-
-```text
-texto = informatic
-AND provincia = Barcelona
-AND comarca = Vallès Oriental
-AND grupo = A2
-AND estado = Termini obert
-```
-
-## 5.1 Tipo de convocatoria
-
-Campo:
-
-```text
-isJobPool
-```
-
-Comportamiento:
-
-```text
-Plazas solamente     → false
-Bolsas solamente     → true
-Ambas seleccionadas  → sin filtro
-Ninguna seleccionada → sin filtro
-```
-
-## 5.2 Estado
-Campo:
-
-```text
-statusId
-```
-
-Las opciones se cargan desde PostgreSQL.
-
-## 5.3 Grupo de titulación
-Campo:
-
-```text
-qualificationGroup
-```
-
-Permite selección múltiple, por ejemplo:
-
-```text
-A2 + C1
-```
-
-equivale conceptualmente a:
-
-```text
-qualificationGroup IN ("A2", "C1")
-```
-
-## 5.4 Ámbito
-Campo:
-
-```text
-scopeId
-```
-
-## 5.5 Sistema de selección
-Campo:
-
-```text
-selectionSystemId
-```
-
-## 5.6 Tipo de personal
-Campo:
-
-```text
-personnelTypeId
-```
-
-## 5.7 Fecha límite
-Campo:
-
-```text
-applicationEndDate
-```
-
-Filtros:
-
-```text
-applicationEndDateFrom
-applicationEndDateTo
-```
-
-## 5.8 Reservas
-
-```text
-reservedDisability
-reservedUnemployed
-reservedYoung
-reservedWomen
-```
-
-Discapacidad se considera activa cuando:
-
-```text
-reservedDisabilityPositions > 0
-```
-
-# 6. Filtros territoriales
-
-Se basan en `Institution`:
-
-```text
-province
-county
-municipality
-```
-
-Jerarquía:
-
-```text
-Provincia
-    ↓
-Comarca
-    ↓
-Municipio
-```
-
-Al cambiar provincia:
-- se recalculan las comarcas;
-- se limpia la comarca anterior;
-- se limpia el municipio anterior.
-
-Al cambiar comarca:
-- se recalculan los municipios;
-- se limpia el municipio anterior.
-
-Componente:
-
-```text
-src/app/convocatorias/territory-filters.tsx
-```
-
-La consulta aplica provincia, comarca y municipio sobre la misma relación `institution`:
-
-```text
-Institution
-    province = Barcelona
-AND county = Vallès Oriental
-AND municipality = Cardedeu
-```
-
-# 7. Búsqueda libre
-
-Parámetro:
-
-```text
-q
-```
-
-Campos considerados:
-- título;
-- nombre de institución;
+- título de la convocatoria;
+- organismo;
 - municipio;
 - comarca;
 - provincia;
 - grupo de titulación.
 
-# 8. Búsqueda tolerante
+---
 
-Extensiones PostgreSQL:
+## 5. Prioridad de resultados
 
-```sql
-CREATE EXTENSION IF NOT EXISTS unaccent;
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-```
+Cuando existe búsqueda textual, Convoca'm utiliza una puntuación de relevancia.
 
-## 8.1 `unaccent`
-Ignora acentos y diacríticos:
+La prioridad conceptual es:
 
 ```text
-tecnic        → Tècnic
-informatic    → Informàtic
-administracio → Administració
-valles        → Vallès
+título
+  ↓
+organismo
+  ↓
+territorio
+  ↓
+otros campos de apoyo
 ```
 
-## 8.2 `pg_trgm`
-Se utiliza `word_similarity()` para pequeñas variaciones.
+Una coincidencia clara en el título debe aparecer antes que una coincidencia secundaria en ubicación o metadatos.
 
-Ejemplo:
+Si no hay texto de búsqueda, la ordenación por defecto no utiliza relevancia.
+
+---
+
+## 6. Ordenación
+
+El buscador permite seleccionar explícitamente el orden de los resultados.
+
+Opciones:
 
 ```text
-informatics → informàtic
+Relevancia
+Última publicación oficial
+Plazo: finaliza antes
+Plazo: finaliza después
+Municipio: A → Z
 ```
 
-## 8.3 Umbral
+Valores técnicos:
 
 ```text
-score >= 0.55
+relevance
+publication-desc
+deadline-asc
+deadline-desc
+municipality-asc
 ```
 
-# 9. Varias palabras
+### Reglas por defecto
 
-Ejemplo:
+Con texto de búsqueda:
 
 ```text
-cardedeu informatic
+Relevancia
 ```
 
-se interpreta como:
+Sin texto de búsqueda:
 
 ```text
-cardedeu
+Plazo: finaliza antes
+```
+
+Si el usuario selecciona una ordenación explícita, esta prevalece.
+
+Una ordenación `relevance` sin texto se normaliza a la ordenación por finalización de plazo ascendente.
+
+---
+
+## 7. Filtros implementados
+
+### 7.1. Tipo de convocatoria
+
+```text
+Plazas de plantilla
+Bolsa de trabajo
+```
+
+Se basa en:
+
+```text
+isJobPool
+```
+
+Puede seleccionarse uno, ambos o ninguno.
+
+---
+
+### 7.2. Estado oficial CIDO
+
+Etiqueta visible:
+
+```text
+Estado oficial CIDO
+```
+
+Se basa en:
+
+```text
+statusId
+status
+```
+
+Este filtro representa exclusivamente el estado oficial recibido de CIDO.
+
+No debe confundirse con el estado calculado del plazo de solicitudes.
+
+---
+
+### 7.3. Plazo de solicitud
+
+Convoca'm calcula un estado funcional utilizando:
+
+```text
+applicationStartDate
+applicationEndDate
+```
+
+Opciones:
+
+```text
+Todos los plazos
+Abierto ahora
+Próximo a abrir
+Finalizado
+Sin fechas disponibles
+```
+
+Valores técnicos:
+
+```text
+open
+future
+closed
+unknown
+```
+
+Semántica:
+
+#### Abierto ahora
+
+```text
+applicationStartDate <= hoy
 AND
-informatic
+applicationEndDate >= hoy
 ```
 
-Cada término puede aparecer en un campo distinto.
+Una convocatoria que finaliza hoy continúa considerándose abierta durante ese día.
 
-# 10. Ranking por relevancia
-
-Para cada término se toma la mejor coincidencia mediante `GREATEST()`.
-
-| Campo | Coincidencia directa | Aproximada |
-|---|---:|---:|
-| Título | 2.0 | hasta 1.5 |
-| Organismo | 1.4 | hasta 1.1 |
-| Municipio | 1.0 | hasta 1.0 |
-| Comarca | 1.0 | hasta 1.0 |
-| Provincia | 1.0 | hasta 1.0 |
-| Grupo de titulación | 0.8 | hasta 0.7 |
-
-El título tiene mayor peso porque normalmente el usuario busca el puesto.
-
-Con varias palabras, las puntuaciones se suman.
-
-# 11. Orden de resultados
-
-## Con texto
+#### Próximo a abrir
 
 ```text
-relevancia DESC
+applicationStartDate > hoy
 ```
 
-## Sin texto
+#### Finalizado
 
 ```text
-applicationEndDate ASC NULLS LAST
-id ASC
+applicationEndDate < hoy
 ```
 
-# 12. Paginación
+#### Sin fechas disponibles
 
-Configuración principal:
+No existen datos suficientes para clasificar con seguridad el plazo en una de las categorías anteriores.
+
+La fecha de referencia se calcula respetando la fecha local aplicable a Catalunya y se compara como fecha, no como instante horario.
+
+---
+
+### 7.4. Ubicación
+
+Filtros territoriales dependientes:
+
+```text
+Provincia
+  ↓
+Comarca
+  ↓
+Municipio
+```
+
+Los valores disponibles se obtienen de las instituciones vinculadas a las convocatorias activas.
+
+No se utilizan listas territoriales ficticias o estáticas.
+
+---
+
+### 7.5. Radio desde municipio
+
+Cuando existe un municipio seleccionado, puede utilizarse como origen para buscar convocatorias cercanas.
+
+Opciones:
+
+```text
+Sin límite
+5 km
+10 km
+25 km
+50 km
+100 km
+```
+
+### Comportamiento
+
+Sin radio:
+
+```text
+provincia + comarca + municipio
+```
+
+funcionan como filtros territoriales exactos.
+
+Con radio:
+
+```text
+municipio = origen de la búsqueda
+```
+
+El municipio deja de ser una restricción exacta sobre los resultados.
+
+Los resultados pueden encontrarse en otra comarca o provincia si están dentro del radio solicitado.
+
+### Cálculo
+
+Se utiliza distancia aproximada en línea recta mediante la fórmula de Haversine.
+
+No se utiliza:
+
+- PostGIS;
+- Google Maps API;
+- servicios externos de rutas.
+
+El punto de origen se obtiene a partir de las coordenadas disponibles de las instituciones del municipio seleccionado.
+
+Si existen varias instituciones con coordenadas, se obtiene un punto representativo mediante la media de sus latitudes y longitudes.
+
+Las instituciones del municipio de origen se conservan aunque alguna de ellas no disponga de coordenadas, siempre que el municipio pueda resolverse mediante otras instituciones.
+
+Si no es posible resolver las coordenadas del municipio de origen, el sistema vuelve de forma segura al filtrado territorial exacto.
+
+---
+
+### 7.6. Grupo de titulación
+
+Permite seleccionar uno o varios grupos.
+
+Ejemplos:
+
+```text
+A1
+A2
+C1
+C2
+AP
+```
+
+La selección múltiple utiliza lógica OR entre los grupos seleccionados.
+
+---
+
+### 7.7. Ámbito
+
+Se basa en:
+
+```text
+scopeId
+scopeName
+```
+
+Las opciones proceden de las convocatorias activas almacenadas en PostgreSQL.
+
+---
+
+### 7.8. Sistema de selección
+
+Se basa en:
+
+```text
+selectionSystemId
+selectionSystem
+```
+
+Ejemplos posibles según los datos de CIDO:
+
+```text
+Oposición
+Concurso-oposición
+Concurso
+```
+
+---
+
+### 7.9. Tipo de personal
+
+Se basa en:
+
+```text
+personnelTypeId
+personnelType
+```
+
+---
+
+### 7.10. Fin del plazo de solicitud
+
+La etiqueta visible se normaliza a:
+
+```text
+Fin del plazo de solicitud
+```
+
+Se filtra sobre:
+
+```text
+applicationEndDate
+```
+
+Se permiten dos límites:
+
+```text
+Desde
+Hasta
+```
+
+Este filtro puede combinarse con `Plazo de solicitud`.
+
+Ejemplo:
+
+```text
+Plazo de solicitud: Abierto ahora
+Fin del plazo de solicitud: Hasta 31/10/2026
+```
+
+Significado:
+
+> Convocatorias abiertas ahora cuyo plazo termina como máximo el 31 de octubre de 2026.
+
+---
+
+### 7.11. Reservas
+
+Filtros disponibles:
+
+```text
+Personas con discapacidad
+Personas desempleadas
+Jóvenes
+Mujeres
+```
+
+Campos:
+
+```text
+reservedDisabilityPositions
+reservedUnemployed
+reservedYoung
+reservedWomen
+```
+
+---
+
+## 8. Diferencia entre estado oficial y plazo calculado
+
+Es posible que una convocatoria muestre simultáneamente información aparentemente contradictoria, por ejemplo:
+
+```text
+Oficial: Termini Obert
+Solicitudes: Plazo finalizado
+```
+
+Esto no se considera necesariamente un error.
+
+Son dos fuentes conceptualmente distintas:
+
+```text
+Estado oficial CIDO
+        ↓
+status / statusId
+
+Estado calculado Convoca'm
+        ↓
+applicationStartDate / applicationEndDate
+```
+
+La interfaz los identifica explícitamente mediante los prefijos:
+
+```text
+Oficial:
+Solicitudes:
+```
+
+Convoca'm no sustituye ni modifica el estado oficial recibido de CIDO.
+
+---
+
+## 9. Presentación de resultados
+
+Cada resultado muestra información resumida suficiente para decidir si merece la pena abrir el detalle.
+
+Entre otros datos:
+
+- tipo de convocatoria;
+- estado oficial;
+- estado del plazo de solicitudes;
+- título normalizado;
+- organismo;
+- ubicación;
+- plazas;
+- grupo;
+- personal;
+- sistema de selección;
+- ámbito;
+- fin del plazo de solicitud;
+- reservas, cuando existen.
+
+---
+
+## 10. Normalización visual del título
+
+Los títulos procedentes de CIDO pueden contener formatos poco adecuados para una interfaz moderna.
+
+Convoca'm aplica una normalización únicamente de presentación.
+
+El dato original almacenado no se modifica.
+
+---
+
+## 11. Presentación del número de plazas
+
+El valor recibido de CIDO se conserva sin modificar en PostgreSQL.
+
+La interfaz utiliza la siguiente regla:
+
+```text
+numberOfPositions > 0
+    → mostrar el número
+
+numberOfPositions = 0
+    → Sin definir
+
+numberOfPositions = null
+    → Sin definir
+
+Bolsa de trabajo
+    → —
+```
+
+Esto evita que `0 plazas` sea interpretado erróneamente como una convocatoria sin plazas cuando en realidad el número no ha sido definido en la fuente.
+
+La misma semántica debe utilizarse tanto en el buscador como en el detalle de convocatoria.
+
+---
+
+## 12. Paginación
+
+Los resultados están paginados.
+
+Tamaño utilizado:
 
 ```text
 20 resultados por página
 ```
 
-Resultado:
+La paginación conserva todos los parámetros activos.
+
+Ejemplo conceptual:
 
 ```text
-page
-pageSize
-totalItems
-totalPages
+/convocatorias?q=administrativo&province=Barcelona&page=2
 ```
 
-La URL conserva todos los filtros y el texto de búsqueda.
+Los enlaces `Anterior` y `Siguiente` no deben perder filtros ni ordenación.
 
-# 13. Interfaz `/convocatorias`
+---
 
-La página:
-- es accesible sin autenticación;
-- usa PostgreSQL real;
-- muestra filtros;
-- muestra total de resultados;
-- muestra tarjetas;
-- permite paginar;
-- conserva filtros.
+## 13. Conservación del estado de búsqueda
 
-Cada tarjeta muestra:
-- plaza o bolsa;
-- estado;
-- título;
-- institución;
-- municipio;
-- comarca;
-- provincia;
-- grupo;
-- fecha límite;
-- enlace oficial CIDO.
+Se utiliza un único formulario lógico para el buscador y los filtros.
 
-# 14. Rutas temporales de debug
-
-Tras validar el buscador, dejan de ser necesarias:
+Identificador:
 
 ```text
-src/app/api/debug/convocatorias/route.ts
-src/app/api/debug/convocatorias/filtros/route.ts
+convocatorias-filter-form
 ```
 
-# 15. Tests unitarios
+El buscador superior puede enviar el mismo formulario mediante el atributo `form`.
 
-Archivo:
+Se utiliza una clave derivada del estado actual de filtros para mantener sincronizados los controles cuando cambia la URL.
 
-```text
-src/modules/selection-process/application/
-list-active-selection-processes.test.ts
-```
+Los parámetros deben conservarse en:
 
-Validan:
-- valores por defecto;
-- filtros enviados al repositorio;
-- resultado devuelto;
-- validación de `page`;
-- validación de `pageSize`.
-
-# 16. Tests de integración
-
-Archivo:
-
-```text
-src/modules/selection-process/infrastructure/prisma/
-prisma-selection-process-query-repository.test.ts
-```
-
-Se ejecutan contra PostgreSQL real usando una base separada:
-
-```text
-convocam_test
-```
-
-Configuración:
-
-```text
-.env.test
-```
-
-Validan:
-- exclusión de `sourceActive = false`;
-- territorio;
-- varios grupos;
-- plaza / bolsa;
-- búsqueda sin acentos;
-- búsqueda tolerante;
-- ranking;
+- nueva búsqueda;
+- aplicación de filtros;
+- ordenación;
 - paginación;
-- orden por fecha sin texto.
+- entrada en el detalle;
+- retorno desde el detalle.
 
-La base de test debe tener aplicadas todas las migraciones, incluidas:
-
-```text
-unaccent
-pg_trgm
-```
-
-# 17. Composition Root
-
-En:
+La acción `Limpiar` vuelve a:
 
 ```text
-src/composition/selection-process.ts
+/convocatorias
 ```
 
-```ts
-const selectionProcessQueryRepository =
-  new PrismaSelectionProcessQueryRepository(prisma);
+---
 
-export const listActiveSelectionProcessesUseCase =
-  new ListActiveSelectionProcesses(
-    selectionProcessQueryRepository,
-  );
+## 14. Integración con SPEC-005
 
-export const getSelectionProcessFilterOptionsUseCase =
-  new GetSelectionProcessFilterOptions(
-    selectionProcessQueryRepository,
-  );
-```
+Cada resultado enlaza al detalle real de la convocatoria.
 
-Next.js consume los casos de uso y no instancia Prisma directamente.
+El enlace conserva una referencia al estado actual del buscador para que la acción de volver desde la ficha recupere los filtros y la página desde los que llegó el usuario.
 
-# 18. Decisiones de diseño
+SPEC-004 y SPEC-005 comparten por tanto la responsabilidad de preservar el contexto de navegación.
 
-## No usar IA para la búsqueda
-La búsqueda se resuelve con PostgreSQL porque es:
-- simple;
-- determinista;
-- rápida;
-- suficiente para el dominio.
+---
 
-La IA se reserva para análisis de documentación oficial.
+## 15. Casos especiales
 
-## No implementar todavía filtro por tipo de administración
-No se añade todavía:
+### Sin resultados
+
+Debe mostrarse un estado vacío comprensible:
 
 ```text
-Ayuntamiento
-Generalitat
-Diputación
-Consejo comarcal
-Otros organismos
+No se han encontrado convocatorias
+Prueba con otros criterios de búsqueda.
 ```
 
-porque el modelo actual no dispone de una clasificación explícita y fiable.
+### Valores no informados
 
-# 19. Criterios de aceptación
+La interfaz no debe convertir la ausencia de información en datos falsos.
 
-- [x] `/convocatorias` utiliza PostgreSQL real.
-- [x] Solo se muestran convocatorias activas.
-- [x] La búsqueda libre funciona.
-- [x] La búsqueda ignora acentos.
-- [x] Tolera pequeñas variaciones.
-- [x] Varias palabras se combinan mediante AND.
-- [x] Con texto se ordena por relevancia.
-- [x] Sin texto se ordena por fecha límite.
-- [x] Funciona plaza / bolsa.
-- [x] Funciona estado.
-- [x] Funciona selección múltiple de grupos.
-- [x] Funciona ámbito.
-- [x] Funciona sistema de selección.
-- [x] Funciona tipo de personal.
-- [x] Funciona rango de fechas.
-- [x] Funcionan reservas.
-- [x] Provincia, comarca y municipio son dependientes.
-- [x] Territorio se aplica sobre la misma institución.
-- [x] Los filtros pueden combinarse.
-- [x] La paginación conserva filtros.
-- [x] La búsqueda conserva filtros.
-- [x] Las opciones proceden de PostgreSQL.
-- [x] Existen tests unitarios.
-- [x] Existen tests de integración.
-- [x] Los tests de integración usan una base separada.
-
-# 20. Resultado final
-
-Con SPEC-004 Convoca'm dispone de un buscador funcional de convocatorias basado en datos sincronizados desde CIDO.
-
-El usuario puede:
+Ejemplos:
 
 ```text
-buscar
-+
-filtrar
-+
-combinar criterios
-+
-navegar por territorio
-+
-obtener resultados tolerantes
-+
-recibir primero los resultados más relevantes
+Plazas: Sin definir
+Fecha no disponible
+Grupo no especificado
 ```
 
-La siguiente especificación es:
+según corresponda.
+
+### Datos oficiales
+
+Convoca'm puede calcular ayudas de presentación, pero los datos oficiales recibidos de CIDO deben conservarse sin reescribir su significado.
+
+---
+
+## 16. Pruebas
+
+La SPEC incluye pruebas sobre los comportamientos relevantes del buscador.
+
+Áreas prioritarias:
+
+- filtrado por cada criterio;
+- combinación de filtros;
+- filtros territoriales dependientes;
+- búsqueda textual tolerante;
+- búsqueda sin acentos;
+- múltiples términos;
+- ranking de relevancia;
+- paginación;
+- conservación de filtros;
+- estados de plazo;
+- ordenaciones;
+- comportamiento del radio territorial;
+- casos sin resultados.
+
+Los tests unitarios y de integración existentes forman parte del cierre de SPEC-004.
+
+---
+
+## 17. Decisiones de diseño relevantes
+
+### PostgreSQL como fuente de consulta
+
+La interfaz consulta la base local sincronizada y no CIDO directamente.
+
+### Sin PostGIS en esta fase
+
+El radio geográfico se resuelve con las coordenadas existentes y Haversine. Se evita introducir infraestructura adicional hasta que exista una necesidad real de escala o consultas geoespaciales más complejas.
+
+### URLs como estado reproducible
+
+Los filtros se expresan mediante query parameters, evitando depender exclusivamente de estado React local.
+
+### Separación entre oficial y calculado
+
+`statusId/status` representan CIDO; el plazo calculado representa una interpretación funcional de Convoca'm basada en fechas.
+
+### No alterar datos de origen para mejorar la presentación
+
+Ejemplos:
+
+- normalización visual del título;
+- `0 plazas` mostrado como `Sin definir`.
+
+La transformación pertenece a presentación, no a persistencia.
+
+---
+
+## 18. Mejoras evaluadas y aplazadas a una segunda fase
+
+Se ha decidido no ampliar más el buscador en esta fase.
+
+Las siguientes mejoras quedan expresamente fuera del cierre actual y podrán analizarse posteriormente:
+
+1. **Compatible con mi perfil**, cuando el perfil del opositor disponga de todos los datos necesarios.
+2. **Área profesional / materia**, utilizando `SubjectArea` y `SelectionProcessSubjectArea`.
+3. **Esfuerzo de preparación**, cuando exista enriquecimiento estructurado de bases y temarios.
+4. **Accesos rápidos de vencimiento**, por ejemplo plazo termina hoy, en 3, 7, 14 o 30 días.
+5. **Sin fase de méritos / solo oposición**, como filtro funcional simplificado.
+6. **Nivel de catalán requerido**, cuando pueda tratarse con suficiente fiabilidad la diferencia entre acreditación previa y prueba lingüística.
+7. **Con novedades recientes**, apoyándose en documentos y `lastDocumentPublicationDate`.
+8. **Estabilidad del puesto**, mediante una clasificación de los tipos de personal y vínculo.
+
+No se consideran prioritarios en esta planificación:
+
+- número mínimo de plazas;
+- tasa de examen;
+- fecha de examen como filtro;
+- jornada.
+
+Ninguno de estos puntos forma parte de la Definition of Done de SPEC-004 v1.
+
+---
+
+## 19. Definition of Done
+
+SPEC-004 se considera cerrada cuando:
+
+- [x] `/convocatorias` consulta PostgreSQL real.
+- [x] Solo se muestran convocatorias activas de la fuente.
+- [x] Existe búsqueda textual tolerante.
+- [x] La búsqueda ignora diferencias de acentos relevantes.
+- [x] Se utiliza ranking de relevancia cuando existe texto.
+- [x] Existen filtros reales obtenidos de PostgreSQL.
+- [x] El territorio funciona de forma dependiente provincia → comarca → municipio.
+- [x] Puede buscarse por radio desde un municipio.
+- [x] Existe un filtro diferenciado para el estado oficial CIDO.
+- [x] Existe un filtro calculado de plazo de solicitud.
+- [x] Existe filtrado por fecha de fin del plazo de solicitud.
+- [x] Existen filtros de reservas.
+- [x] Existe ordenación explícita de resultados.
+- [x] Existe paginación.
+- [x] Los filtros y la ordenación se conservan al paginar.
+- [x] El estado del buscador se conserva al entrar en el detalle y volver.
+- [x] Los resultados muestran información enriquecida suficiente.
+- [x] Los títulos se normalizan visualmente sin alterar el dato original.
+- [x] `0` o `null` plazas se presentan como `Sin definir` cuando no es una bolsa.
+- [x] Las bolsas de trabajo muestran `—` como número de plazas.
+- [x] Estado oficial y plazo calculado se diferencian visualmente.
+- [x] Los principales comportamientos disponen de pruebas.
+
+---
+
+## 20. Estado final
 
 ```text
-SPEC-005 — Detalle de convocatoria
+SPEC-001 — Modelo de datos CIDO ✅
+SPEC-002 — Modelo Prisma CIDO ✅
+SPEC-003 — Integración y sincronización CIDO ✅
+SPEC-004 — Buscador de convocatorias ✅
+SPEC-005 — Detalle de convocatoria ✅
+SPEC-006 — Seguimiento personal y Mis convocatorias ⏳
+```
+
+El siguiente bloque de desarrollo es:
+
+```text
+SPEC-006 — Seguimiento personal y Mis convocatorias
 ```
