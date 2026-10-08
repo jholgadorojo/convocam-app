@@ -12,17 +12,29 @@ datasource db {
   provider = "postgresql"
 }
 
+enum PersonalSelectionProcessStatus {
+  INTERESTED
+  PREPARING_APPLICATION
+  APPLICATION_SUBMITTED
+  ADMITTED
+  EXCLUDED
+  EXAM_PENDING
+  EXAM_COMPLETED
+  COMPLETED
+}
+
 model User {
-  id            String       @id
-  name          String
-  email         String
-  emailVerified Boolean      @default(false)
-  image         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  profile       UserProfile?
+  id                     String                 @id
+  name                   String
+  email                  String
+  emailVerified          Boolean                @default(false)
+  image                  String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  sessions               Session[]
+  accounts               Account[]
+  profile                UserProfile?
+  userSelectionProcesses UserSelectionProcess[]
 
   @@unique([email])
   @@map("user")
@@ -89,6 +101,23 @@ model UserProfile {
   @@map("user_profiles")
 }
 
+model UserSelectionProcess {
+  id                      Int                            @id @default(autoincrement())
+  userId                  String                         @map("user_id")
+  selectionProcessId      Int                            @map("selection_process_id")
+  personalStatus          PersonalSelectionProcessStatus @default(INTERESTED) @map("personal_status")
+  followedAt              DateTime                       @default(now()) @map("followed_at")
+  personalStatusUpdatedAt DateTime                       @default(now()) @map("personal_status_updated_at")
+  updatedAt               DateTime                       @updatedAt @map("updated_at")
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selectionProcess SelectionProcess @relation(fields: [selectionProcessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, selectionProcessId])
+  @@index([selectionProcessId])
+  @@map("user_selection_processes")
+}
+
 model Institution {
   id     Int    @id @default(autoincrement())
   cidoId String @unique
@@ -140,8 +169,9 @@ model SelectionProcess {
   institutionId Int?
   institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
 
-  documents    SelectionProcessDocument[]
-  subjectAreas SelectionProcessSubjectArea[]
+  documents              SelectionProcessDocument[]
+  subjectAreas           SelectionProcessSubjectArea[]
+  userSelectionProcesses UserSelectionProcess[]
 
   applicationStartDate     DateTime? @db.Date
   applicationEndDate       DateTime? @db.Date
