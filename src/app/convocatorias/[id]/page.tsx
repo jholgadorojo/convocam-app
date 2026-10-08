@@ -36,6 +36,16 @@ import {
 
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
 
+import {
+  getUserSelectionProcessUseCase,
+} from "@/composition/user-selection-process";
+
+import { getPersonalSelectionProcessStatusLabel } from "@/modules/user-selection-process/presentation/personal-selection-process-status";
+import {
+  followSelectionProcessAction,
+  unfollowSelectionProcessAction,
+} from "./actions";
+
 type SelectionProcessDetailPageProps = {
   params: Promise<{
     id: string;
@@ -134,6 +144,14 @@ export default async function SelectionProcessDetailPage({
   if (!selectionProcess) {
     notFound();
   }
+  const userSelectionProcess =
+    session?.user
+      ? await getUserSelectionProcessUseCase.execute({
+        userId: session.user.id,
+        selectionProcessId:
+          selectionProcess.id,
+      })
+      : null;
 
   const processType =
     selectionProcess.isJobPool
@@ -611,8 +629,8 @@ export default async function SelectionProcessDetailPage({
                             document.id
                           }
                           className={`flex flex-col gap-3 py-4 first:pt-0 last:pb-0 ${index > 0
-                              ? "border-t border-[#EEF1F5]"
-                              : ""
+                            ? "border-t border-[#EEF1F5]"
+                            : ""
                             }`}
                         >
                           <div className="flex items-start gap-3">
@@ -879,22 +897,77 @@ export default async function SelectionProcessDetailPage({
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex h-12 cursor-not-allowed items-center justify-center gap-2 rounded-[10px] bg-[#E8EAF0] px-5 text-[14px] font-semibold text-[#8B93A3]"
-                    >
-                      <BookmarkPlus
-                        size={17}
-                      />
+                    <div className="text-center text-xs text-[#7C859B]">
+                      {!session?.user ? (
+                        <div className="flex flex-col gap-2">
+                          <Link
+                            href={`/login?returnTo=${encodeURIComponent(
+                              `/convocatorias/${selectionProcess.id}`,
+                            )}`}
+                            className="flex h-12 w-full items-center justify-center rounded-[10px] bg-[#4F5BD5] px-5 text-[15px] font-semibold text-white hover:bg-[#3B45B5]"
+                          >
+                            Seguir convocatoria
+                          </Link>
 
-                      Seguir convocatoria
-                    </button>
+                          <p className="text-center text-[12.5px] text-[#7C859B]">
+                            Inicia sesión para guardar esta convocatoria.
+                          </p>
+                        </div>
+                      ) : userSelectionProcess ? (
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            disabled
+                            className="flex h-12 w-full items-center justify-center rounded-[10px] border border-[#DDE1FA] bg-[#EEF0FC] px-5 text-[15px] font-semibold text-[#3B45B5]"
+                          >
+                            Siguiendo
+                          </button>
 
-                    <p className="text-center text-xs text-[#7C859B]">
-                      Disponible
-                      próximamente.
-                    </p>
+                          <div className="flex items-center justify-center gap-1 text-[12.5px] text-[#7C859B]">
+                            <span>
+                              Guardada en Mis convocatorias ·
+                            </span>
+
+                            <form action={unfollowSelectionProcessAction}>
+                              <input
+                                type="hidden"
+                                name="selectionProcessId"
+                                value={selectionProcess.id}
+                              />
+
+                              <button
+                                type="submit"
+                                className="font-medium text-[#3B45B5] hover:underline"
+                              >
+                                Dejar de seguir
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      ) : (
+                        <form
+                          action={followSelectionProcessAction}
+                          className="flex flex-col gap-2"
+                        >
+                          <input
+                            type="hidden"
+                            name="selectionProcessId"
+                            value={selectionProcess.id}
+                          />
+
+                          <button
+                            type="submit"
+                            className="flex h-12 w-full items-center justify-center rounded-[10px] bg-[#4F5BD5] px-5 text-[15px] font-semibold text-white hover:bg-[#3B45B5]"
+                          >
+                            Seguir convocatoria
+                          </button>
+
+                          <p className="text-center text-[12.5px] text-[#7C859B]">
+                            Se guardará en Mis convocatorias.
+                          </p>
+                        </form>
+                      )}
+                    </div>
                   </div>
 
                   {selectionProcess.applicationUrl && (
@@ -946,7 +1019,24 @@ export default async function SelectionProcessDetailPage({
                         size={12}
                       />
 
-                      Solo lo ves tú
+                      {userSelectionProcess ? (
+                        <div>
+                          <p className="text-base font-semibold text-[#3B45B5]">
+                            {getPersonalSelectionProcessStatusLabel(
+                              userSelectionProcess.personalStatus,
+                            )}
+                          </p>
+
+                          <p className="mt-2 text-[13px] text-[#7C859B]">
+                            Este estado es personal y solo lo ves tú.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-[13.5px] leading-relaxed text-[#4E5870]">
+                          Sigue la convocatoria para indicar en qué punto estás.
+                          Tu estado personal no modifica el estado oficial.
+                        </p>
+                      )}
                     </span>
                   </div>
 
@@ -1152,10 +1242,10 @@ function ProcessStep({
 
       <span
         className={`relative z-10 mt-0.5 inline-flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-full border text-xs font-bold ${isCompleted
-            ? "border-[#4F5BD5] bg-[#4F5BD5] text-white"
-            : isCurrent
-              ? "border-[#4F5BD5] bg-[#EEF0FC] text-[#3B45B5]"
-              : "border-[#D5DAE3] bg-white text-[#7C859B]"
+          ? "border-[#4F5BD5] bg-[#4F5BD5] text-white"
+          : isCurrent
+            ? "border-[#4F5BD5] bg-[#EEF0FC] text-[#3B45B5]"
+            : "border-[#D5DAE3] bg-white text-[#7C859B]"
           }`}
       >
         {isCompleted ? (
