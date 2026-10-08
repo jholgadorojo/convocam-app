@@ -30,3 +30,9 @@ pnpm exec prisma migrate status
 
 ### Comprobación visual de las tablas
 pnpm exec prisma studio     - Ver la base de datos
+
+### Para entrar en la base de datos en terminal
+docker exec -it convocam-postgres psql -U convocam -d convocam
+
+#### SELECT current_database();
+#### \dt Tablas

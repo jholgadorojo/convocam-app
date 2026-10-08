@@ -42,9 +42,12 @@ import {
 
 import { getPersonalSelectionProcessStatusLabel } from "@/modules/user-selection-process/presentation/personal-selection-process-status";
 import {
+  changePersonalStatusAction,
   followSelectionProcessAction,
   unfollowSelectionProcessAction,
 } from "./actions";
+
+import { PersonalSelectionProcessStatus } from "@/modules/user-selection-process/domain/personal-selection-process-status";
 
 type SelectionProcessDetailPageProps = {
   params: Promise<{
@@ -1018,20 +1021,57 @@ export default async function SelectionProcessDetailPage({
                       <Lock
                         size={12}
                       />
-
                       {userSelectionProcess ? (
-                        <div>
-                          <p className="text-base font-semibold text-[#3B45B5]">
-                            {getPersonalSelectionProcessStatusLabel(
-                              userSelectionProcess.personalStatus,
-                            )}
-                          </p>
+                        <form
+                          action={changePersonalStatusAction}
+                          className="flex flex-col gap-3"
+                        >
+                          <input
+                            type="hidden"
+                            name="selectionProcessId"
+                            value={selectionProcess.id}
+                          />
 
-                          <p className="mt-2 text-[13px] text-[#7C859B]">
+                          <label className="flex flex-col gap-1.5">
+                            <span className="text-[12.5px] font-medium text-[#7C859B]">
+                              Estado actual
+                            </span>
+
+                            <select
+                              name="personalStatus"
+                              defaultValue={
+                                userSelectionProcess.personalStatus
+                              }
+                              className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]"
+                            >
+                              {Object.values(
+                                PersonalSelectionProcessStatus,
+                              ).map((status) => (
+                                <option
+                                  key={status}
+                                  value={status}
+                                >
+                                  {getPersonalSelectionProcessStatusLabel(
+                                    status,
+                                  )}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <button
+                            type="submit"
+                            className="h-10 rounded-lg bg-[#4F5BD5] px-4 text-sm font-semibold text-white hover:bg-[#3B45B5]"
+                          >
+                            Guardar estado
+                          </button>
+
+                          <p className="text-[12.5px] leading-relaxed text-[#7C859B]">
                             Este estado es personal y solo lo ves tú.
                           </p>
-                        </div>
+                        </form>
                       ) : (
+
                         <p className="text-[13.5px] leading-relaxed text-[#4E5870]">
                           Sigue la convocatoria para indicar en qué punto estás.
                           Tu estado personal no modifica el estado oficial.
