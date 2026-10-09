@@ -51,6 +51,8 @@ import {
   unfollowSelectionProcessAction,
 } from "./actions";
 
+import { UnfollowSelectionProcessForm } from "@/modules/user-selection-process/presentation/unfollow-selection-process-form";
+
 type SelectionProcessDetailPageProps = {
   params: Promise<{
     id: string;
@@ -933,20 +935,10 @@ export default async function SelectionProcessDetailPage({
                               Guardada en Mis convocatorias ·
                             </span>
 
-                            <form action={unfollowSelectionProcessAction}>
-                              <input
-                                type="hidden"
-                                name="selectionProcessId"
-                                value={selectionProcess.id}
-                              />
-
-                              <button
-                                type="submit"
-                                className="font-medium text-[#3B45B5] hover:underline"
-                              >
-                                Dejar de seguir
-                              </button>
-                            </form>
+                            <UnfollowSelectionProcessForm
+                              selectionProcessId={selectionProcess.id}
+                              action={unfollowSelectionProcessAction}
+                            />
                           </div>
                         </div>
                       ) : (
@@ -1023,79 +1015,77 @@ export default async function SelectionProcessDetailPage({
                       <Lock
                         size={12}
                       />
-{userSelectionProcess ? (
-  <div className="flex flex-col gap-4">
-    <div>
-      <p className="text-[12.5px] font-medium text-[#7C859B]">
-        Estado actual
-      </p>
+                      {userSelectionProcess ? (
+                        <div className="flex flex-col gap-4">
+                          <div>
+                            <p className="text-[12.5px] font-medium text-[#7C859B]">
+                              Estado actual
+                            </p>
 
-      <p className="mt-1 text-base font-semibold text-[#3B45B5]">
-        {getPersonalSelectionProcessStatusLabel(
-          userSelectionProcess.personalStatus,
-        )}
-      </p>
-    </div>
+                            <p className="mt-1 text-base font-semibold text-[#3B45B5]">
+                              {getPersonalSelectionProcessStatusLabel(
+                                userSelectionProcess.personalStatus,
+                              )}
+                            </p>
+                          </div>
 
-    <div className="flex flex-col gap-1.5">
-      {PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS.map(
-        (status) => {
-          const isCurrent =
-            status ===
-            userSelectionProcess.personalStatus;
+                          <div className="flex flex-col gap-1.5">
+                            {PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS.map(
+                              (status) => {
+                                const isCurrent =
+                                  status ===
+                                  userSelectionProcess.personalStatus;
 
-          return (
-            <form
-              key={status}
-              action={changePersonalStatusAction}
-            >
-              <input
-                type="hidden"
-                name="selectionProcessId"
-                value={selectionProcess.id}
-              />
+                                return (
+                                  <form
+                                    key={status}
+                                    action={changePersonalStatusAction}
+                                  >
+                                    <input
+                                      type="hidden"
+                                      name="selectionProcessId"
+                                      value={selectionProcess.id}
+                                    />
 
-              <input
-                type="hidden"
-                name="personalStatus"
-                value={status}
-              />
+                                    <input
+                                      type="hidden"
+                                      name="personalStatus"
+                                      value={status}
+                                    />
 
-              <button
-                type="submit"
-                disabled={isCurrent}
-                className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${
-                  isCurrent
-                    ? "bg-[#EEF0FC] font-semibold text-[#3B45B5]"
-                    : "text-[#4E5870] hover:bg-[#F4F6F9]"
-                }`}
-              >
-                <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${
-                    isCurrent
-                      ? "border-[#4F5BD5] bg-[#4F5BD5] text-white"
-                      : "border-[#D5DAE3] bg-white text-[#7C859B]"
-                  }`}
-                >
-                  {isCurrent ? "✓" : ""}
-                </span>
+                                    <button
+                                      type="submit"
+                                      disabled={isCurrent}
+                                      className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${isCurrent
+                                        ? "bg-[#EEF0FC] font-semibold text-[#3B45B5]"
+                                        : "text-[#4E5870] hover:bg-[#F4F6F9]"
+                                        }`}
+                                    >
+                                      <span
+                                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${isCurrent
+                                          ? "border-[#4F5BD5] bg-[#4F5BD5] text-white"
+                                          : "border-[#D5DAE3] bg-white text-[#7C859B]"
+                                          }`}
+                                      >
+                                        {isCurrent ? "✓" : ""}
+                                      </span>
 
-                {getPersonalSelectionProcessStatusLabel(
-                  status,
-                )}
-              </button>
-            </form>
-          );
-        },
-      )}
-    </div>
+                                      {getPersonalSelectionProcessStatusLabel(
+                                        status,
+                                      )}
+                                    </button>
+                                  </form>
+                                );
+                              },
+                            )}
+                          </div>
 
-    <p className="text-[12.5px] leading-relaxed text-[#7C859B]">
-      Este estado es personal y solo lo ves tú.
-      No modifica el estado oficial de la convocatoria.
-    </p>
-  </div>
-) : (
+                          <p className="text-[12.5px] leading-relaxed text-[#7C859B]">
+                            Este estado es personal y solo lo ves tú.
+                            No modifica el estado oficial de la convocatoria.
+                          </p>
+                        </div>
+                      ) : (
                         <p className="text-[13.5px] leading-relaxed text-[#4E5870]">
                           Sigue la convocatoria para indicar en qué punto estás.
                           Tu estado personal no modifica el estado oficial.

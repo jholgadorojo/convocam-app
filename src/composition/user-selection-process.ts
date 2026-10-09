@@ -6,12 +6,17 @@ import { GetUserSelectionProcess } from "@/modules/user-selection-process/applic
 import { UnfollowSelectionProcess } from "@/modules/user-selection-process/application/unfollow-selection-process";
 
 import { PrismaUserSelectionProcessRepository } from "@/modules/user-selection-process/infrastructure/prisma/prisma-user-selection-process-repository";
+import { ListUserSelectionProcesses } from "@/modules/user-selection-process/application/list-user-selection-processes";
+import { PrismaUserSelectionProcessQueryRepository } from "@/modules/user-selection-process/infrastructure/prisma/prisma-user-selection-process-query-repository";
 
 const userSelectionProcessRepository =
   new PrismaUserSelectionProcessRepository(
     prisma,
   );
-
+const userSelectionProcessQueryRepository =
+  new PrismaUserSelectionProcessQueryRepository(
+    prisma,
+  );
 export const followSelectionProcessUseCase =
   new FollowSelectionProcess(
     userSelectionProcessRepository,
@@ -30,4 +35,8 @@ export const changeSelectionProcessPersonalStatusUseCase =
 export const getUserSelectionProcessUseCase =
   new GetUserSelectionProcess(
     userSelectionProcessRepository,
+  );
+export const listUserSelectionProcessesUseCase =
+  new ListUserSelectionProcesses(
+    userSelectionProcessQueryRepository,
   );
