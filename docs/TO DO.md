@@ -6,4 +6,6 @@
 
 -Cuando indica 0 plazas, no quiero que ponga 0 Plazas, sino que omita este campo. (HECHO)
 
+-El lado izquierdo tiene scroll con la cabecera, no deberia ser asi
+
  

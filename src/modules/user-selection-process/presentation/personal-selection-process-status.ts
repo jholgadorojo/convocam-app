@@ -1,5 +1,16 @@
 import { PersonalSelectionProcessStatus } from "../domain/personal-selection-process-status";
 
+export const PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS = [
+  PersonalSelectionProcessStatus.INTERESTED,
+  PersonalSelectionProcessStatus.PREPARING_APPLICATION,
+  PersonalSelectionProcessStatus.APPLICATION_SUBMITTED,
+  PersonalSelectionProcessStatus.ADMITTED,
+  PersonalSelectionProcessStatus.EXCLUDED,
+  PersonalSelectionProcessStatus.EXAM_PENDING,
+  PersonalSelectionProcessStatus.EXAM_COMPLETED,
+  PersonalSelectionProcessStatus.COMPLETED,
+] as const;
+
 export function getPersonalSelectionProcessStatusLabel(
   status: PersonalSelectionProcessStatus,
 ): string {
