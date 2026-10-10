@@ -47,7 +47,7 @@ export async function followSelectionProcessAction(
   });
 
   revalidatePath(
-    `/convocatorias/${selectionProcessId}`,
+    `/mis-convocatorias/${selectionProcessId}`,
   );
 }
 export async function unfollowSelectionProcessAction(
@@ -85,7 +85,7 @@ export async function unfollowSelectionProcessAction(
   });
 
   revalidatePath(
-    `/convocatorias/${selectionProcessId}`,
+    `/mis-convocatorias/${selectionProcessId}`,
   );
 }
 export async function changePersonalStatusAction(
@@ -141,6 +141,6 @@ export async function changePersonalStatusAction(
   });
 
   revalidatePath(
-    `/convocatorias/${selectionProcessId}`,
+    `/mis-convocatorias/${selectionProcessId}`,
   );
 }
