@@ -26,7 +26,7 @@ export function UnfollowSelectionProcessForm({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="text-sm font-medium text-[#7C859B] hover:text-[#C24141] hover:underline"
+        className="text-sm font-semibold text-[#C43D3D] hover:text-[#A62F2F] hover:underline"
       >
         Dejar de seguir
       </button>
@@ -113,7 +113,7 @@ export function UnfollowSelectionProcessForm({
 
                   <button
                     type="submit"
-                    className="h-10 rounded-lg bg-[#C24141] px-4 text-sm font-semibold text-white hover:bg-[#A73535]"
+                    className="rounded-lg bg-[#C43D3D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#A62F2F]"
                   >
                     Sí, dejar de seguir
                   </button>

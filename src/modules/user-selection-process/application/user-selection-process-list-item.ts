@@ -54,5 +54,11 @@ export type UserSelectionProcessListItem = {
       county: string | null;
       province: string | null;
     } | null;
+
+    latestDocument: {
+      publicationDate: Date;
+      documentUrl: string;
+      htmlUrl: string | null;
+    } | null;
   };
 };

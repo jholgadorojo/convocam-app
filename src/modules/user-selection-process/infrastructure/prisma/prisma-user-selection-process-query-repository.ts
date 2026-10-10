@@ -1,29 +1,17 @@
-import {
-  Prisma,
-  type PrismaClient,
-} from "@/generated/prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client";
 
 import type { UserSelectionProcessListItem } from "../../application/user-selection-process-list-item";
+
 import type { UserSelectionProcessQueryRepository } from "../../application/user-selection-process-query-repository";
 
 import { PersonalSelectionProcessStatus } from "../../domain/personal-selection-process-status";
 
-type UserSelectionProcessRow =
-  Prisma.UserSelectionProcessGetPayload<{
-    include: {
-      selectionProcess: {
-        include: {
-          institution: true;
-        };
-      };
-    };
-  }>;
-
 export class PrismaUserSelectionProcessQueryRepository
-  implements UserSelectionProcessQueryRepository {
+  implements UserSelectionProcessQueryRepository
+{
   constructor(
     private readonly prisma: PrismaClient,
-  ) { }
+  ) {}
 
   async findByUser(
     userId: string,
@@ -38,6 +26,30 @@ export class PrismaUserSelectionProcessQueryRepository
           selectionProcess: {
             include: {
               institution: true,
+
+              /*
+               * Solo necesitamos el documento
+               * oficial más reciente.
+               *
+               * No cargamos todos los documentos
+               * de la convocatoria.
+               */
+              documents: {
+                where: {
+                  sourceActive: true,
+                },
+
+                orderBy: [
+                  {
+                    publicationDate: "desc",
+                  },
+                  {
+                    id: "desc",
+                  },
+                ],
+
+                take: 1,
+              },
             },
           },
         },
@@ -47,117 +59,140 @@ export class PrismaUserSelectionProcessQueryRepository
         },
       });
 
-    return rows.map(
-      mapUserSelectionProcessListItem,
-    );
+    return rows.map((row) => {
+      const selectionProcess =
+        row.selectionProcess;
+
+      const latestDocument =
+        selectionProcess.documents[0] ??
+        null;
+
+      return {
+        id: row.id,
+
+        personalStatus:
+          mapPersonalSelectionProcessStatus(
+            row.personalStatus,
+          ),
+
+        followedAt:
+          row.followedAt,
+
+        personalStatusUpdatedAt:
+          row.personalStatusUpdatedAt,
+
+        selectionProcess: {
+          id:
+            selectionProcess.id,
+
+          cidoIdentifier:
+            selectionProcess.cidoIdentifier,
+
+          title:
+            selectionProcess.title,
+
+          isJobPool:
+            selectionProcess.isJobPool,
+
+          statusId:
+            selectionProcess.statusId,
+
+          status:
+            selectionProcess.status,
+
+          applicationStartDate:
+            selectionProcess.applicationStartDate,
+
+          applicationEndDate:
+            selectionProcess.applicationEndDate,
+
+          qualificationGroup:
+            selectionProcess.qualificationGroup,
+
+          numberOfPositions:
+            selectionProcess.numberOfPositions,
+
+          personnelType:
+            selectionProcess.personnelType,
+
+          selectionSystem:
+            selectionProcess.selectionSystem,
+
+          scope:
+            selectionProcess.scopeName,
+
+          reservedPlaces: {
+            disability:
+              selectionProcess.reservedDisabilityPositions,
+
+            unemployed:
+              selectionProcess.reservedUnemployed,
+
+            youngPeople:
+              selectionProcess.reservedYoung,
+
+            women:
+              selectionProcess.reservedWomen,
+          },
+
+          sourceActive:
+            selectionProcess.sourceActive,
+
+          cidoUrl:
+            selectionProcess.cidoUrl,
+
+          /*
+           * Documento oficial más reciente.
+           *
+           * Si la convocatoria todavía no tiene
+           * documentos, devolvemos null.
+           */
+          latestDocument:
+            latestDocument
+              ? {
+                  publicationDate:
+                    latestDocument.publicationDate,
+
+                  documentUrl:
+                    latestDocument.documentUrl,
+
+                  htmlUrl:
+                    latestDocument.htmlUrl,
+                }
+              : null,
+
+          institution:
+            selectionProcess.institution
+              ? {
+                  name:
+                    selectionProcess
+                      .institution
+                      .name,
+
+                  municipality:
+                    selectionProcess
+                      .institution
+                      .municipality,
+
+                  county:
+                    selectionProcess
+                      .institution
+                      .county,
+
+                  province:
+                    selectionProcess
+                      .institution
+                      .province,
+                }
+              : null,
+        },
+      };
+    });
   }
 }
 
-function mapUserSelectionProcessListItem(
-  row: UserSelectionProcessRow,
-): UserSelectionProcessListItem {
-  const selectionProcess =
-    row.selectionProcess;
-
-  return {
-    id: row.id,
-
-    personalStatus:
-      mapPersonalStatus(
-        row.personalStatus,
-      ),
-
-    followedAt:
-      row.followedAt,
-
-    personalStatusUpdatedAt:
-      row.personalStatusUpdatedAt,
-
-    selectionProcess: {
-      id: selectionProcess.id,
-
-      cidoIdentifier:
-        selectionProcess.cidoIdentifier,
-
-      title:
-        selectionProcess.title,
-
-      isJobPool:
-        selectionProcess.isJobPool,
-
-      statusId:
-        selectionProcess.statusId,
-
-      status:
-        selectionProcess.status,
-
-      applicationStartDate:
-        selectionProcess.applicationStartDate,
-
-      applicationEndDate:
-        selectionProcess.applicationEndDate,
-
-      qualificationGroup:
-        selectionProcess.qualificationGroup,
-
-      numberOfPositions:
-        selectionProcess.numberOfPositions,
-
-      personnelType:
-        selectionProcess.personnelType,
-
-      selectionSystem:
-        selectionProcess.selectionSystem,
-
-      scope:
-        selectionProcess.scopeName,
-
-      reservedPlaces: {
-        disability:
-          selectionProcess.reservedDisabilityPositions,
-
-        unemployed:
-          selectionProcess.reservedUnemployed,
-
-        youngPeople:
-          selectionProcess.reservedYoung,
-
-        women:
-          selectionProcess.reservedWomen,
-      },
-
-      sourceActive:
-        selectionProcess.sourceActive,
-
-      cidoUrl:
-        selectionProcess.cidoUrl,
-
-      institution:
-        selectionProcess.institution
-          ? {
-            name:
-              selectionProcess.institution.name,
-
-            municipality:
-              selectionProcess.institution
-                .municipality,
-
-            county:
-              selectionProcess.institution
-                .county,
-
-            province:
-              selectionProcess.institution
-                .province,
-          }
-          : null,
-    },
-  };
-}
-
-function mapPersonalStatus(
-  status:
-    UserSelectionProcessRow["personalStatus"],
+function mapPersonalSelectionProcessStatus(
+  status: string,
 ): PersonalSelectionProcessStatus {
   switch (status) {
     case "INTERESTED":
@@ -186,7 +221,7 @@ function mapPersonalStatus(
 
     default:
       throw new Error(
-        "Estado personal no reconocido.",
+        `Estado personal no soportado: ${status}`,
       );
   }
 }
