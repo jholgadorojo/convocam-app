@@ -3,12 +3,15 @@ export type UserProfileProps = {
   userId: string;
   firstName: string;
   lastName: string;
+  residenceMunicipalityId?: number | null;
 };
 
 export class UserProfile {
   private constructor(private readonly props: UserProfileProps) {}
 
-  static create(props: Omit<UserProfileProps, "id">): UserProfile {
+  static create(
+    props: Omit<UserProfileProps, "id" | "residenceMunicipalityId">,
+  ): UserProfile {
     if (!props.userId.trim()) {
       throw new Error("El identificador del usuario es obligatorio");
     }
@@ -25,6 +28,7 @@ export class UserProfile {
       userId: props.userId,
       firstName: props.firstName.trim(),
       lastName: props.lastName.trim(),
+      residenceMunicipalityId: null,
     });
   }
 
@@ -33,7 +37,10 @@ export class UserProfile {
       throw new Error("El identificador del perfil no es válido");
     }
 
-    return new UserProfile(props);
+    return new UserProfile({
+      ...props,
+      residenceMunicipalityId: props.residenceMunicipalityId ?? null,
+    });
   }
 
   get id(): number | undefined {
@@ -50,5 +57,20 @@ export class UserProfile {
 
   get lastName(): string {
     return this.props.lastName;
+  }
+
+  get residenceMunicipalityId(): number | null {
+    return this.props.residenceMunicipalityId ?? null;
+  }
+
+  changeResidenceMunicipality(municipalityId: number | null): void {
+    if (
+      municipalityId !== null &&
+      (!Number.isInteger(municipalityId) || municipalityId <= 0)
+    ) {
+      throw new Error("El municipio de residencia no es válido");
+    }
+
+    this.props.residenceMunicipalityId = municipalityId;
   }
 }

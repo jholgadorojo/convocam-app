@@ -8,15 +8,17 @@ export class InMemoryUserProfileRepository
   private nextId = 1;
 
   async save(profile: UserProfile): Promise<UserProfile> {
-    if (profile.id) {
+    if (profile.id !== undefined) {
       const index = this.profiles.findIndex(
         (existingProfile) => existingProfile.id === profile.id,
       );
 
-      if (index !== -1) {
-        this.profiles[index] = profile;
-        return profile;
+      if (index === -1) {
+        throw new Error("El perfil que se intenta actualizar no existe");
       }
+
+      this.profiles[index] = profile;
+      return profile;
     }
 
     const savedProfile = UserProfile.restore({
@@ -24,6 +26,7 @@ export class InMemoryUserProfileRepository
       userId: profile.userId,
       firstName: profile.firstName,
       lastName: profile.lastName,
+      residenceMunicipalityId: profile.residenceMunicipalityId,
     });
 
     this.profiles.push(savedProfile);

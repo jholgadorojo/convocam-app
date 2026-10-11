@@ -5,6 +5,7 @@ type PrismaUserProfileData = {
   userId: string;
   firstName: string;
   lastName: string;
+  residenceMunicipalityId: number | null;
 };
 
 export class UserProfileMapper {
@@ -14,6 +15,7 @@ export class UserProfileMapper {
       userId: data.userId,
       firstName: data.firstName,
       lastName: data.lastName,
+      residenceMunicipalityId: data.residenceMunicipalityId,
     });
   }
 }

@@ -19,6 +19,7 @@ export class PrismaUserProfileRepository
           userId: profile.userId,
           firstName: profile.firstName,
           lastName: profile.lastName,
+          residenceMunicipalityId: profile.residenceMunicipalityId,
         },
       });
 
@@ -30,6 +31,7 @@ export class PrismaUserProfileRepository
         userId: profile.userId,
         firstName: profile.firstName,
         lastName: profile.lastName,
+        residenceMunicipalityId: profile.residenceMunicipalityId,
       },
     });
 

@@ -44,3 +44,71 @@ it("does not restore a profile with an invalid id", () => {
   ).toThrow("El identificador del perfil no es válido");
 });
 });
+describe("UserProfile - residencia", () => {
+  const createProfile = () =>
+    UserProfile.create({
+      userId: "user-1",
+      firstName: "Ana",
+      lastName: "García",
+    });
+
+  it("crea un perfil sin municipio de residencia", () => {
+    const profile = createProfile();
+
+    expect(profile.residenceMunicipalityId).toBeNull();
+  });
+
+  it("permite establecer un municipio de residencia", () => {
+    const profile = createProfile();
+
+    profile.changeResidenceMunicipality(125);
+
+    expect(profile.residenceMunicipalityId).toBe(125);
+  });
+
+  it("permite cambiar el municipio de residencia", () => {
+    const profile = createProfile();
+
+    profile.changeResidenceMunicipality(125);
+    profile.changeResidenceMunicipality(250);
+
+    expect(profile.residenceMunicipalityId).toBe(250);
+  });
+
+  it("permite eliminar el municipio de residencia", () => {
+    const profile = createProfile();
+
+    profile.changeResidenceMunicipality(125);
+    profile.changeResidenceMunicipality(null);
+
+    expect(profile.residenceMunicipalityId).toBeNull();
+  });
+
+  it("rechaza identificadores de municipio no válidos", () => {
+    const profile = createProfile();
+
+    expect(() => profile.changeResidenceMunicipality(0)).toThrow(
+      "El municipio de residencia no es válido",
+    );
+
+    expect(() => profile.changeResidenceMunicipality(-1)).toThrow(
+      "El municipio de residencia no es válido",
+    );
+
+    expect(() => profile.changeResidenceMunicipality(1.5)).toThrow(
+      "El municipio de residencia no es válido",
+    );
+  });
+
+  it("restaura un perfil con su municipio de residencia", () => {
+    const profile = UserProfile.restore({
+      id: 1,
+      userId: "user-1",
+      firstName: "Ana",
+      lastName: "García",
+      residenceMunicipalityId: 125,
+    });
+
+    expect(profile.residenceMunicipalityId).toBe(125);
+  });
+});
