@@ -44,3 +44,7 @@ SELECT current_database();
 
 ### Salir
 \q
+
+## Convoca'm
+### Sincronizar datos con CIDO DIBA 
+curl -X POST http://localhost:3000/api/debug/cido/sync-all

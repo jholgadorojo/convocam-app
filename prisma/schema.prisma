@@ -89,15 +89,21 @@ model Verification {
 }
 
 model UserProfile {
-  id        Int      @id @default(autoincrement())
-  userId    String   @unique
+  id        Int    @id @default(autoincrement())
+  userId    String @unique
   firstName String
   lastName  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  residenceMunicipalityId Int?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  residenceMunicipality Municipality? @relation(fields: [residenceMunicipalityId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([residenceMunicipalityId])
   @@map("user_profiles")
 }
 
@@ -284,4 +290,42 @@ model SelectionProcessSubjectArea {
   @@id([selectionProcessId, subjectAreaId])
   @@index([subjectAreaId])
   @@map("selection_process_subject_areas")
+}
+
+model Province {
+  id   Int    @id @default(autoincrement())
+  code String @unique
+  name String
+
+  municipalities Municipality[]
+
+  @@map("provinces")
+}
+
+model County {
+  id   Int    @id @default(autoincrement())
+  code String @unique
+  name String
+
+  municipalities Municipality[]
+
+  @@map("counties")
+}
+
+model Municipality {
+  id   Int    @id @default(autoincrement())
+  code String @unique
+  name String
+
+  countyId   Int
+  provinceId Int
+
+  county   County   @relation(fields: [countyId], references: [id], onDelete: Restrict)
+  province Province @relation(fields: [provinceId], references: [id], onDelete: Restrict)
+
+  residenceProfiles UserProfile[]
+
+  @@index([countyId])
+  @@index([provinceId])
+  @@map("municipalities")
 }

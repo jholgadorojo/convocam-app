@@ -8,4 +8,8 @@
 
 -El lado izquierdo tiene scroll con la cabecera, no deberia ser asi
 
+-Verificar con la documentacion del ajuntament que cuadre con el CIDO
+
+-Seleccionar varios estados oficial de CIDO
+
  
