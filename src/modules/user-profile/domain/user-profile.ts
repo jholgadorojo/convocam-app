@@ -7,7 +7,7 @@ export type UserProfileProps = {
 };
 
 export class UserProfile {
-  private constructor(private readonly props: UserProfileProps) {}
+  private constructor(private readonly props: UserProfileProps) { }
 
   static create(
     props: Omit<UserProfileProps, "id" | "residenceMunicipalityId">,
@@ -61,6 +61,22 @@ export class UserProfile {
 
   get residenceMunicipalityId(): number | null {
     return this.props.residenceMunicipalityId ?? null;
+  }
+
+  changePersonalData(firstName: string, lastName: string): void {
+    const normalizedFirstName = firstName.trim();
+    const normalizedLastName = lastName.trim();
+
+    if (!normalizedFirstName) {
+      throw new Error("El nombre es obligatorio");
+    }
+
+    if (!normalizedLastName) {
+      throw new Error("Los apellidos son obligatorios");
+    }
+
+    this.props.firstName = normalizedFirstName;
+    this.props.lastName = normalizedLastName;
   }
 
   changeResidenceMunicipality(municipalityId: number | null): void {
