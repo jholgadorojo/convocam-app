@@ -90,10 +90,17 @@ export function AppSidebar({
         {isAuthenticated ? (
           <>
             <Link
-              href="/perfil"
-              className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
+              href="/mi-perfil"
+              className={
+                activeItem === "perfil"
+                  ? "flex h-10 items-center gap-3 rounded-lg bg-[#1B2A4D] px-3 text-sm font-semibold text-white"
+                  : "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
+              }
             >
-              <User size={18} className="text-[#7D89A6]" />
+              <User
+                size={18}
+                className="text-[#7D89A6]"
+              />
 
               Mi perfil
             </Link>

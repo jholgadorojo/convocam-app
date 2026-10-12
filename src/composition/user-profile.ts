@@ -1,6 +1,7 @@
 import { CreateUserProfile } from "@/modules/user-profile/application/use-cases/create-user-profile";
 import { GetUserProfile } from "@/modules/user-profile/application/use-cases/get-user-profile";
 import { ChangeUserProfileResidence } from "@/modules/user-profile/application/use-cases/change-user-profile-residence";
+import { ListMunicipalities } from "@/modules/user-profile/application/use-cases/list-municipalities";
 
 import { PrismaUserProfileRepository } from "@/modules/user-profile/adapters/repositories/prisma-user-profile.repository";
 import { PrismaMunicipalityQueryRepository } from "@/modules/user-profile/adapters/repositories/prisma-municipality-query.repository";
@@ -26,3 +27,6 @@ export const changeUserProfileResidenceUseCase =
     userProfileRepository,
     municipalityQueryRepository,
   );
+
+export const listMunicipalitiesUseCase =
+  new ListMunicipalities(municipalityQueryRepository);

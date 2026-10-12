@@ -1,6 +1,9 @@
 import { PrismaClient } from "@/generated/prisma/client";
 
-import { MunicipalityQueryRepository } from "../../application/repositories/municipality-query.repository";
+import {
+  MunicipalityListItem,
+  MunicipalityQueryRepository,
+} from "../../application/repositories/municipality-query.repository";
 
 export class PrismaMunicipalityQueryRepository
   implements MunicipalityQueryRepository
@@ -18,5 +21,37 @@ export class PrismaMunicipalityQueryRepository
     });
 
     return municipality !== null;
+  }
+
+  async listAll(): Promise<MunicipalityListItem[]> {
+    const municipalities = await this.prisma.municipality.findMany({
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        county: {
+          select: {
+            name: true,
+          },
+        },
+        province: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: [
+        { name: "asc" },
+        { code: "asc" },
+      ],
+    });
+
+    return municipalities.map((municipality) => ({
+      id: municipality.id,
+      code: municipality.code,
+      name: municipality.name,
+      countyName: municipality.county.name,
+      provinceName: municipality.province.name,
+    }));
   }
 }

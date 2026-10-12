@@ -16,8 +16,9 @@ describe("ChangeUserProfileResidence", () => {
 
     const municipalityRepository: MunicipalityQueryRepository = {
       existsById,
+      listAll: vi.fn(async () => []),
     };
-
+    
     const useCase = new ChangeUserProfileResidence(
       profileRepository,
       municipalityRepository,

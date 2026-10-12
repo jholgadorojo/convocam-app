@@ -90,4 +90,23 @@ describe("PrismaMunicipalityQueryRepository", () => {
 
     expect(exists).toBe(false);
   });
+
+  it("lista los municipios con su comarca y provincia", async () => {
+    const municipalities = await repository.listAll();
+
+    const municipality = municipalities.find(
+      (item) => item.id === municipalityId,
+    );
+
+    expect(municipality).toBeDefined();
+
+    expect(municipality).toMatchObject({
+      id: municipalityId,
+      name: "Municipio Test",
+      countyName: "Comarca Test",
+      provinceName: "Provincia Test",
+    });
+
+    expect(municipality?.code).toMatch(/^test-municipality-/);
+  });
 });
