@@ -1,5 +1,7 @@
+
 import { GetUserProfileDto } from "../dto/get-user-profile.dto";
-import { UserProfileDto } from "../dto/user-profile.dto";
+import { GetUserProfileResultDto } from "../dto/get-user-profile-result.dto";
+
 import { UserProfileRepository } from "../repositories/user-profile.repository";
 
 export class GetUserProfile {
@@ -9,7 +11,7 @@ export class GetUserProfile {
 
   async execute(
     input: GetUserProfileDto,
-  ): Promise<UserProfileDto | null> {
+  ): Promise<GetUserProfileResultDto | null> {
     const profile =
       await this.userProfileRepository.findByUserId(input.userId);
 
@@ -18,7 +20,9 @@ export class GetUserProfile {
     }
 
     if (!profile.id) {
-      throw new Error("El perfil recuperado no tiene un identificador válido");
+      throw new Error(
+        "El perfil recuperado no tiene un identificador válido",
+      );
     }
 
     return {
@@ -26,6 +30,8 @@ export class GetUserProfile {
       userId: profile.userId,
       firstName: profile.firstName,
       lastName: profile.lastName,
+      residenceMunicipalityId:
+        profile.residenceMunicipalityId,
     };
   }
 }

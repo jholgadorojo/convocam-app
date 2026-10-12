@@ -15,9 +15,13 @@ import { auth } from "@/lib/auth";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 
-import { getUserProfileUseCase } from "@/composition/user-profile";
+import {
+  getUserProfileUseCase,
+  listMunicipalitiesUseCase,
+} from "@/composition/user-profile";
 
 import { PersonalDataForm } from "./personal-data-form";
+import { ResidenceForm } from "./residence-form";
 
 // ============================================================
 // APARTADOS DEL PERFIL
@@ -74,6 +78,18 @@ export default async function MyProfilePage() {
   const profile = await getUserProfileUseCase.execute({
     userId: session.user.id,
   });
+
+  // ============================================================
+  // RESIDENCIA DEL OPOSITOR
+  // ============================================================
+
+  const municipalities =
+    await listMunicipalitiesUseCase.execute();
+
+  const residenceMunicipality = municipalities.find(
+    (municipality) =>
+      municipality.id === profile?.residenceMunicipalityId,
+  );
 
   return (
     <div className="flex min-h-screen bg-[#F4F6F9]">
@@ -150,6 +166,20 @@ export default async function MyProfilePage() {
                         email={session.user.email}
                       />
                     )}
+
+                    {/* ========================================
+    RESIDENCIA
+======================================== */}
+
+                    {section.id === "residence" && (
+                      <ResidenceForm
+                        municipalities={municipalities}
+                        residenceMunicipalityId={
+                          profile?.residenceMunicipalityId ?? null
+                        }
+                      />
+                    )}
+
                   </section>
                 );
               })}
