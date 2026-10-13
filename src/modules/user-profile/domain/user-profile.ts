@@ -89,4 +89,28 @@ export class UserProfile {
 
     this.props.residenceMunicipalityId = municipalityId;
   }
+
+  static createForRegistration(input: {
+    userId: string;
+    name: string;
+  }): UserProfile {
+    const userId = input.userId.trim();
+    const firstName = input.name.trim();
+
+    if (!userId) {
+      throw new Error("El usuario es obligatorio");
+    }
+
+    if (!firstName) {
+      throw new Error("El nombre es obligatorio");
+    }
+
+    return new UserProfile({
+      userId,
+      firstName,
+      lastName: "",
+      residenceMunicipalityId: null,
+    });
+  }
+
 }

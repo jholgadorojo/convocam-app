@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import {
   changeUserProfilePersonalDataUseCase,
   changeUserProfileResidenceUseCase,
+  ensureUserProfileUseCase,
 } from "@/composition/user-profile";
 
 // ============================================================
@@ -172,6 +173,12 @@ export async function saveResidenceAction(
 
   // 3. Ejecutar caso de uso
   try {
+
+    await ensureUserProfileUseCase.execute({
+      userId: session.user.id,
+      registeredName: session.user.name,
+    });
+
     await changeUserProfileResidenceUseCase.execute({
       userId: session.user.id,
       residenceMunicipalityId: municipalityId,
@@ -180,9 +187,9 @@ export async function saveResidenceAction(
     if (error instanceof Error) {
       if (
         error.message ===
-          "El municipio de residencia no existe" ||
+        "El municipio de residencia no existe" ||
         error.message ===
-          "El municipio de residencia no es válido"
+        "El municipio de residencia no es válido"
       ) {
         return {
           status: "error",

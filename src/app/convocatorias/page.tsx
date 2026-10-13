@@ -1,732 +1,298 @@
 import type { ReactNode } from "react";
-
 import Link from "next/link";
-
 import { headers } from "next/headers";
-
-import {
-
-  Building2,
-
-  ExternalLink,
-
-  MapPin,
-
-  Search,
-
-  SlidersHorizontal,
-
-} from "lucide-react";
-
+import { Building2, ExternalLink, MapPin, Search, SlidersHorizontal, } from "lucide-react";
 import { auth } from "@/lib/auth";
-
 import { AppHeader } from "@/components/layout/app-header";
-
 import { AppSidebar } from "@/components/layout/app-sidebar";
-
 import { TerritoryFilters } from "./territory-filters";
-
-import {
-
-  getSelectionProcessFilterOptionsUseCase,
-
-  listActiveSelectionProcessesUseCase,
-
-} from "@/composition/selection-process";
-
-import {
-
-  getApplicationPeriodPresentation,
-
-  getOfficialStatusPresentation,
-
-} from "@/modules/selection-process/presentation/selection-process-status";
-
+import { getSelectionProcessFilterOptionsUseCase, listActiveSelectionProcessesUseCase, } from "@/composition/selection-process";
+import { getApplicationPeriodPresentation, getOfficialStatusPresentation, } from "@/modules/selection-process/presentation/selection-process-status";
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
-
-import type {
-
-  SelectionProcessApplicationPeriodFilter,
-
-  SelectionProcessSort,
-
-} from "@/modules/selection-process/application/selection-process-search-filters";
-
-const FILTER_FORM_ID =
-
-  "convocatorias-filter-form";
-
+import type { SelectionProcessApplicationPeriodFilter, SelectionProcessSort, } from "@/modules/selection-process/application/selection-process-search-filters";
+const FILTER_FORM_ID = "convocatorias-filter-form";
 type SearchParams = {
-
-  q?: string;
-
-  page?: string;
-
-  sort?: string;
-
-  qualificationGroup?: string | string[];
-
-  isJobPool?: string | string[];
-
-  statusId?: string;
-
-  applicationPeriod?: string;
-
-  province?: string;
-
-  county?: string;
-
-  municipality?: string;
-
-  radiusKm?: string;
-
-  scopeId?: string;
-
-  selectionSystemId?: string;
-
-  personnelTypeId?: string;
-
-  applicationEndDateFrom?: string;
-
-  applicationEndDateTo?: string;
-
-  reservedDisability?: string;
-
-  reservedUnemployed?: string;
-
-  reservedYoung?: string;
-
-  reservedWomen?: string;
-
+    q?: string;
+    page?: string;
+    sort?: string;
+    qualificationGroup?: string | string[];
+    isJobPool?: string | string[];
+    statusId?: string | string[];
+    statusFilterApplied?: string;
+    applicationPeriod?: string;
+    province?: string;
+    county?: string;
+    municipality?: string;
+    radiusKm?: string;
+    scopeId?: string;
+    selectionSystemId?: string;
+    personnelTypeId?: string;
+    applicationEndDateFrom?: string;
+    applicationEndDateTo?: string;
+    reservedDisability?: string;
+    reservedUnemployed?: string;
+    reservedYoung?: string;
+    reservedWomen?: string;
 };
-
 type ConvocatoriasPageProps = {
-
-  searchParams: Promise<SearchParams>;
-
+    searchParams: Promise<SearchParams>;
 };
-
 type CurrentFilterState = {
-
-  sort: SelectionProcessSort;
-
-  qualificationGroups: string[];
-
-  jobPoolValues: string[];
-
-  statusId?: number;
-
-  applicationPeriod?:
-
-    SelectionProcessApplicationPeriodFilter;
-
-  province?: string;
-
-  county?: string;
-
-  municipality?: string;
-
-  radiusKm?: number;
-
-  scopeId?: number;
-
-  selectionSystemId?: number;
-
-  personnelTypeId?: number;
-
-  applicationEndDateFrom?: string;
-
-  applicationEndDateTo?: string;
-
-  reservedDisability: boolean;
-
-  reservedUnemployed: boolean;
-
-  reservedYoung: boolean;
-
-  reservedWomen: boolean;
-
+    sort: SelectionProcessSort;
+    qualificationGroups: string[];
+    jobPoolValues: string[];
+    statusIds: number[];
+    applicationPeriod?: SelectionProcessApplicationPeriodFilter;
+    province?: string;
+    county?: string;
+    municipality?: string;
+    radiusKm?: number;
+    scopeId?: number;
+    selectionSystemId?: number;
+    personnelTypeId?: number;
+    applicationEndDateFrom?: string;
+    applicationEndDateTo?: string;
+    reservedDisability: boolean;
+    reservedUnemployed: boolean;
+    reservedYoung: boolean;
+    reservedWomen: boolean;
 };
-
-export default async function ConvocatoriasPage({
-
-  searchParams,
-
-}: ConvocatoriasPageProps) {
-
-  const session =
-
-    await auth.api.getSession({
-
-      headers: await headers(),
-
+export default async function ConvocatoriasPage({ searchParams, }: ConvocatoriasPageProps) {
+    const session = await auth.api.getSession({
+        headers: await headers(),
     });
-
-  const isAuthenticated =
-
-    Boolean(session?.user);
-
-  const params =
-
-    await searchParams;
-
-/**
-
- * ==========================================================
-
- * BÚSQUEDA
-
- * ==========================================================
-
- */
-
-  const query =
-
-    params.q?.trim() ?? "";
-
-  const requestedSort =
-
-    parseSelectionProcessSort(
-
-      params.sort,
-
-    );
-
-  const sort =
-
-    resolveSelectionProcessSort(
-
-      requestedSort,
-
-      Boolean(query),
-
-    );
-
-/**
-
- * ==========================================================
-
- * PAGINACIÓN
-
- * ==========================================================
-
- */
-
-  const page =
-
-    parsePositiveInteger(
-
-      params.page,
-
-    ) ?? 1;
-
-/**
-
- * ==========================================================
-
- * GRUPO DE TITULACIÓN
-
- * ==========================================================
-
- */
-
-  const selectedQualificationGroups = [
-
-    ...new Set(
-
-      normalizeArray(
-
-        params.qualificationGroup,
-
-      )
-
-        .map(
-
-          (value) =>
-
-            value.trim(),
-
-        )
-
-        .filter(Boolean),
-
-    ),
-
-  ];
-
-/**
-
- * ==========================================================
-
- * PLAZA / BOLSA
-
- * ==========================================================
-
- */
-
-  const jobPoolValues = [
-
-    ...new Set(
-
-      normalizeArray(
-
-        params.isJobPool,
-
-      ).filter(
-
-        (value) =>
-
-          value === "true" ||
-
-          value === "false",
-
-      ),
-
-    ),
-
-  ];
-
-  const hasRegularPositions =
-
-    jobPoolValues.includes(
-
-      "false",
-
-    );
-
-  const hasJobPools =
-
-    jobPoolValues.includes(
-
-      "true",
-
-    );
-
-  const isJobPool =
-
-    hasRegularPositions ===
-
-    hasJobPools
-
-      ? undefined
-
-      : hasJobPools;
-
-/**
-
- * ==========================================================
-
- * ESTADO
-
- * ==========================================================
-
- */
-
-  const statusId =
-
-    parsePositiveInteger(
-
-      params.statusId,
-
-    );
-
-  const applicationPeriod =
-
-    parseSelectionProcessApplicationPeriod(
-
-      params.applicationPeriod,
-
-    );
-
-/**
-
- * ==========================================================
-
- * TERRITORIO
-
- * ==========================================================
-
- */
-
-  const province =
-
-    cleanString(
-
-      params.province,
-
-    );
-
-  const county =
-
-    cleanString(
-
-      params.county,
-
-    );
-
-  const municipality =
-
-    cleanString(
-
-      params.municipality,
-
-    );
-
-  const radiusKm =
-
-    municipality
-
-      ? parseRadiusKm(
-
-          params.radiusKm,
-
-        )
-
-      : undefined;
-
-/**
-
- * ==========================================================
-
- * OTROS FILTROS
-
- * ==========================================================
-
- */
-
-  const scopeId =
-
-    parsePositiveInteger(
-
-      params.scopeId,
-
-    );
-
-  const selectionSystemId =
-
-    parsePositiveInteger(
-
-      params.selectionSystemId,
-
-    );
-
-  const personnelTypeId =
-
-    parsePositiveInteger(
-
-      params.personnelTypeId,
-
-    );
-
-/**
-
- * ==========================================================
-
- * FECHAS
-
- * ==========================================================
-
- */
-
-  const applicationEndDateFromValue =
-
-    cleanString(
-
-      params.applicationEndDateFrom,
-
-    );
-
-  const applicationEndDateToValue =
-
-    cleanString(
-
-      params.applicationEndDateTo,
-
-    );
-
-  const applicationEndDateFrom =
-
-    parseDate(
-
-      applicationEndDateFromValue,
-
-    );
-
-  const applicationEndDateTo =
-
-    parseDate(
-
-      applicationEndDateToValue,
-
-    );
-
-/**
-
- * ==========================================================
-
- * RESERVAS
-
- * ==========================================================
-
- */
-
-  const reservedDisability =
-
-    params.reservedDisability ===
-
-    "true";
-
-  const reservedUnemployed =
-
-    params.reservedUnemployed ===
-
-    "true";
-
-  const reservedYoung =
-
-    params.reservedYoung ===
-
-    "true";
-
-  const reservedWomen =
-
-    params.reservedWomen ===
-
-    "true";
-
-  const currentFilters:
-
-    CurrentFilterState = {
-
-      sort,
-
-      qualificationGroups:
-
-        selectedQualificationGroups,
-
-      jobPoolValues,
-
-      statusId,
-
-      applicationPeriod,
-
-      province,
-
-      county,
-
-      municipality,
-
-      radiusKm,
-
-      scopeId,
-
-      selectionSystemId,
-
-      personnelTypeId,
-
-      applicationEndDateFrom:
-
-        applicationEndDateFromValue,
-
-      applicationEndDateTo:
-
-        applicationEndDateToValue,
-
-      reservedDisability,
-
-      reservedUnemployed,
-
-      reservedYoung,
-
-      reservedWomen,
-
+    const isAuthenticated = Boolean(session?.user);
+    const params = await searchParams;
+    const filterOptions = await getSelectionProcessFilterOptionsUseCase.execute();
+    /**
+    
+     * ==========================================================
+    
+     * BÚSQUEDA
+    
+     * ==========================================================
+    
+     */
+    const query = params.q?.trim() ?? "";
+    const requestedSort = parseSelectionProcessSort(params.sort);
+    const sort = resolveSelectionProcessSort(requestedSort, Boolean(query));
+    /**
+    
+     * ==========================================================
+    
+     * PAGINACIÓN
+    
+     * ==========================================================
+    
+     */
+    const page = parsePositiveInteger(params.page) ?? 1;
+    /**
+    
+     * ==========================================================
+    
+     * GRUPO DE TITULACIÓN
+    
+     * ==========================================================
+    
+     */
+    const selectedQualificationGroups = [
+        ...new Set(normalizeArray(params.qualificationGroup)
+            .map((value) => value.trim())
+            .filter(Boolean)),
+    ];
+    /**
+    
+     * ==========================================================
+    
+     * PLAZA / BOLSA
+    
+     * ==========================================================
+    
+     */
+    const jobPoolValues = [
+        ...new Set(normalizeArray(params.isJobPool).filter((value) => value === "true" ||
+            value === "false")),
+    ];
+    const hasRegularPositions = jobPoolValues.includes("false");
+    const hasJobPools = jobPoolValues.includes("true");
+    const isJobPool = hasRegularPositions ===
+        hasJobPools
+        ? undefined
+        : hasJobPools;
+    /**
+    
+     * ==========================================================
+    
+     * ESTADO
+    
+     * ==========================================================
+    
+     */
+    const rawStatusIds = [
+        ...new Set(normalizeArray(params.statusId)
+            .map((value) => parsePositiveInteger(value))
+            .filter((value): value is number => value !== undefined)),
+    ];
+    const statusFilterApplied = params.statusFilterApplied ===
+        "1";
+    const defaultStatusIds = filterOptions.statuses
+        .filter((status) => {
+        const normalizedName = status.name
+            .trim()
+            .toLocaleLowerCase("ca-ES");
+        return (normalizedName ===
+            "pendent de termini" ||
+            normalizedName ===
+                "termini obert");
+    })
+        .map((status) => status.id);
+    const selectedStatusIds = params.statusId !== undefined ||
+        statusFilterApplied
+        ? rawStatusIds
+        : defaultStatusIds;
+    const applicationPeriod = parseSelectionProcessApplicationPeriod(params.applicationPeriod);
+    /**
+    
+     * ==========================================================
+    
+     * TERRITORIO
+    
+     * ==========================================================
+    
+     */
+    const province = cleanString(params.province);
+    const county = cleanString(params.county);
+    const municipality = cleanString(params.municipality);
+    const radiusKm = municipality
+        ? parseRadiusKm(params.radiusKm)
+        : undefined;
+    /**
+    
+     * ==========================================================
+    
+     * OTROS FILTROS
+    
+     * ==========================================================
+    
+     */
+    const scopeId = parsePositiveInteger(params.scopeId);
+    const selectionSystemId = parsePositiveInteger(params.selectionSystemId);
+    const personnelTypeId = parsePositiveInteger(params.personnelTypeId);
+    /**
+    
+     * ==========================================================
+    
+     * FECHAS
+    
+     * ==========================================================
+    
+     */
+    const applicationEndDateFromValue = cleanString(params.applicationEndDateFrom);
+    const applicationEndDateToValue = cleanString(params.applicationEndDateTo);
+    const applicationEndDateFrom = parseDate(applicationEndDateFromValue);
+    const applicationEndDateTo = parseDate(applicationEndDateToValue);
+    /**
+    
+     * ==========================================================
+    
+     * RESERVAS
+    
+     * ==========================================================
+    
+     */
+    const reservedDisability = params.reservedDisability ===
+        "true";
+    const reservedUnemployed = params.reservedUnemployed ===
+        "true";
+    const reservedYoung = params.reservedYoung ===
+        "true";
+    const reservedWomen = params.reservedWomen ===
+        "true";
+    const currentFilters: CurrentFilterState = {
+        sort,
+        qualificationGroups: selectedQualificationGroups,
+        jobPoolValues,
+        statusIds: selectedStatusIds,
+        applicationPeriod,
+        province,
+        county,
+        municipality,
+        radiusKm,
+        scopeId,
+        selectionSystemId,
+        personnelTypeId,
+        applicationEndDateFrom: applicationEndDateFromValue,
+        applicationEndDateTo: applicationEndDateToValue,
+        reservedDisability,
+        reservedUnemployed,
+        reservedYoung,
+        reservedWomen,
     };
-
-  const resultsUrl =
-
-    buildPageHref(
-
-      page,
-
-      query,
-
-      currentFilters,
-
-    );
-
-  const filterFormKey =
-
-    buildFilterFormKey(
-
-      query,
-
-      page,
-
-      currentFilters,
-
-    );
-
-/**
-
- * ==========================================================
-
- * POSTGRESQL
-
- * ==========================================================
-
- */
-
-  const [
-
-    result,
-
-    filterOptions,
-
-  ] =
-
-    await Promise.all([
-
-      listActiveSelectionProcessesUseCase.execute(
-
-        {
-
-          page,
-
-          pageSize: 20,
-
-          filters: {
-
+    const resultsUrl = buildPageHref(page, query, currentFilters);
+    const filterFormKey = buildFilterFormKey(query, page, currentFilters);
+    /**
+    
+     * ==========================================================
+    
+     * POSTGRESQL
+    
+     * ==========================================================
+    
+     */
+    const result = await listActiveSelectionProcessesUseCase.execute({
+        page,
+        pageSize: 20,
+        filters: {
             sort,
-
-            text:
-
-              query ||
-
-              undefined,
-
-            qualificationGroup:
-
-              selectedQualificationGroups.length >
-
-              0
-
+            text: query ||
+                undefined,
+            qualificationGroup: selectedQualificationGroups.length >
+                0
                 ? selectedQualificationGroups
-
                 : undefined,
-
             isJobPool,
-
-            statusId,
-
+            statusId: selectedStatusIds.length >
+                0
+                ? selectedStatusIds
+                : undefined,
             applicationPeriod,
-
             province,
-
             county,
-
             municipality,
-
             radiusKm,
-
             scopeId,
-
             selectionSystemId,
-
             personnelTypeId,
-
             applicationEndDateFrom,
-
             applicationEndDateTo,
-
-            reservedDisability:
-
-              reservedDisability
-
+            reservedDisability: reservedDisability
                 ? true
-
                 : undefined,
-
-            reservedUnemployed:
-
-              reservedUnemployed
-
+            reservedUnemployed: reservedUnemployed
                 ? true
-
                 : undefined,
-
-            reservedYoung:
-
-              reservedYoung
-
+            reservedYoung: reservedYoung
                 ? true
-
                 : undefined,
-
-            reservedWomen:
-
-              reservedWomen
-
+            reservedWomen: reservedWomen
                 ? true
-
                 : undefined,
-
-          },
-
         },
+    });
+    return (<div className="flex min-h-screen bg-[#F4F6F9]">
 
-      ),
-
-      getSelectionProcessFilterOptionsUseCase.execute(),
-
-    ]);
-
-  return (
-
-    <div className="flex min-h-screen bg-[#F4F6F9]">
-
-      <AppSidebar
-
-        isAuthenticated={
-
-          isAuthenticated
-
-        }
-
-        activeItem="convocatorias"
-
-      />
+      <AppSidebar isAuthenticated={isAuthenticated} activeItem="convocatorias"/>
 
       <div className="flex min-w-0 flex-1 flex-col">
 
-        <AppHeader
-
-          title="Buscar convocatorias"
-
-          user={
-
-            session?.user
-
-              ? {
-
-                  name:
-
-                    session.user
-
-                      .name,
-
-                  email:
-
-                    session.user
-
-                      .email,
-
-                }
-
-              : undefined
-
-          }
-
-        />
+        <AppHeader title="Buscar convocatorias" user={session?.user
+            ? {
+                name: session.user
+                    .name,
+                email: session.user
+                    .email,
+            }
+            : undefined}/>
 
         <main className="flex-1 px-6 py-8 lg:px-10 lg:pb-12">
 
@@ -762,55 +328,13 @@ export default async function ConvocatoriasPage({
 
               <div className="relative flex-1">
 
-                <Search
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7C859B]"/>
 
-                  size={18}
-
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7C859B]"
-
-                />
-
-                <input
-
-                  key={`search-${filterFormKey}`}
-
-                  form={
-
-                    FILTER_FORM_ID
-
-                  }
-
-                  type="search"
-
-                  name="q"
-
-                  defaultValue={
-
-                    query
-
-                  }
-
-                  placeholder="Busca por puesto, organismo, municipio..."
-
-                  className="h-[52px] w-full rounded-lg border border-[#D5DAE3] bg-white pl-12 pr-4 text-[15px] outline-none focus:border-[#4F5BD5]"
-
-                />
+                <input key={`search-${filterFormKey}`} form={FILTER_FORM_ID} type="search" name="q" defaultValue={query} placeholder="Busca por puesto, organismo, municipio..." className="h-[52px] w-full rounded-lg border border-[#D5DAE3] bg-white pl-12 pr-4 text-[15px] outline-none focus:border-[#4F5BD5]"/>
 
               </div>
 
-              <button
-
-                form={
-
-                  FILTER_FORM_ID
-
-                }
-
-                type="submit"
-
-                className="h-[52px] rounded-[10px] bg-[#4F5BD5] px-7 text-[15px] font-semibold text-white hover:bg-[#3B45B5]"
-
-              >
+              <button form={FILTER_FORM_ID} type="submit" className="h-[52px] rounded-[10px] bg-[#4F5BD5] px-7 text-[15px] font-semibold text-white hover:bg-[#3B45B5]">
 
                 Buscar
 
@@ -830,25 +354,13 @@ export default async function ConvocatoriasPage({
 
                   <h2 className="flex items-center gap-2 text-[15px] font-semibold">
 
-                    <SlidersHorizontal
-
-                      size={16}
-
-                      className="text-[#4E5870]"
-
-                    />
+                    <SlidersHorizontal size={16} className="text-[#4E5870]"/>
 
                     Filtros
 
                   </h2>
 
-                  <Link
-
-                    href="/convocatorias"
-
-                    className="text-[13.5px] font-semibold text-[#3B45B5] hover:text-[#2E3794]"
-
-                  >
+                  <Link href="/convocatorias" className="text-[13.5px] font-semibold text-[#3B45B5] hover:text-[#2E3794]">
 
                     Limpiar
 
@@ -856,59 +368,15 @@ export default async function ConvocatoriasPage({
 
                 </div>
 
-                <form
-
-                  key={
-
-                    filterFormKey
-
-                  }
-
-                  id={
-
-                    FILTER_FORM_ID
-
-                  }
-
-                  action="/convocatorias"
-
-                >
+                <form key={filterFormKey} id={FILTER_FORM_ID} action="/convocatorias">
 
                   {/* Tipo */}
 
                   <FilterSection title="Tipo de convocatoria">
 
-                    <FilterCheckLabel
+                    <FilterCheckLabel name="isJobPool" value="false" label="Plazas de plantilla" checked={hasRegularPositions}/>
 
-                      name="isJobPool"
-
-                      value="false"
-
-                      label="Plazas de plantilla"
-
-                      checked={
-
-                        hasRegularPositions
-
-                      }
-
-                    />
-
-                    <FilterCheckLabel
-
-                      name="isJobPool"
-
-                      value="true"
-
-                      label="Bolsa de trabajo"
-
-                      checked={
-
-                        hasJobPools
-
-                      }
-
-                    />
+                    <FilterCheckLabel name="isJobPool" value="true" label="Bolsa de trabajo" checked={hasJobPools}/>
 
                   </FilterSection>
 
@@ -916,53 +384,9 @@ export default async function ConvocatoriasPage({
 
                   <FilterSection title="Estado oficial CIDO">
 
-                    <FilterSelect
+                    <input type="hidden" name="statusFilterApplied" value="1"/>
 
-                      name="statusId"
-
-                      defaultValue={
-
-                        statusId !==
-
-                        undefined
-
-                          ? String(
-
-                              statusId,
-
-                            )
-
-                          : ""
-
-                      }
-
-                      emptyLabel="Todos los estados"
-
-                      options={filterOptions.statuses.map(
-
-                        (
-
-                          option,
-
-                        ) => ({
-
-                          value:
-
-                            String(
-
-                              option.id,
-
-                            ),
-
-                          label:
-
-                            option.name,
-
-                        }),
-
-                      )}
-
-                    />
+                    {filterOptions.statuses.map((status) => (<FilterCheckLabel key={status.id} name="statusId" value={String(status.id)} label={status.name} checked={selectedStatusIds.includes(status.id)}/>))}
 
                   </FilterSection>
 
@@ -970,57 +394,25 @@ export default async function ConvocatoriasPage({
 
                   <FilterSection title="Plazo de solicitud">
 
-                    <FilterSelect
-
-                      name="applicationPeriod"
-
-                      defaultValue={
-
-                        applicationPeriod ??
-
-                        ""
-
-                      }
-
-                      emptyLabel="Todos los plazos"
-
-                      options={[
-
-                        {
-
-                          value: "open",
-
-                          label: "Abierto ahora",
-
-                        },
-
-                        {
-
-                          value: "future",
-
-                          label: "Próximo a abrir",
-
-                        },
-
-                        {
-
-                          value: "closed",
-
-                          label: "Finalizado",
-
-                        },
-
-                        {
-
-                          value: "unknown",
-
-                          label: "Sin fechas disponibles",
-
-                        },
-
-                      ]}
-
-                    />
+                    <FilterSelect name="applicationPeriod" defaultValue={applicationPeriod ??
+            ""} emptyLabel="Todos los plazos" options={[
+            {
+                value: "open",
+                label: "Abierto ahora",
+            },
+            {
+                value: "future",
+                label: "Próximo a abrir",
+            },
+            {
+                value: "closed",
+                label: "Finalizado",
+            },
+            {
+                value: "unknown",
+                label: "Sin fechas disponibles",
+            },
+        ]}/>
 
                   </FilterSection>
 
@@ -1028,35 +420,7 @@ export default async function ConvocatoriasPage({
 
                   <FilterSection title="Ubicación">
 
-                    <TerritoryFilters
-
-                      key={`territory-${filterFormKey}`}
-
-                      territories={
-
-                        filterOptions.territories
-
-                      }
-
-                      initialProvince={
-
-                        province
-
-                      }
-
-                      initialCounty={
-
-                        county
-
-                      }
-
-                      initialMunicipality={
-
-                        municipality
-
-                      }
-
-                    />
+                    <TerritoryFilters key={`territory-${filterFormKey}`} territories={filterOptions.territories} initialProvince={province} initialCounty={county} initialMunicipality={municipality}/>
 
                     <label className="mt-2 flex flex-col gap-1.5 text-sm text-[#131A2C]">
 
@@ -1066,29 +430,10 @@ export default async function ConvocatoriasPage({
 
                       </span>
 
-                      <select
-
-                        name="radiusKm"
-
-                        defaultValue={
-
-                          radiusKm !==
-
-                          undefined
-
-                            ? String(
-
-                                radiusKm,
-
-                              )
-
-                            : ""
-
-                        }
-
-                        className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]"
-
-                      >
+                      <select name="radiusKm" defaultValue={radiusKm !==
+            undefined
+            ? String(radiusKm)
+            : ""} className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]">
 
                         <option value="">
 
@@ -1143,64 +488,14 @@ export default async function ConvocatoriasPage({
                   <FilterSection title="Grupo de titulación">
 
                     {filterOptions
-
-                      .qualificationGroups
-
-                      .length === 0 ? (
-
-                      <p className="text-sm text-[#69738A]">
+            .qualificationGroups
+            .length === 0 ? (<p className="text-sm text-[#69738A]">
 
                         No hay grupos
 
                         disponibles.
 
-                      </p>
-
-                    ) : (
-
-                      filterOptions.qualificationGroups.map(
-
-                        (
-
-                          group,
-
-                        ) => (
-
-                          <FilterCheckLabel
-
-                            key={
-
-                              group
-
-                            }
-
-                            name="qualificationGroup"
-
-                            value={
-
-                              group
-
-                            }
-
-                            label={
-
-                              group
-
-                            }
-
-                            checked={selectedQualificationGroups.includes(
-
-                              group,
-
-                            )}
-
-                          />
-
-                        ),
-
-                      )
-
-                    )}
+                      </p>) : (filterOptions.qualificationGroups.map((group) => (<FilterCheckLabel key={group} name="qualificationGroup" value={group} label={group} checked={selectedQualificationGroups.includes(group)}/>)))}
 
                   </FilterSection>
 
@@ -1208,53 +503,13 @@ export default async function ConvocatoriasPage({
 
                   <FilterSection title="Ámbito">
 
-                    <FilterSelect
-
-                      name="scopeId"
-
-                      defaultValue={
-
-                        scopeId !==
-
-                        undefined
-
-                          ? String(
-
-                              scopeId,
-
-                            )
-
-                          : ""
-
-                      }
-
-                      emptyLabel="Todos los ámbitos"
-
-                      options={filterOptions.scopes.map(
-
-                        (
-
-                          option,
-
-                        ) => ({
-
-                          value:
-
-                            String(
-
-                              option.id,
-
-                            ),
-
-                          label:
-
-                            option.name,
-
-                        }),
-
-                      )}
-
-                    />
+                    <FilterSelect name="scopeId" defaultValue={scopeId !==
+            undefined
+            ? String(scopeId)
+            : ""} emptyLabel="Todos los ámbitos" options={filterOptions.scopes.map((option) => ({
+            value: String(option.id),
+            label: option.name,
+        }))}/>
 
                   </FilterSection>
 
@@ -1262,53 +517,13 @@ export default async function ConvocatoriasPage({
 
                   <FilterSection title="Sistema de selección">
 
-                    <FilterSelect
-
-                      name="selectionSystemId"
-
-                      defaultValue={
-
-                        selectionSystemId !==
-
-                        undefined
-
-                          ? String(
-
-                              selectionSystemId,
-
-                            )
-
-                          : ""
-
-                      }
-
-                      emptyLabel="Todos los sistemas"
-
-                      options={filterOptions.selectionSystems.map(
-
-                        (
-
-                          option,
-
-                        ) => ({
-
-                          value:
-
-                            String(
-
-                              option.id,
-
-                            ),
-
-                          label:
-
-                            option.name,
-
-                        }),
-
-                      )}
-
-                    />
+                    <FilterSelect name="selectionSystemId" defaultValue={selectionSystemId !==
+            undefined
+            ? String(selectionSystemId)
+            : ""} emptyLabel="Todos los sistemas" options={filterOptions.selectionSystems.map((option) => ({
+            value: String(option.id),
+            label: option.name,
+        }))}/>
 
                   </FilterSection>
 
@@ -1316,53 +531,13 @@ export default async function ConvocatoriasPage({
 
                   <FilterSection title="Tipo de personal">
 
-                    <FilterSelect
-
-                      name="personnelTypeId"
-
-                      defaultValue={
-
-                        personnelTypeId !==
-
-                        undefined
-
-                          ? String(
-
-                              personnelTypeId,
-
-                            )
-
-                          : ""
-
-                      }
-
-                      emptyLabel="Todos los tipos"
-
-                      options={filterOptions.personnelTypes.map(
-
-                        (
-
-                          option,
-
-                        ) => ({
-
-                          value:
-
-                            String(
-
-                              option.id,
-
-                            ),
-
-                          label:
-
-                            option.name,
-
-                        }),
-
-                      )}
-
-                    />
+                    <FilterSelect name="personnelTypeId" defaultValue={personnelTypeId !==
+            undefined
+            ? String(personnelTypeId)
+            : ""} emptyLabel="Todos los tipos" options={filterOptions.personnelTypes.map((option) => ({
+            value: String(option.id),
+            label: option.name,
+        }))}/>
 
                   </FilterSection>
 
@@ -1378,23 +553,8 @@ export default async function ConvocatoriasPage({
 
                       </span>
 
-                      <input
-
-                        type="date"
-
-                        name="applicationEndDateFrom"
-
-                        defaultValue={
-
-                          applicationEndDateFromValue ??
-
-                          ""
-
-                        }
-
-                        className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm outline-none focus:border-[#4F5BD5]"
-
-                      />
+                      <input type="date" name="applicationEndDateFrom" defaultValue={applicationEndDateFromValue ??
+            ""} className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm outline-none focus:border-[#4F5BD5]"/>
 
                     </label>
 
@@ -1406,23 +566,8 @@ export default async function ConvocatoriasPage({
 
                       </span>
 
-                      <input
-
-                        type="date"
-
-                        name="applicationEndDateTo"
-
-                        defaultValue={
-
-                          applicationEndDateToValue ??
-
-                          ""
-
-                        }
-
-                        className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm outline-none focus:border-[#4F5BD5]"
-
-                      />
+                      <input type="date" name="applicationEndDateTo" defaultValue={applicationEndDateToValue ??
+            ""} className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm outline-none focus:border-[#4F5BD5]"/>
 
                     </label>
 
@@ -1432,81 +577,19 @@ export default async function ConvocatoriasPage({
 
                   <FilterSection title="Reservas">
 
-                    <FilterCheckLabel
+                    <FilterCheckLabel name="reservedDisability" value="true" label="Personas con discapacidad" checked={reservedDisability}/>
 
-                      name="reservedDisability"
+                    <FilterCheckLabel name="reservedUnemployed" value="true" label="Personas desempleadas" checked={reservedUnemployed}/>
 
-                      value="true"
+                    <FilterCheckLabel name="reservedYoung" value="true" label="Jóvenes" checked={reservedYoung}/>
 
-                      label="Personas con discapacidad"
-
-                      checked={
-
-                        reservedDisability
-
-                      }
-
-                    />
-
-                    <FilterCheckLabel
-
-                      name="reservedUnemployed"
-
-                      value="true"
-
-                      label="Personas desempleadas"
-
-                      checked={
-
-                        reservedUnemployed
-
-                      }
-
-                    />
-
-                    <FilterCheckLabel
-
-                      name="reservedYoung"
-
-                      value="true"
-
-                      label="Jóvenes"
-
-                      checked={
-
-                        reservedYoung
-
-                      }
-
-                    />
-
-                    <FilterCheckLabel
-
-                      name="reservedWomen"
-
-                      value="true"
-
-                      label="Mujeres"
-
-                      checked={
-
-                        reservedWomen
-
-                      }
-
-                    />
+                    <FilterCheckLabel name="reservedWomen" value="true" label="Mujeres" checked={reservedWomen}/>
 
                   </FilterSection>
 
                   <div className="p-5">
 
-                    <button
-
-                      type="submit"
-
-                      className="w-full rounded-lg bg-[#4F5BD5] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3B45B5]"
-
-                    >
+                    <button type="submit" className="w-full rounded-lg bg-[#4F5BD5] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3B45B5]">
 
                       Aplicar filtros
 
@@ -1534,11 +617,7 @@ export default async function ConvocatoriasPage({
 
                     <p className="mt-1 text-sm text-[#69738A]">
 
-                      {
-
-                        result.totalItems
-
-                      }{" "}
+                      {result.totalItems}{" "}
 
                       convocatorias
 
@@ -1558,25 +637,7 @@ export default async function ConvocatoriasPage({
 
                       </span>
 
-                      <select
-
-                        form={
-
-                          FILTER_FORM_ID
-
-                        }
-
-                        name="sort"
-
-                        defaultValue={
-
-                          sort
-
-                        }
-
-                        className="h-10 rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]"
-
-                      >
+                      <select form={FILTER_FORM_ID} name="sort" defaultValue={sort} className="h-10 rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]">
 
                         <option value="relevance">
 
@@ -1612,19 +673,7 @@ export default async function ConvocatoriasPage({
 
                     </label>
 
-                    <button
-
-                      form={
-
-                        FILTER_FORM_ID
-
-                      }
-
-                      type="submit"
-
-                      className="h-10 rounded-lg border border-[#D5DAE3] bg-white px-4 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
-
-                    >
+                    <button form={FILTER_FORM_ID} type="submit" className="h-10 rounded-lg border border-[#D5DAE3] bg-white px-4 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]">
 
                       Ordenar
 
@@ -1635,18 +684,9 @@ export default async function ConvocatoriasPage({
                 </div>
 
                 {result.items.length ===
+            0 ? (<div className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
 
-                0 ? (
-
-                  <div className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
-
-                    <Search
-
-                      size={30}
-
-                      className="mx-auto text-[#7C859B]"
-
-                    />
+                    <Search size={30} className="mx-auto text-[#7C859B]"/>
 
                     <h2 className="mt-4 text-lg font-semibold text-[#131A2C]">
 
@@ -1668,59 +708,11 @@ export default async function ConvocatoriasPage({
 
                     </p>
 
-                  </div>
-
-                ) : (
-
-                  result.items.map(
-
-                    (
-
-                      convocatoria,
-
-                    ) => {
-
-                      const officialStatus =
-
-                        getOfficialStatusPresentation(
-
-                          convocatoria.status,
-
-                          convocatoria.statusId,
-
-                        );
-
-                      const applicationPeriod =
-
-                        getApplicationPeriodPresentation(
-
-                          convocatoria.applicationStartDate,
-
-                          convocatoria.applicationEndDate,
-
-                        );
-
-                      const hasReservations =
-
-                        hasReservedPlaces(
-
-                          convocatoria.reservedPlaces,
-
-                        );
-
-                      return (
-
-                        <article
-
-                          key={
-
-                            convocatoria.id
-
-                          }
-
-                          className="overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm transition-shadow hover:shadow-md"
-
-                        >
+                  </div>) : (result.items.map((convocatoria) => {
+            const officialStatus = getOfficialStatusPresentation(convocatoria.status, convocatoria.statusId);
+            const applicationPeriod = getApplicationPeriodPresentation(convocatoria.applicationStartDate, convocatoria.applicationEndDate);
+            const hasReservations = hasReservedPlaces(convocatoria.reservedPlaces);
+            return (<article key={convocatoria.id} className="overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm transition-shadow hover:shadow-md">
 
                           <div className="flex flex-col gap-5 p-5">
 
@@ -1731,44 +723,24 @@ export default async function ConvocatoriasPage({
                               <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] px-3 text-xs font-semibold text-[#3B45B5]">
 
                                 {convocatoria.isJobPool
-
-                                  ? "Bolsa de trabajo"
-
-                                  : "Plaza de plantilla"}
+                    ? "Bolsa de trabajo"
+                    : "Plaza de plantilla"}
 
                               </span>
 
-                              <span
+                              <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${officialStatus.badgeClassName}`}>
 
-                                className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${officialStatus.badgeClassName}`}
-
-                              >
-
-                                <span
-
-                                  className={`h-1.5 w-1.5 rounded-full ${officialStatus.dotClassName}`}
-
-                                />
+                                <span className={`h-1.5 w-1.5 rounded-full ${officialStatus.dotClassName}`}/>
 
                                 Oficial: {officialStatus.label}
 
                               </span>
 
-                              <span
+                              <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${applicationPeriod.badgeClassName}`}>
 
-                                className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${applicationPeriod.badgeClassName}`}
+                                <span className={`h-1.5 w-1.5 rounded-full ${applicationPeriod.dotClassName}`}/>
 
-                              >
-
-                                <span
-
-                                  className={`h-1.5 w-1.5 rounded-full ${applicationPeriod.dotClassName}`}
-
-                                />
-
-                                Solicitudes: {buildApplicationPeriodBadgeText(
-                                  applicationPeriod,
-                                )}
+                                Solicitudes: {buildApplicationPeriodBadgeText(applicationPeriod)}
 
                               </span>
 
@@ -1780,11 +752,7 @@ export default async function ConvocatoriasPage({
 
                               <h3 className="text-[18px] font-semibold leading-snug tracking-[-0.01em] text-[#131A2C]">
 
-                                {formatSelectionProcessTitle(
-
-                                  convocatoria.title,
-
-                                )}
+                                {formatSelectionProcessTitle(convocatoria.title)}
 
                               </h3>
 
@@ -1792,23 +760,14 @@ export default async function ConvocatoriasPage({
 
                                 <div className="flex items-start gap-2">
 
-                                  <Building2
-
-                                    size={16}
-
-                                    className="mt-0.5 shrink-0 text-[#7C859B]"
-
-                                  />
+                                  <Building2 size={16} className="mt-0.5 shrink-0 text-[#7C859B]"/>
 
                                   <span>
 
                                     {convocatoria
-
-                                      .institution
-
-                                      ?.name ??
-
-                                      "Organismo no disponible"}
+                    .institution
+                    ?.name ??
+                    "Organismo no disponible"}
 
                                   </span>
 
@@ -1816,37 +775,17 @@ export default async function ConvocatoriasPage({
 
                                 <div className="flex items-start gap-2">
 
-                                  <MapPin
-
-                                    size={16}
-
-                                    className="mt-0.5 shrink-0 text-[#7C859B]"
-
-                                  />
+                                  <MapPin size={16} className="mt-0.5 shrink-0 text-[#7C859B]"/>
 
                                   <span>
 
-                                    {formatLocation(
-
-                                      convocatoria
-
-                                        .institution
-
-                                        ?.municipality,
-
-                                      convocatoria
-
-                                        .institution
-
-                                        ?.county,
-
-                                      convocatoria
-
-                                        .institution
-
-                                        ?.province,
-
-                                    )}
+                                    {formatLocation(convocatoria
+                    .institution
+                    ?.municipality, convocatoria
+                    .institution
+                    ?.county, convocatoria
+                    .institution
+                    ?.province)}
 
                                   </span>
 
@@ -1860,103 +799,29 @@ export default async function ConvocatoriasPage({
 
                             <div className="grid overflow-hidden rounded-lg border border-[#E7EAF0] bg-[#FAFBFC] sm:grid-cols-2 xl:grid-cols-3">
 
-                              <ResultInfoItem
+                              <ResultInfoItem label="Plazas" value={formatNumberOfPositions(convocatoria.numberOfPositions, convocatoria.isJobPool)}/>
 
-                                label="Plazas"
+                              <ResultInfoItem label="Grupo" value={convocatoria.qualificationGroup ??
+                    "No especificado"}/>
 
-                                value={formatNumberOfPositions(
+                              <ResultInfoItem label="Personal" value={convocatoria.personnelType ??
+                    "No especificado"}/>
 
-                                  convocatoria.numberOfPositions,
+                              <ResultInfoItem label="Sistema" value={convocatoria.selectionSystem ??
+                    "No especificado"}/>
 
-                                  convocatoria.isJobPool,
+                              <ResultInfoItem label="Ámbito" value={convocatoria.scope ||
+                    "No especificado"}/>
 
-                                )}
-
-                              />
-
-                              <ResultInfoItem
-
-                                label="Grupo"
-
-                                value={
-
-                                  convocatoria.qualificationGroup ??
-
-                                  "No especificado"
-
-                                }
-
-                              />
-
-                              <ResultInfoItem
-
-                                label="Personal"
-
-                                value={
-
-                                  convocatoria.personnelType ??
-
-                                  "No especificado"
-
-                                }
-
-                              />
-
-                              <ResultInfoItem
-
-                                label="Sistema"
-
-                                value={
-
-                                  convocatoria.selectionSystem ??
-
-                                  "No especificado"
-
-                                }
-
-                              />
-
-                              <ResultInfoItem
-
-                                label="Ámbito"
-
-                                value={
-
-                                  convocatoria.scope ||
-
-                                  "No especificado"
-
-                                }
-
-                              />
-
-                              <ResultInfoItem
-
-                                label="Fin del plazo de solicitud"
-
-                                value={
-
-                                  convocatoria.applicationEndDate
-
-                                    ? formatDate(
-
-                                        convocatoria.applicationEndDate,
-
-                                      )
-
-                                    : "No disponible"
-
-                                }
-
-                              />
+                              <ResultInfoItem label="Fin del plazo de solicitud" value={convocatoria.applicationEndDate
+                    ? formatDate(convocatoria.applicationEndDate)
+                    : "No disponible"}/>
 
                             </div>
 
                             {/* Reservas */}
 
-                            {hasReservations && (
-
-                              <div className="flex flex-wrap items-center gap-2">
+                            {hasReservations && (<div className="flex flex-wrap items-center gap-2">
 
                                 <span className="mr-1 text-xs font-semibold uppercase tracking-[0.04em] text-[#7C859B]">
 
@@ -1965,132 +830,67 @@ export default async function ConvocatoriasPage({
                                 </span>
 
                                 {convocatoria
-
-                                  .reservedPlaces
-
-                                  .disability !==
-
-                                  null &&
-
-                                  convocatoria
-
-                                    .reservedPlaces
-
-                                    .disability >
-
-                                    0 && (
-
-                                    <ReservationBadge>
+                        .reservedPlaces
+                        .disability !==
+                        null &&
+                        convocatoria
+                            .reservedPlaces
+                            .disability >
+                            0 && (<ReservationBadge>
 
                                       Discapacidad:{" "}
 
-                                      {
+                                      {convocatoria
+                            .reservedPlaces
+                            .disability}
 
-                                        convocatoria
-
-                                          .reservedPlaces
-
-                                          .disability
-
-                                      }
-
-                                    </ReservationBadge>
-
-                                  )}
+                                    </ReservationBadge>)}
 
                                 {convocatoria
-
-                                  .reservedPlaces
-
-                                  .unemployed && (
-
-                                  <ReservationBadge>
+                        .reservedPlaces
+                        .unemployed && (<ReservationBadge>
 
                                     Personas
 
                                     desempleadas
 
-                                  </ReservationBadge>
-
-                                )}
+                                  </ReservationBadge>)}
 
                                 {convocatoria
-
-                                  .reservedPlaces
-
-                                  .youngPeople && (
-
-                                  <ReservationBadge>
+                        .reservedPlaces
+                        .youngPeople && (<ReservationBadge>
 
                                     Jóvenes
 
-                                  </ReservationBadge>
-
-                                )}
+                                  </ReservationBadge>)}
 
                                 {convocatoria
-
-                                  .reservedPlaces
-
-                                  .women && (
-
-                                  <ReservationBadge>
+                        .reservedPlaces
+                        .women && (<ReservationBadge>
 
                                     Mujeres
 
-                                  </ReservationBadge>
+                                  </ReservationBadge>)}
 
-                                )}
-
-                              </div>
-
-                            )}
+                              </div>)}
 
                             {/* Acciones */}
 
                             <div className="flex flex-wrap items-center gap-3 border-t border-[#EEF1F5] pt-4">
 
-                              <Link
-
-                                href={`/convocatorias/${convocatoria.id}?returnTo=${encodeURIComponent(
-
-                                  resultsUrl,
-
-                                )}`}
-
-                                className="inline-flex items-center justify-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
-
-                              >
+                              <Link href={`/convocatorias/${convocatoria.id}?returnTo=${encodeURIComponent(resultsUrl)}`} className="inline-flex items-center justify-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]">
 
                                 Ver detalle
 
                               </Link>
 
-                              <a
-
-                                href={
-
-                                  convocatoria.cidoUrl
-
-                                }
-
-                                target="_blank"
-
-                                rel="noreferrer"
-
-                                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
-
-                              >
+                              <a href={convocatoria.cidoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]">
 
                                 Ver convocatoria
 
                                 oficial
 
-                                <ExternalLink
-
-                                  size={14}
-
-                                />
+                                <ExternalLink size={14}/>
 
                               </a>
 
@@ -2098,23 +898,13 @@ export default async function ConvocatoriasPage({
 
                           </div>
 
-                        </article>
-
-                      );
-
-                    },
-
-                  )
-
-                )}
+                        </article>);
+        }))}
 
                 {/* Paginación */}
 
                 {result.totalPages >
-
-                  1 && (
-
-                  <div className="flex items-center justify-between rounded-xl border border-[#E3E7EE] bg-white px-5 py-4 shadow-sm">
+            1 && (<div className="flex items-center justify-between rounded-xl border border-[#E3E7EE] bg-white px-5 py-4 shadow-sm">
 
                     <div className="text-sm text-[#4E5870]">
 
@@ -2122,11 +912,7 @@ export default async function ConvocatoriasPage({
 
                       <span className="font-semibold text-[#131A2C]">
 
-                        {
-
-                          result.page
-
-                        }
+                        {result.page}
 
                       </span>{" "}
 
@@ -2134,11 +920,7 @@ export default async function ConvocatoriasPage({
 
                       <span className="font-semibold text-[#131A2C]">
 
-                        {
-
-                          result.totalPages
-
-                        }
+                        {result.totalPages}
 
                       </span>
 
@@ -2147,82 +929,32 @@ export default async function ConvocatoriasPage({
                     <div className="flex gap-2">
 
                       {result.page >
-
-                      1 ? (
-
-                        <Link
-
-                          href={buildPageHref(
-
-                            result.page -
-
-                              1,
-
-                            query,
-
-                            currentFilters,
-
-                          )}
-
-                          className="rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#131A2C] hover:bg-[#F4F6F9]"
-
-                        >
+                1 ? (<Link href={buildPageHref(result.page -
+                    1, query, currentFilters)} className="rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#131A2C] hover:bg-[#F4F6F9]">
 
                           Anterior
 
-                        </Link>
-
-                      ) : (
-
-                        <span className="cursor-not-allowed rounded-lg border border-[#E3E7EE] bg-[#F4F6F9] px-4 py-2 text-sm font-semibold text-[#A0A7B5]">
+                        </Link>) : (<span className="cursor-not-allowed rounded-lg border border-[#E3E7EE] bg-[#F4F6F9] px-4 py-2 text-sm font-semibold text-[#A0A7B5]">
 
                           Anterior
 
-                        </span>
-
-                      )}
+                        </span>)}
 
                       {result.page <
-
-                      result.totalPages ? (
-
-                        <Link
-
-                          href={buildPageHref(
-
-                            result.page +
-
-                              1,
-
-                            query,
-
-                            currentFilters,
-
-                          )}
-
-                          className="rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
-
-                        >
+                result.totalPages ? (<Link href={buildPageHref(result.page +
+                    1, query, currentFilters)} className="rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]">
 
                           Siguiente
 
-                        </Link>
-
-                      ) : (
-
-                        <span className="cursor-not-allowed rounded-lg bg-[#E3E7EE] px-4 py-2 text-sm font-semibold text-[#A0A7B5]">
+                        </Link>) : (<span className="cursor-not-allowed rounded-lg bg-[#E3E7EE] px-4 py-2 text-sm font-semibold text-[#A0A7B5]">
 
                           Siguiente
 
-                        </span>
-
-                      )}
+                        </span>)}
 
                     </div>
 
-                  </div>
-
-                )}
+                  </div>)}
 
               </section>
 
@@ -2234,12 +966,8 @@ export default async function ConvocatoriasPage({
 
       </div>
 
-    </div>
-
-  );
-
+    </div>);
 }
-
 /**
 
  * ============================================================
@@ -2249,26 +977,12 @@ export default async function ConvocatoriasPage({
  * ============================================================
 
  */
-
 type ResultInfoItemProps = {
-
-  label: string;
-
-  value: string;
-
+    label: string;
+    value: string;
 };
-
-function ResultInfoItem({
-
-  label,
-
-  value,
-
-}: ResultInfoItemProps) {
-
-  return (
-
-    <div className="min-w-0 border-b border-r border-[#E7EAF0] px-4 py-3">
+function ResultInfoItem({ label, value, }: ResultInfoItemProps) {
+    return (<div className="min-w-0 border-b border-r border-[#E7EAF0] px-4 py-3">
 
       <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
 
@@ -2282,146 +996,54 @@ function ResultInfoItem({
 
       </p>
 
-    </div>
-
-  );
-
+    </div>);
 }
-
-function ReservationBadge({
-
-  children,
-
-}: {
-
-  children: ReactNode;
-
+function ReservationBadge({ children, }: {
+    children: ReactNode;
 }) {
-
-  return (
-
-    <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1E8] bg-[#F4F6F9] px-3 text-xs font-medium text-[#4E5870]">
+    return (<span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1E8] bg-[#F4F6F9] px-3 text-xs font-medium text-[#4E5870]">
 
       {children}
 
-    </span>
-
-  );
-
+    </span>);
 }
-
-function hasReservedPlaces(
-
-  reservedPlaces: {
-
-    disability:
-
-      number | null;
-
-    unemployed:
-
-      boolean;
-
-    youngPeople:
-
-      boolean;
-
-    women:
-
-      boolean;
-
-  },
-
-): boolean {
-
-  return (
-
-    (
-
-      reservedPlaces.disability ??
-
-      0
-
-    ) > 0 ||
-
-    reservedPlaces.unemployed ||
-
-    reservedPlaces.youngPeople ||
-
-    reservedPlaces.women
-
-  );
-
+function hasReservedPlaces(reservedPlaces: {
+    disability: number | null;
+    unemployed: boolean;
+    youngPeople: boolean;
+    women: boolean;
+}): boolean {
+    return ((reservedPlaces.disability ??
+        0) > 0 ||
+        reservedPlaces.unemployed ||
+        reservedPlaces.youngPeople ||
+        reservedPlaces.women);
 }
-
-function formatNumberOfPositions(
-  numberOfPositions: number | null,
-  isJobPool: boolean,
-): string {
-  if (isJobPool) {
-    return "—";
-  }
-
-  if (
-    numberOfPositions === null ||
-    numberOfPositions <= 0
-  ) {
-    return "Sin definir";
-  }
-
-  return String(numberOfPositions);
-}
-
-function buildApplicationPeriodBadgeText(
-
-  period: ReturnType<
-
-    typeof getApplicationPeriodPresentation
-
-  >,
-
-): string {
-
-  if (
-
-    period.state ===
-
-    "open"
-
-  ) {
-
-    if (
-
-      period.label ===
-
-      "Finaliza hoy"
-
-    ) {
-
-      return period.label;
-
+function formatNumberOfPositions(numberOfPositions: number | null, isJobPool: boolean): string {
+    if (isJobPool) {
+        return "—";
     }
-
-    return `${period.label} · ${period.detail}`;
-
-  }
-
-  if (
-
-    period.state ===
-
-    "future"
-
-  ) {
-
-    return `${period.label} · ${period.detail}`;
-
-  }
-
-  return period.label;
-
+    if (numberOfPositions === null ||
+        numberOfPositions <= 0) {
+        return "Sin definir";
+    }
+    return String(numberOfPositions);
 }
-
+function buildApplicationPeriodBadgeText(period: ReturnType<typeof getApplicationPeriodPresentation>): string {
+    if (period.state ===
+        "open") {
+        if (period.label ===
+            "Finaliza hoy") {
+            return period.label;
+        }
+        return `${period.label} · ${period.detail}`;
+    }
+    if (period.state ===
+        "future") {
+        return `${period.label} · ${period.detail}`;
+    }
+    return period.label;
+}
 /**
 
  * ============================================================
@@ -2431,295 +1053,89 @@ function buildApplicationPeriodBadgeText(
  * ============================================================
 
  */
-
-function normalizeArray(
-
-  value:
-
-    | string
-
-    | string[]
-
-    | undefined,
-
-): string[] {
-
-  if (
-
-    value === undefined
-
-  ) {
-
-    return [];
-
-  }
-
-  return Array.isArray(
-
-    value,
-
-  )
-
-    ? value
-
-    : [value];
-
+function normalizeArray(value: string | string[] | undefined): string[] {
+    if (value === undefined) {
+        return [];
+    }
+    return Array.isArray(value)
+        ? value
+        : [value];
 }
-
-function cleanString(
-
-  value:
-
-    | string
-
-    | undefined,
-
-): string | undefined {
-
-  const cleaned =
-
-    value?.trim();
-
-  return cleaned
-
-    ? cleaned
-
-    : undefined;
-
+function cleanString(value: string | undefined): string | undefined {
+    const cleaned = value?.trim();
+    return cleaned
+        ? cleaned
+        : undefined;
 }
-
-function parsePositiveInteger(
-
-  value:
-
-    | string
-
-    | undefined,
-
-): number | undefined {
-
-  if (!value) {
-
-    return undefined;
-
-  }
-
-  const number =
-
-    Number(value);
-
-  if (
-
-    !Number.isInteger(
-
-      number,
-
-    ) ||
-
-    number < 1
-
-  ) {
-
-    return undefined;
-
-  }
-
-  return number;
-
+function parsePositiveInteger(value: string | undefined): number | undefined {
+    if (!value) {
+        return undefined;
+    }
+    const number = Number(value);
+    if (!Number.isInteger(number) ||
+        number < 1) {
+        return undefined;
+    }
+    return number;
 }
-
-function parseRadiusKm(
-
-  value:
-
-    | string
-
-    | undefined,
-
-): number | undefined {
-
-  if (!value) {
-
-    return undefined;
-
-  }
-
-  const radius =
-
-    Number(value);
-
-  const allowedRadiusValues = [
-
-    5,
-
-    10,
-
-    25,
-
-    50,
-
-    100,
-
-  ];
-
-  return allowedRadiusValues.includes(
-
-    radius,
-
-  )
-
-    ? radius
-
-    : undefined;
-
-}
-
-function parseSelectionProcessApplicationPeriod(
-
-  value:
-
-    | string
-
-    | undefined,
-
-): SelectionProcessApplicationPeriodFilter | undefined {
-
-  if (
-
-    value === "open" ||
-
-    value === "future" ||
-
-    value === "closed" ||
-
-    value === "unknown"
-
-  ) {
-
-    return value;
-
-  }
-
-  return undefined;
-
-}
-
-function parseSelectionProcessSort(
-
-  value:
-
-    | string
-
-    | undefined,
-
-): SelectionProcessSort | undefined {
-
-  const allowedSortValues:
-
-    SelectionProcessSort[] = [
-
-      "relevance",
-
-      "publication-desc",
-
-      "deadline-asc",
-
-      "deadline-desc",
-
-      "municipality-asc",
-
+function parseRadiusKm(value: string | undefined): number | undefined {
+    if (!value) {
+        return undefined;
+    }
+    const radius = Number(value);
+    const allowedRadiusValues = [
+        5,
+        10,
+        25,
+        50,
+        100,
     ];
-
-  return allowedSortValues.includes(
-
-    value as SelectionProcessSort,
-
-  )
-
-    ? (value as SelectionProcessSort)
-
-    : undefined;
-
+    return allowedRadiusValues.includes(radius)
+        ? radius
+        : undefined;
 }
-
-function resolveSelectionProcessSort(
-
-  sort:
-
-    | SelectionProcessSort
-
-    | undefined,
-
-  hasTextSearch: boolean,
-
-): SelectionProcessSort {
-
-  if (
-
-    sort === undefined
-
-  ) {
-
-    return hasTextSearch
-
-      ? "relevance"
-
-      : "deadline-asc";
-
-  }
-
-  if (
-
-    sort === "relevance" &&
-
-    !hasTextSearch
-
-  ) {
-
-    return "deadline-asc";
-
-  }
-
-  return sort;
-
-}
-
-function parseDate(
-
-  value:
-
-    | string
-
-    | undefined,
-
-): Date | undefined {
-
-  if (!value) {
-
+function parseSelectionProcessApplicationPeriod(value: string | undefined): SelectionProcessApplicationPeriodFilter | undefined {
+    if (value === "open" ||
+        value === "future" ||
+        value === "closed" ||
+        value === "unknown") {
+        return value;
+    }
     return undefined;
-
-  }
-
-  const date =
-
-    new Date(
-
-      `${value}T00:00:00.000Z`,
-
-    );
-
-  return Number.isNaN(
-
-    date.getTime(),
-
-  )
-
-    ? undefined
-
-    : date;
-
 }
-
+function parseSelectionProcessSort(value: string | undefined): SelectionProcessSort | undefined {
+    const allowedSortValues: SelectionProcessSort[] = [
+        "relevance",
+        "publication-desc",
+        "deadline-asc",
+        "deadline-desc",
+        "municipality-asc",
+    ];
+    return allowedSortValues.includes(value as SelectionProcessSort)
+        ? (value as SelectionProcessSort)
+        : undefined;
+}
+function resolveSelectionProcessSort(sort: SelectionProcessSort | undefined, hasTextSearch: boolean): SelectionProcessSort {
+    if (sort === undefined) {
+        return hasTextSearch
+            ? "relevance"
+            : "deadline-asc";
+    }
+    if (sort === "relevance" &&
+        !hasTextSearch) {
+        return "deadline-asc";
+    }
+    return sort;
+}
+function parseDate(value: string | undefined): Date | undefined {
+    if (!value) {
+        return undefined;
+    }
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return Number.isNaN(date.getTime())
+        ? undefined
+        : date;
+}
 /**
 
  * ============================================================
@@ -2729,477 +1145,98 @@ function parseDate(
  * ============================================================
 
  */
-
-function buildPageHref(
-
-  page: number,
-
-  query: string,
-
-  filters: CurrentFilterState,
-
-): string {
-
-  const params =
-
-    new URLSearchParams();
-
-  if (query) {
-
-    params.set(
-
-      "q",
-
-      query,
-
-    );
-
-  }
-
-  appendFiltersToParams(
-
-    params,
-
-    filters,
-
-  );
-
-  params.set(
-
-    "page",
-
-    String(page),
-
-  );
-
-  return `/convocatorias?${params.toString()}`;
-
+function buildPageHref(page: number, query: string, filters: CurrentFilterState): string {
+    const params = new URLSearchParams();
+    if (query) {
+        params.set("q", query);
+    }
+    appendFiltersToParams(params, filters);
+    params.set("page", String(page));
+    return `/convocatorias?${params.toString()}`;
 }
-
-function buildFilterFormKey(
-
-  query: string,
-
-  page: number,
-
-  filters: CurrentFilterState,
-
-): string {
-
-  return JSON.stringify({
-
-    query,
-
-    page,
-
-    sort:
-
-      filters.sort,
-
-    qualificationGroups:
-
-      filters.qualificationGroups,
-
-    jobPoolValues:
-
-      filters.jobPoolValues,
-
-    statusId:
-
-      filters.statusId,
-
-    applicationPeriod:
-
-      filters.applicationPeriod,
-
-    province:
-
-      filters.province,
-
-    county:
-
-      filters.county,
-
-    municipality:
-
-      filters.municipality,
-
-    radiusKm:
-
-      filters.radiusKm,
-
-    scopeId:
-
-      filters.scopeId,
-
-    selectionSystemId:
-
-      filters.selectionSystemId,
-
-    personnelTypeId:
-
-      filters.personnelTypeId,
-
-    applicationEndDateFrom:
-
-      filters.applicationEndDateFrom,
-
-    applicationEndDateTo:
-
-      filters.applicationEndDateTo,
-
-    reservedDisability:
-
-      filters.reservedDisability,
-
-    reservedUnemployed:
-
-      filters.reservedUnemployed,
-
-    reservedYoung:
-
-      filters.reservedYoung,
-
-    reservedWomen:
-
-      filters.reservedWomen,
-
-  });
-
+function buildFilterFormKey(query: string, page: number, filters: CurrentFilterState): string {
+    return JSON.stringify({
+        query,
+        page,
+        sort: filters.sort,
+        qualificationGroups: filters.qualificationGroups,
+        jobPoolValues: filters.jobPoolValues,
+        statusIds: filters.statusIds,
+        applicationPeriod: filters.applicationPeriod,
+        province: filters.province,
+        county: filters.county,
+        municipality: filters.municipality,
+        radiusKm: filters.radiusKm,
+        scopeId: filters.scopeId,
+        selectionSystemId: filters.selectionSystemId,
+        personnelTypeId: filters.personnelTypeId,
+        applicationEndDateFrom: filters.applicationEndDateFrom,
+        applicationEndDateTo: filters.applicationEndDateTo,
+        reservedDisability: filters.reservedDisability,
+        reservedUnemployed: filters.reservedUnemployed,
+        reservedYoung: filters.reservedYoung,
+        reservedWomen: filters.reservedWomen,
+    });
 }
-
-function appendFiltersToParams(
-
-  params:
-
-    URLSearchParams,
-
-  filters:
-
-    CurrentFilterState,
-
-) {
-
-  params.set(
-
-    "sort",
-
-    filters.sort,
-
-  );
-
-  filters.qualificationGroups.forEach(
-
-    (
-
-      group,
-
-    ) => {
-
-      params.append(
-
-        "qualificationGroup",
-
-        group,
-
-      );
-
-    },
-
-  );
-
-  filters.jobPoolValues.forEach(
-
-    (
-
-      value,
-
-    ) => {
-
-      params.append(
-
-        "isJobPool",
-
-        value,
-
-      );
-
-    },
-
-  );
-
-  if (
-
-    filters.statusId !==
-
-    undefined
-
-  ) {
-
-    params.set(
-
-      "statusId",
-
-      String(
-
-        filters.statusId,
-
-      ),
-
-    );
-
-  }
-
-  if (
-
-    filters.applicationPeriod
-
-  ) {
-
-    params.set(
-
-      "applicationPeriod",
-
-      filters.applicationPeriod,
-
-    );
-
-  }
-
-  if (
-
-    filters.province
-
-  ) {
-
-    params.set(
-
-      "province",
-
-      filters.province,
-
-    );
-
-  }
-
-  if (
-
-    filters.county
-
-  ) {
-
-    params.set(
-
-      "county",
-
-      filters.county,
-
-    );
-
-  }
-
-  if (
-
-    filters.municipality
-
-  ) {
-
-    params.set(
-
-      "municipality",
-
-      filters.municipality,
-
-    );
-
-  }
-
-  if (
-
-    filters.radiusKm !==
-
-    undefined
-
-  ) {
-
-    params.set(
-
-      "radiusKm",
-
-      String(
-
-        filters.radiusKm,
-
-      ),
-
-    );
-
-  }
-
-  if (
-
-    filters.scopeId !==
-
-    undefined
-
-  ) {
-
-    params.set(
-
-      "scopeId",
-
-      String(
-
-        filters.scopeId,
-
-      ),
-
-    );
-
-  }
-
-  if (
-
-    filters.selectionSystemId !==
-
-    undefined
-
-  ) {
-
-    params.set(
-
-      "selectionSystemId",
-
-      String(
-
-        filters.selectionSystemId,
-
-      ),
-
-    );
-
-  }
-
-  if (
-
-    filters.personnelTypeId !==
-
-    undefined
-
-  ) {
-
-    params.set(
-
-      "personnelTypeId",
-
-      String(
-
-        filters.personnelTypeId,
-
-      ),
-
-    );
-
-  }
-
-  if (
-
-    filters.applicationEndDateFrom
-
-  ) {
-
-    params.set(
-
-      "applicationEndDateFrom",
-
-      filters.applicationEndDateFrom,
-
-    );
-
-  }
-
-  if (
-
-    filters.applicationEndDateTo
-
-  ) {
-
-    params.set(
-
-      "applicationEndDateTo",
-
-      filters.applicationEndDateTo,
-
-    );
-
-  }
-
-  if (
-
-    filters.reservedDisability
-
-  ) {
-
-    params.set(
-
-      "reservedDisability",
-
-      "true",
-
-    );
-
-  }
-
-  if (
-
-    filters.reservedUnemployed
-
-  ) {
-
-    params.set(
-
-      "reservedUnemployed",
-
-      "true",
-
-    );
-
-  }
-
-  if (
-
-    filters.reservedYoung
-
-  ) {
-
-    params.set(
-
-      "reservedYoung",
-
-      "true",
-
-    );
-
-  }
-
-  if (
-
-    filters.reservedWomen
-
-  ) {
-
-    params.set(
-
-      "reservedWomen",
-
-      "true",
-
-    );
-
-  }
-
+function appendFiltersToParams(params: URLSearchParams, filters: CurrentFilterState) {
+    params.set("sort", filters.sort);
+    filters.qualificationGroups.forEach((group) => {
+        params.append("qualificationGroup", group);
+    });
+    filters.jobPoolValues.forEach((value) => {
+        params.append("isJobPool", value);
+    });
+    params.set("statusFilterApplied", "1");
+    filters.statusIds.forEach((statusId) => {
+        params.append("statusId", String(statusId));
+    });
+    if (filters.applicationPeriod) {
+        params.set("applicationPeriod", filters.applicationPeriod);
+    }
+    if (filters.province) {
+        params.set("province", filters.province);
+    }
+    if (filters.county) {
+        params.set("county", filters.county);
+    }
+    if (filters.municipality) {
+        params.set("municipality", filters.municipality);
+    }
+    if (filters.radiusKm !==
+        undefined) {
+        params.set("radiusKm", String(filters.radiusKm));
+    }
+    if (filters.scopeId !==
+        undefined) {
+        params.set("scopeId", String(filters.scopeId));
+    }
+    if (filters.selectionSystemId !==
+        undefined) {
+        params.set("selectionSystemId", String(filters.selectionSystemId));
+    }
+    if (filters.personnelTypeId !==
+        undefined) {
+        params.set("personnelTypeId", String(filters.personnelTypeId));
+    }
+    if (filters.applicationEndDateFrom) {
+        params.set("applicationEndDateFrom", filters.applicationEndDateFrom);
+    }
+    if (filters.applicationEndDateTo) {
+        params.set("applicationEndDateTo", filters.applicationEndDateTo);
+    }
+    if (filters.reservedDisability) {
+        params.set("reservedDisability", "true");
+    }
+    if (filters.reservedUnemployed) {
+        params.set("reservedUnemployed", "true");
+    }
+    if (filters.reservedYoung) {
+        params.set("reservedYoung", "true");
+    }
+    if (filters.reservedWomen) {
+        params.set("reservedWomen", "true");
+    }
 }
-
 /**
 
  * ============================================================
@@ -3209,111 +1246,27 @@ function appendFiltersToParams(
  * ============================================================
 
  */
-
-function formatDate(
-
-  date: Date,
-
-): string {
-
-  return new Intl.DateTimeFormat(
-
-    "es-ES",
-
-    {
-
-      day:
-
-        "2-digit",
-
-      month:
-
-        "2-digit",
-
-      year:
-
-        "numeric",
-
-      timeZone:
-
-        "UTC",
-
-    },
-
-  ).format(
-
-    date,
-
-  );
-
+function formatDate(date: Date): string {
+    return new Intl.DateTimeFormat("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "UTC",
+    }).format(date);
 }
-
-function formatLocation(
-
-  municipality:
-
-    | string
-
-    | null
-
-    | undefined,
-
-  county:
-
-    | string
-
-    | null
-
-    | undefined,
-
-  province:
-
-    | string
-
-    | null
-
-    | undefined,
-
-): string {
-
-  const values = [
-
-    municipality,
-
-    county,
-
-    province,
-
-  ].filter(
-
-    (
-
-      value,
-
-    ): value is string =>
-
-      typeof value ===
-
+function formatLocation(municipality: string | null | undefined, county: string | null | undefined, province: string | null | undefined): string {
+    const values = [
+        municipality,
+        county,
+        province,
+    ].filter((value): value is string => typeof value ===
         "string" &&
-
-      value.length > 0,
-
-  );
-
-  return values.length >
-
-    0
-
-    ? values.join(
-
-        " · ",
-
-      )
-
-    : "Ubicación no disponible";
-
+        value.length > 0);
+    return values.length >
+        0
+        ? values.join(" · ")
+        : "Ubicación no disponible";
 }
-
 /**
 
  * ============================================================
@@ -3323,26 +1276,12 @@ function formatLocation(
  * ============================================================
 
  */
-
 type FilterSectionProps = {
-
-  title: string;
-
-  children: ReactNode;
-
+    title: string;
+    children: ReactNode;
 };
-
-function FilterSection({
-
-  title,
-
-  children,
-
-}: FilterSectionProps) {
-
-  return (
-
-    <fieldset className="border-b border-[#EEF1F5] px-5 py-4">
+function FilterSection({ title, children, }: FilterSectionProps) {
+    return (<fieldset className="border-b border-[#EEF1F5] px-5 py-4">
 
       <legend className="mb-3 text-[13.5px] font-semibold text-[#131A2C]">
 
@@ -3356,65 +1295,18 @@ function FilterSection({
 
       </div>
 
-    </fieldset>
-
-  );
-
+    </fieldset>);
 }
-
 type FilterCheckLabelProps = {
-
-  name: string;
-
-  value: string;
-
-  label: string;
-
-  checked: boolean;
-
+    name: string;
+    value: string;
+    label: string;
+    checked: boolean;
 };
+function FilterCheckLabel({ name, value, label, checked, }: FilterCheckLabelProps) {
+    return (<label className="flex min-h-[30px] cursor-pointer items-start gap-2.5 text-sm text-[#131A2C]">
 
-function FilterCheckLabel({
-
-  name,
-
-  value,
-
-  label,
-
-  checked,
-
-}: FilterCheckLabelProps) {
-
-  return (
-
-    <label className="flex min-h-[30px] cursor-pointer items-start gap-2.5 text-sm text-[#131A2C]">
-
-      <input
-
-        type="checkbox"
-
-        name={
-
-          name
-
-        }
-
-        value={
-
-          value
-
-        }
-
-        defaultChecked={
-
-          checked
-
-        }
-
-        className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-[#D5DAE3]"
-
-      />
+      <input type="checkbox" name={name} value={value} defaultChecked={checked} className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded border-[#D5DAE3]"/>
 
       <span>
 
@@ -3422,114 +1314,32 @@ function FilterCheckLabel({
 
       </span>
 
-    </label>
-
-  );
-
+    </label>);
 }
-
 type FilterSelectOption = {
-
-  value: string;
-
-  label: string;
-
+    value: string;
+    label: string;
 };
-
 type FilterSelectProps = {
-
-  name: string;
-
-  defaultValue: string;
-
-  emptyLabel: string;
-
-  options:
-
-    FilterSelectOption[];
-
+    name: string;
+    defaultValue: string;
+    emptyLabel: string;
+    options: FilterSelectOption[];
 };
-
-function FilterSelect({
-
-  name,
-
-  defaultValue,
-
-  emptyLabel,
-
-  options,
-
-}: FilterSelectProps) {
-
-  return (
-
-    <select
-
-      name={
-
-        name
-
-      }
-
-      defaultValue={
-
-        defaultValue
-
-      }
-
-      className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]"
-
-    >
+function FilterSelect({ name, defaultValue, emptyLabel, options, }: FilterSelectProps) {
+    return (<select name={name} defaultValue={defaultValue} className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]">
 
       <option value="">
 
-        {
-
-          emptyLabel
-
-        }
+        {emptyLabel}
 
       </option>
 
-      {options.map(
+      {options.map((option) => (<option key={option.value} value={option.value}>
 
-        (
+            {option.label}
 
-          option,
+          </option>))}
 
-        ) => (
-
-          <option
-
-            key={
-
-              option.value
-
-            }
-
-            value={
-
-              option.value
-
-            }
-
-          >
-
-            {
-
-              option.label
-
-            }
-
-          </option>
-
-        ),
-
-      )}
-
-    </select>
-
-  );
-
+    </select>);
 }

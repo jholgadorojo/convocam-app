@@ -20,7 +20,7 @@ export type SelectionProcessSearchFilters = {
 
   isJobPool?: boolean;
 
-  statusId?: number;
+  statusId?: number | number[];
 
   province?: string;
   county?: string;

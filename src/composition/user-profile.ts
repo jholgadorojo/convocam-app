@@ -8,6 +8,7 @@ import { ListMunicipalities } from "@/modules/user-profile/application/use-cases
 import { PrismaUserProfileRepository } from "@/modules/user-profile/adapters/repositories/prisma-user-profile.repository";
 import { PrismaMunicipalityQueryRepository } from "@/modules/user-profile/adapters/repositories/prisma-municipality-query.repository";
 import { PrismaUserPersonalDataUnitOfWork } from "@/modules/user-profile/adapters/repositories/prisma-user-personal-data-unit-of-work";
+import { EnsureUserProfile } from "@/modules/user-profile/application/use-cases/ensure-user-profile";
 
 import { prisma } from "@/shared/infrastructure/database/prisma";
 
@@ -48,3 +49,6 @@ export const changeUserProfileResidenceUseCase =
 
 export const listMunicipalitiesUseCase =
   new ListMunicipalities(municipalityQueryRepository);
+
+export const ensureUserProfileUseCase =
+  new EnsureUserProfile(userProfileRepository);

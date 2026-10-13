@@ -20,7 +20,7 @@ export function AppSidebar({
   activeItem = "dashboard",
 }: AppSidebarProps) {
   return (
-    <aside className="hidden min-h-screen w-[264px] shrink-0 flex-col bg-[#0E1A33] px-[14px] pb-5 pt-[18px] lg:flex">
+    <aside className="hidden sticky top-0 h-screen min-h-screen w-[264px] shrink-0 flex-col bg-[#0E1A33] px-[14px] pb-5 pt-[18px] lg:flex ">
       {/* Logo */}
       <div className="px-2 pb-[26px] pt-0.5">
         <Link href="/" className="flex items-center gap-2.5">
