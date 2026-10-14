@@ -46,7 +46,7 @@ SELECT current_database();
 \q
 
 ### Base de datos seleccionada
-echo $DATABASE_URL
+echo "${DATABASE_URL##*/}"
 
 ## Convoca'm
 ### Sincronizar datos con CIDO DIBA 
