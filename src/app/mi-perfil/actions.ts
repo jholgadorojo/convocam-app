@@ -11,8 +11,12 @@ import {
   changeUserProfilePersonalDataUseCase,
   changeUserProfileResidenceUseCase,
   ensureUserProfileUseCase,
+  addUserAcademicQualificationUseCase,
+  updateUserAcademicQualificationUseCase,
+  deleteUserAcademicQualificationUseCase,
 } from "@/composition/user-profile";
 
+import { ACADEMIC_QUALIFICATION_TYPES } from "@/modules/user-profile/domain/user-academic-qualification";
 // ============================================================
 // ESTADO DEL FORMULARIO
 // ============================================================
@@ -234,3 +238,287 @@ export async function saveResidenceAction(
   };
 }
 
+
+// ============================================================
+// RESULTADO: AÑADIR TITULACIÓN ACADÉMICA
+// ============================================================
+
+export type AddAcademicQualificationState = {
+  status: "success" | "error";
+  message: string;
+};
+
+// ============================================================
+// SERVER ACTION: AÑADIR TITULACIÓN
+// ============================================================
+
+export async function addAcademicQualificationAction(
+  formData: FormData,
+): Promise<AddAcademicQualificationState> {
+  // 1. Comprobar autenticación
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user) {
+    redirect("/login?returnTo=/mi-perfil");
+  }
+
+  // 2. Recuperar datos
+  const rawType = formData.get("qualificationType");
+  const rawName = formData.get("name");
+
+  if (
+    typeof rawType !== "string" ||
+    typeof rawName !== "string"
+  ) {
+    return {
+      status: "error",
+      message: "Los datos introducidos no son válidos.",
+    };
+  }
+
+  // 3. Comprobar tipo académico
+  const qualificationType =
+    ACADEMIC_QUALIFICATION_TYPES.find(
+      (type) => type === rawType,
+    );
+
+  if (!qualificationType) {
+    return {
+      status: "error",
+      message: "Selecciona un tipo de titulación válido.",
+    };
+  }
+
+  if (!rawName.trim()) {
+    return {
+      status: "error",
+      message: "La denominación de la titulación es obligatoria.",
+    };
+  }
+
+  // 4. Ejecutar caso de uso
+  try {
+    // Garantiza que existe UserProfile,
+    // también para cuentas antiguas.
+    await ensureUserProfileUseCase.execute({
+      userId: session.user.id,
+      registeredName: session.user.name,
+    });
+
+    await addUserAcademicQualificationUseCase.execute({
+      userId: session.user.id,
+      qualificationType,
+      name: rawName,
+    });
+  } catch (error) {
+    console.error(
+      "Error al añadir la titulación académica:",
+      error,
+    );
+
+    return {
+      status: "error",
+      message:
+        "No se ha podido guardar la titulación. Inténtalo de nuevo.",
+    };
+  }
+
+  // 5. Actualizar Mi perfil
+  revalidatePath("/mi-perfil");
+
+  return {
+    status: "success",
+    message: "Titulación académica añadida correctamente.",
+  };
+}
+
+/* ============================================================
+   RESULTADO DE EDITAR O ELIMINAR UNA TITULACIÓN
+============================================================ */
+
+export type AcademicQualificationMutationState = {
+  status: "success" | "error";
+  message: string;
+};
+
+/* ============================================================
+   VALIDAR IDENTIFICADOR
+============================================================ */
+
+function parseQualificationId(
+  value: FormDataEntryValue | null,
+): number | null {
+  if (
+    typeof value !== "string" ||
+    !/^[1-9]\d*$/.test(value)
+  ) {
+    return null;
+  }
+
+  const id = Number(value);
+
+  return Number.isSafeInteger(id) ? id : null;
+}
+
+/* ============================================================
+   EDITAR TITULACIÓN ACADÉMICA
+============================================================ */
+
+export async function updateAcademicQualificationAction(
+  formData: FormData,
+): Promise<AcademicQualificationMutationState> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user) {
+    redirect("/login?returnTo=/mi-perfil");
+  }
+
+  const qualificationId = parseQualificationId(
+    formData.get("qualificationId"),
+  );
+
+  const rawType = formData.get("qualificationType");
+  const rawName = formData.get("name");
+
+  if (qualificationId === null) {
+    return {
+      status: "error",
+      message: "La titulación seleccionada no es válida.",
+    };
+  }
+
+  if (
+    typeof rawType !== "string" ||
+    typeof rawName !== "string"
+  ) {
+    return {
+      status: "error",
+      message: "Los datos introducidos no son válidos.",
+    };
+  }
+
+  const qualificationType =
+    ACADEMIC_QUALIFICATION_TYPES.find(
+      (type) => type === rawType,
+    );
+
+  if (!qualificationType) {
+    return {
+      status: "error",
+      message: "Selecciona un tipo de titulación válido.",
+    };
+  }
+
+  if (!rawName.trim()) {
+    return {
+      status: "error",
+      message:
+        "La denominación de la titulación es obligatoria.",
+    };
+  }
+
+  try {
+    await updateUserAcademicQualificationUseCase.execute({
+      userId: session.user.id,
+      qualificationId,
+      qualificationType,
+      name: rawName,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "La titulación académica no existe"
+    ) {
+      return {
+        status: "error",
+        message:
+          "La titulación no existe o no pertenece a tu perfil.",
+      };
+    }
+
+    console.error(
+      "Error al modificar la titulación:",
+      error,
+    );
+
+    return {
+      status: "error",
+      message:
+        "No se ha podido modificar la titulación.",
+    };
+  }
+
+  revalidatePath("/mi-perfil");
+
+  return {
+    status: "success",
+    message: "Titulación modificada correctamente.",
+  };
+}
+
+/* ============================================================
+   ELIMINAR TITULACIÓN ACADÉMICA
+============================================================ */
+
+export async function deleteAcademicQualificationAction(
+  formData: FormData,
+): Promise<AcademicQualificationMutationState> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session?.user) {
+    redirect("/login?returnTo=/mi-perfil");
+  }
+
+  const qualificationId = parseQualificationId(
+    formData.get("qualificationId"),
+  );
+
+  if (qualificationId === null) {
+    return {
+      status: "error",
+      message: "La titulación seleccionada no es válida.",
+    };
+  }
+
+  try {
+    await deleteUserAcademicQualificationUseCase.execute({
+      userId: session.user.id,
+      qualificationId,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "La titulación académica no existe"
+    ) {
+      return {
+        status: "error",
+        message:
+          "La titulación no existe o no pertenece a tu perfil.",
+      };
+    }
+
+    console.error(
+      "Error al eliminar la titulación:",
+      error,
+    );
+
+    return {
+      status: "error",
+      message:
+        "No se ha podido eliminar la titulación.",
+    };
+  }
+
+  revalidatePath("/mi-perfil");
+
+  return {
+    status: "success",
+    message: "Titulación eliminada correctamente.",
+  };
+}

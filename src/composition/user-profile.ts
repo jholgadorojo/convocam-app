@@ -10,7 +10,15 @@ import { PrismaMunicipalityQueryRepository } from "@/modules/user-profile/adapte
 import { PrismaUserPersonalDataUnitOfWork } from "@/modules/user-profile/adapters/repositories/prisma-user-personal-data-unit-of-work";
 import { EnsureUserProfile } from "@/modules/user-profile/application/use-cases/ensure-user-profile";
 
+import { AddUserAcademicQualification } from "@/modules/user-profile/application/use-cases/add-user-academic-qualification";
+import { ListUserAcademicQualifications } from "@/modules/user-profile/application/use-cases/list-user-academic-qualifications";
+import { UpdateUserAcademicQualification } from "@/modules/user-profile/application/use-cases/update-user-academic-qualification";
+import { DeleteUserAcademicQualification } from "@/modules/user-profile/application/use-cases/delete-user-academic-qualification";
+
 import { prisma } from "@/shared/infrastructure/database/prisma";
+
+import { PrismaUserAcademicQualificationRepository } from "@/modules/user-profile/adapters/repositories/prisma-user-academic-qualification.repository";
+
 
 // ============================================================
 // REPOSITORIOS
@@ -52,3 +60,43 @@ export const listMunicipalitiesUseCase =
 
 export const ensureUserProfileUseCase =
   new EnsureUserProfile(userProfileRepository);
+
+
+// ============================================================
+// FORMACIÓN ACADÉMICA — REPOSITORIO
+// ============================================================
+
+const academicQualificationRepository =
+  new PrismaUserAcademicQualificationRepository(prisma);
+
+// ============================================================
+// FORMACIÓN ACADÉMICA — CASOS DE USO
+// ============================================================
+
+// Añadir titulación
+export const addUserAcademicQualificationUseCase =
+  new AddUserAcademicQualification(
+    userProfileRepository,
+    academicQualificationRepository,
+  );
+
+// Consultar titulaciones
+export const listUserAcademicQualificationsUseCase =
+  new ListUserAcademicQualifications(
+    userProfileRepository,
+    academicQualificationRepository,
+  );
+
+// Modificar titulación
+export const updateUserAcademicQualificationUseCase =
+  new UpdateUserAcademicQualification(
+    userProfileRepository,
+    academicQualificationRepository,
+  );
+
+// Eliminar titulación
+export const deleteUserAcademicQualificationUseCase =
+  new DeleteUserAcademicQualification(
+    userProfileRepository,
+    academicQualificationRepository,
+  );

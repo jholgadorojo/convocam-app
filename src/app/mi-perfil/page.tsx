@@ -18,10 +18,14 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import {
   getUserProfileUseCase,
   listMunicipalitiesUseCase,
+  listUserAcademicQualificationsUseCase,
 } from "@/composition/user-profile";
 
 import { PersonalDataForm } from "./personal-data-form";
 import { ResidenceForm } from "./residence-form";
+import { ACADEMIC_QUALIFICATION_LABELS } from "@/modules/user-profile/presentation/academic-qualification-labels";
+import { AddAcademicQualificationForm } from "./add-academic-qualification-form";
+import { AcademicQualificationsSection } from "./academic-qualifications-section";
 
 // ============================================================
 // APARTADOS DEL PERFIL
@@ -78,6 +82,11 @@ export default async function MyProfilePage() {
   const profile = await getUserProfileUseCase.execute({
     userId: session.user.id,
   });
+
+  const academicQualifications =
+    await listUserAcademicQualificationsUseCase.execute({
+      userId: session.user.id,
+    });
 
   // ============================================================
   // RESIDENCIA DEL OPOSITOR
@@ -180,6 +189,15 @@ export default async function MyProfilePage() {
                       />
                     )}
 
+                    {/* ==========================================================
+    FORMACIÓN ACADÉMICA
+========================================================== */}
+
+                    {section.id === "education" && (
+                      <AcademicQualificationsSection
+                        qualifications={academicQualifications}
+                      />
+                    )}
                   </section>
                 );
               })}
