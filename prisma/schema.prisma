@@ -39,6 +39,11 @@ enum AcademicQualificationType {
   OTHER
 }
 
+enum TerritorialPreferenceScope {
+  ALL_CATALONIA
+  SELECTED_TERRITORIES
+}
+
 model User {
   id                     String                 @id
   name                   String
@@ -119,6 +124,7 @@ model UserProfile {
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
   userAcademicQualifications UserAcademicQualification[]
+  territorialPreference      UserTerritorialPreference?
 
   @@index([residenceMunicipalityId])
   @@map("user_profiles")
@@ -314,7 +320,8 @@ model Province {
   code String @unique
   name String
 
-  municipalities Municipality[]
+  municipalities   Municipality[]
+  preferredByUsers UserPreferredProvince[]
 
   @@map("provinces")
 }
@@ -324,7 +331,8 @@ model County {
   code String @unique
   name String
 
-  municipalities Municipality[]
+  municipalities   Municipality[]
+  preferredByUsers UserPreferredCounty[]
 
   @@map("counties")
 }
@@ -341,6 +349,7 @@ model Municipality {
   province Province @relation(fields: [provinceId], references: [id], onDelete: Restrict)
 
   residenceProfiles UserProfile[]
+  preferredByUsers  UserPreferredMunicipality[]
 
   @@index([countyId])
   @@index([provinceId])
@@ -359,4 +368,57 @@ model UserAcademicQualification {
 
   @@index([userProfileId])
   @@map("user_academic_qualifications")
+}
+
+model UserTerritorialPreference {
+  id            Int                        @id @default(autoincrement())
+  userProfileId Int                        @unique
+  scope         TerritorialPreferenceScope
+
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  provinces      UserPreferredProvince[]
+  counties       UserPreferredCounty[]
+  municipalities UserPreferredMunicipality[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_territorial_preferences")
+}
+
+model UserPreferredProvince {
+  territorialPreferenceId Int
+  provinceId              Int
+
+  territorialPreference UserTerritorialPreference @relation(fields: [territorialPreferenceId], references: [id], onDelete: Cascade)
+  province              Province                  @relation(fields: [provinceId], references: [id], onDelete: Restrict)
+
+  @@id([territorialPreferenceId, provinceId])
+  @@index([provinceId])
+  @@map("user_preferred_provinces")
+}
+
+model UserPreferredCounty {
+  territorialPreferenceId Int
+  countyId                Int
+
+  territorialPreference UserTerritorialPreference @relation(fields: [territorialPreferenceId], references: [id], onDelete: Cascade)
+  county                County                    @relation(fields: [countyId], references: [id], onDelete: Restrict)
+
+  @@id([territorialPreferenceId, countyId])
+  @@index([countyId])
+  @@map("user_preferred_counties")
+}
+
+model UserPreferredMunicipality {
+  territorialPreferenceId Int
+  municipalityId          Int
+
+  territorialPreference UserTerritorialPreference @relation(fields: [territorialPreferenceId], references: [id], onDelete: Cascade)
+  municipality          Municipality              @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
+
+  @@id([territorialPreferenceId, municipalityId])
+  @@index([municipalityId])
+  @@map("user_preferred_municipalities")
 }
