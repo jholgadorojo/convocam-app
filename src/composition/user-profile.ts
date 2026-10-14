@@ -23,6 +23,8 @@ import { DeleteUserTerritorialPreferences } from "@/modules/user-profile/applica
 
 import { prisma } from "@/shared/infrastructure/database/prisma";
 import { PrismaUserAcademicQualificationRepository } from "@/modules/user-profile/adapters/repositories/prisma-user-academic-qualification.repository";
+import { PrismaTerritorialPreferenceOptionsQueryRepository } from "@/modules/user-profile/adapters/repositories/prisma-territorial-preference-options-query.repository";
+import { GetTerritorialPreferenceOptions } from "@/modules/user-profile/application/use-cases/get-territorial-preference-options";
 
 
 // ============================================================
@@ -136,3 +138,18 @@ export const deleteUserTerritorialPreferencesUseCase =
     userProfileRepository,
     userTerritorialPreferenceRepository,
   );
+
+// ============================================================
+// OPCIONES PARA PREFERENCIAS TERRITORIALES
+// ============================================================
+
+const territorialPreferenceOptionsQueryRepository =
+  new PrismaTerritorialPreferenceOptionsQueryRepository(
+    prisma,
+  );
+
+export const getTerritorialPreferenceOptionsUseCase =
+  new GetTerritorialPreferenceOptions(
+    territorialPreferenceOptionsQueryRepository,
+  );
+
