@@ -44,6 +44,12 @@ enum TerritorialPreferenceScope {
   SELECTED_TERRITORIES
 }
 
+enum PreferredSelectionProcessType {
+  POSITIONS
+  JOB_POOLS
+  BOTH
+}
+
 model User {
   id                     String                 @id
   name                   String
@@ -125,6 +131,7 @@ model UserProfile {
   updatedAt                  DateTime                    @updatedAt
   userAcademicQualifications UserAcademicQualification[]
   territorialPreference      UserTerritorialPreference?
+  professionalPreference     UserProfessionalPreference?
 
   @@index([residenceMunicipalityId])
   @@map("user_profiles")
@@ -296,6 +303,7 @@ model SubjectArea {
   cidoModuleId Int
 
   selectionProcesses SelectionProcessSubjectArea[]
+  preferredByUsers   UserPreferredSubjectArea[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -421,4 +429,44 @@ model UserPreferredMunicipality {
   @@id([territorialPreferenceId, municipalityId])
   @@index([municipalityId])
   @@map("user_preferred_municipalities")
+}
+
+model UserProfessionalPreference {
+  id                   Int                            @id @default(autoincrement())
+  userProfileId        Int                            @unique
+  selectionProcessType PreferredSelectionProcessType?
+
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  subjectAreas        UserPreferredSubjectArea[]
+  qualificationGroups UserPreferredQualificationGroup[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_professional_preferences")
+}
+
+model UserPreferredSubjectArea {
+  professionalPreferenceId Int
+  subjectAreaId            Int
+
+  professionalPreference UserProfessionalPreference @relation(fields: [professionalPreferenceId], references: [id], onDelete: Cascade)
+
+  subjectArea SubjectArea @relation(fields: [subjectAreaId], references: [id], onDelete: Restrict)
+
+  @@id([professionalPreferenceId, subjectAreaId])
+  @@index([subjectAreaId])
+  @@map("user_preferred_subject_areas")
+}
+
+model UserPreferredQualificationGroup {
+  professionalPreferenceId Int
+  qualificationGroup       String
+
+  professionalPreference UserProfessionalPreference @relation(fields: [professionalPreferenceId], references: [id], onDelete: Cascade)
+
+  @@id([professionalPreferenceId, qualificationGroup])
+  @@index([qualificationGroup])
+  @@map("user_preferred_qualification_groups")
 }

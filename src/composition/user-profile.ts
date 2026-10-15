@@ -26,6 +26,20 @@ import { PrismaUserAcademicQualificationRepository } from "@/modules/user-profil
 import { PrismaTerritorialPreferenceOptionsQueryRepository } from "@/modules/user-profile/adapters/repositories/prisma-territorial-preference-options-query.repository";
 import { GetTerritorialPreferenceOptions } from "@/modules/user-profile/application/use-cases/get-territorial-preference-options";
 
+import { PrismaUserProfessionalPreferenceRepository } from "@/modules/user-profile/adapters/repositories/prisma-user-professional-preference.repository";
+
+import { PrismaProfessionalPreferenceCatalogQueryRepository } from "@/modules/user-profile/adapters/repositories/prisma-professional-preference-catalog-query.repository";
+
+import { PrismaProfessionalPreferenceOptionsQueryRepository } from "@/modules/user-profile/adapters/repositories/prisma-professional-preference-options-query.repository";
+
+import { GetUserProfessionalPreferences } from "@/modules/user-profile/application/use-cases/get-user-professional-preferences";
+
+import { SaveUserProfessionalPreferences } from "@/modules/user-profile/application/use-cases/save-user-professional-preferences";
+
+import { DeleteUserProfessionalPreferences } from "@/modules/user-profile/application/use-cases/delete-user-professional-preferences";
+
+import { GetProfessionalPreferenceOptions } from "@/modules/user-profile/application/use-cases/get-professional-preference-options";
+
 
 // ============================================================
 // REPOSITORIOS
@@ -45,6 +59,23 @@ const userTerritorialPreferenceRepository =
 
 const territorialCatalogQueryRepository =
   new PrismaTerritorialCatalogQueryRepository(prisma);
+
+
+const professionalPreferenceRepository =
+  new PrismaUserProfessionalPreferenceRepository(
+    prisma,
+  );
+
+const professionalPreferenceCatalogRepository =
+  new PrismaProfessionalPreferenceCatalogQueryRepository(
+    prisma,
+  );
+
+const professionalPreferenceOptionsRepository =
+  new PrismaProfessionalPreferenceOptionsQueryRepository(
+    prisma,
+  );
+
 
 
 // ============================================================
@@ -151,5 +182,37 @@ const territorialPreferenceOptionsQueryRepository =
 export const getTerritorialPreferenceOptionsUseCase =
   new GetTerritorialPreferenceOptions(
     territorialPreferenceOptionsQueryRepository,
+  );
+
+// ============================================================
+// PREFERENCIAS PROFESIONALES
+// ============================================================
+
+// Consultar preferencias guardadas.
+export const getUserProfessionalPreferencesUseCase =
+  new GetUserProfessionalPreferences(
+    userProfileRepository,
+    professionalPreferenceRepository,
+  );
+
+// Guardar o modificar preferencias.
+export const saveUserProfessionalPreferencesUseCase =
+  new SaveUserProfessionalPreferences(
+    userProfileRepository,
+    professionalPreferenceRepository,
+    professionalPreferenceCatalogRepository,
+  );
+
+// Eliminar preferencias.
+export const deleteUserProfessionalPreferencesUseCase =
+  new DeleteUserProfessionalPreferences(
+    userProfileRepository,
+    professionalPreferenceRepository,
+  );
+
+// Obtener materias y grupos disponibles en CIDO.
+export const getProfessionalPreferenceOptionsUseCase =
+  new GetProfessionalPreferenceOptions(
+    professionalPreferenceOptionsRepository,
   );
 
