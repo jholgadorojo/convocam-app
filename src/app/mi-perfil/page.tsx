@@ -19,13 +19,14 @@ import {
   getUserProfileUseCase,
   listMunicipalitiesUseCase,
   listUserAcademicQualificationsUseCase,
+  getUserTerritorialPreferencesUseCase,
+  getTerritorialPreferenceOptionsUseCase,
 } from "@/composition/user-profile";
 
 import { PersonalDataForm } from "./personal-data-form";
 import { ResidenceForm } from "./residence-form";
-import { ACADEMIC_QUALIFICATION_LABELS } from "@/modules/user-profile/presentation/academic-qualification-labels";
-import { AddAcademicQualificationForm } from "./add-academic-qualification-form";
 import { AcademicQualificationsSection } from "./academic-qualifications-section";
+import { TerritorialPreferencesSection } from "./territorial-preferences-section";
 
 // ============================================================
 // APARTADOS DEL PERFIL
@@ -69,7 +70,10 @@ const profileSections = [
 // ============================================================
 
 export default async function MyProfilePage() {
+  // ==========================================================
   // AUTENTICACIÓN
+  // ==========================================================
+
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -78,7 +82,10 @@ export default async function MyProfilePage() {
     redirect("/login?returnTo=/mi-perfil");
   }
 
+  // ==========================================================
   // RECUPERAR DATOS DEL PERFIL
+  // ==========================================================
+
   const profile = await getUserProfileUseCase.execute({
     userId: session.user.id,
   });
@@ -88,21 +95,36 @@ export default async function MyProfilePage() {
       userId: session.user.id,
     });
 
-  // ============================================================
+  // ==========================================================
+  // PREFERENCIAS TERRITORIALES
+  // ==========================================================
+
+  const [
+    territorialPreference,
+    territorialOptions,
+  ] = await Promise.all([
+    getUserTerritorialPreferencesUseCase.execute({
+      userId: session.user.id,
+    }),
+
+    getTerritorialPreferenceOptionsUseCase.execute(),
+  ]);
+
+  // ==========================================================
   // RESIDENCIA DEL OPOSITOR
-  // ============================================================
+  // ==========================================================
 
   const municipalities =
     await listMunicipalitiesUseCase.execute();
 
-  const residenceMunicipality = municipalities.find(
-    (municipality) =>
-      municipality.id === profile?.residenceMunicipalityId,
-  );
+  // ==========================================================
+  // INTERFAZ
+  // ==========================================================
 
   return (
     <div className="flex min-h-screen bg-[#F4F6F9]">
       {/* SIDEBAR */}
+
       <AppSidebar
         isAuthenticated
         activeItem="perfil"
@@ -110,6 +132,7 @@ export default async function MyProfilePage() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* CABECERA */}
+
         <AppHeader
           title="Mi perfil"
           user={{
@@ -121,6 +144,7 @@ export default async function MyProfilePage() {
         <main className="flex-1 px-4 py-8 lg:px-6 lg:pb-12">
           <div className="flex flex-col gap-7">
             {/* TÍTULO */}
+
             <header>
               <h1 className="text-[28px] font-semibold tracking-tight text-[#131A2C]">
                 Mi perfil
@@ -133,7 +157,8 @@ export default async function MyProfilePage() {
               </p>
             </header>
 
-            {/* APARTADOS */}
+            {/* APARTADOS DEL PERFIL */}
+
             <div className="flex flex-col gap-4">
               {profileSections.map((section) => {
                 const Icon = section.icon;
@@ -144,6 +169,7 @@ export default async function MyProfilePage() {
                     className="rounded-xl border border-[#E3E7EE] bg-white p-5 shadow-sm"
                   >
                     {/* CABECERA DE LA TARJETA */}
+
                     <div className="flex items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#EEF0FC]">
                         <Icon
@@ -163,22 +189,21 @@ export default async function MyProfilePage() {
                       </div>
                     </div>
 
-                    {/* DATOS PERSONALES */}
+                    {/* =====================================
+                        DATOS PERSONALES
+                    ===================================== */}
+
                     {section.id === "personal" && (
                       <PersonalDataForm
-                        firstName={
-                          profile?.firstName ?? ""
-                        }
-                        lastName={
-                          profile?.lastName ?? ""
-                        }
+                        firstName={profile?.firstName ?? ""}
+                        lastName={profile?.lastName ?? ""}
                         email={session.user.email}
                       />
                     )}
 
-                    {/* ========================================
-    RESIDENCIA
-======================================== */}
+                    {/* =====================================
+                        RESIDENCIA
+                    ===================================== */}
 
                     {section.id === "residence" && (
                       <ResidenceForm
@@ -189,15 +214,34 @@ export default async function MyProfilePage() {
                       />
                     )}
 
-                    {/* ==========================================================
-    FORMACIÓN ACADÉMICA
-========================================================== */}
+                    {/* =====================================
+                        FORMACIÓN ACADÉMICA
+                    ===================================== */}
 
                     {section.id === "education" && (
                       <AcademicQualificationsSection
                         qualifications={academicQualifications}
                       />
                     )}
+
+                    {/* =====================================
+                        PREFERENCIAS TERRITORIALES
+                    ===================================== */}
+
+                    {section.id === "territories" && (
+                      <div className="mt-5">
+                        <TerritorialPreferencesSection
+                          preference={territorialPreference}
+                          options={territorialOptions}
+                        />
+                      </div>
+                    )}
+
+                    {/* =====================================
+                        PREFERENCIAS PROFESIONALES
+                        Pendiente de implementar
+                    ===================================== */}
+
                   </section>
                 );
               })}
