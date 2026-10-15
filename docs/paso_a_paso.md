@@ -48,6 +48,9 @@ SELECT current_database();
 ### Base de datos seleccionada
 echo "${DATABASE_URL##*/}"
 
+### Quitar base de datos de test
+unset DATABASE_URL
+
 ## Convoca'm
 ### Sincronizar datos con CIDO DIBA 
 curl -X POST http://localhost:3000/api/debug/cido/sync-all

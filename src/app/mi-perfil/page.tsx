@@ -21,12 +21,15 @@ import {
   listUserAcademicQualificationsUseCase,
   getUserTerritorialPreferencesUseCase,
   getTerritorialPreferenceOptionsUseCase,
+  getUserProfessionalPreferencesUseCase,
+  getProfessionalPreferenceOptionsUseCase,
 } from "@/composition/user-profile";
 
 import { PersonalDataForm } from "./personal-data-form";
 import { ResidenceForm } from "./residence-form";
 import { AcademicQualificationsSection } from "./academic-qualifications-section";
 import { TerritorialPreferencesSection } from "./territorial-preferences-section";
+import { ProfessionalPreferencesSection } from "./professional-preferences-section";
 
 // ============================================================
 // APARTADOS DEL PERFIL
@@ -120,6 +123,15 @@ export default async function MyProfilePage() {
   // ==========================================================
   // INTERFAZ
   // ==========================================================
+
+  const [professionalPreference, professionalOptions] =
+    await Promise.all([
+      getUserProfessionalPreferencesUseCase.execute({
+        userId: session.user.id,
+      }),
+
+      getProfessionalPreferenceOptionsUseCase.execute(),
+    ]);
 
   return (
     <div className="flex min-h-screen bg-[#F4F6F9]">
@@ -239,8 +251,15 @@ export default async function MyProfilePage() {
 
                     {/* =====================================
                         PREFERENCIAS PROFESIONALES
-                        Pendiente de implementar
                     ===================================== */}
+                    {section.id === "professional" && (
+                      <div className="mt-5">
+                        <ProfessionalPreferencesSection
+                          preference={professionalPreference}
+                          options={professionalOptions}
+                        />
+                      </div>
+                    )}
 
                   </section>
                 );
