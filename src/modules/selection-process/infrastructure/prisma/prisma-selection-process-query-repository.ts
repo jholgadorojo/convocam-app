@@ -3,7 +3,7 @@ import type { SelectionProcessFilterOptions, SelectionProcessTerritoryOption, } 
 import type { SelectionProcessListItem } from "../../application/selection-process-list-item";
 import type { SelectionProcessPage } from "../../application/selection-process-page";
 import type { SelectionProcessQueryRepository } from "../../application/selection-process-query-repository";
-import type { SelectionProcessApplicationPeriodFilter, SelectionProcessSearchFilters, SelectionProcessSort } from "../../application/selection-process-search-filters";
+import type { SelectionProcessApplicationPeriodFilter, SelectionProcessSearchFilters, SelectionProcessSort, SelectionProcessTerritorialIds } from "../../application/selection-process-search-filters";
 type SelectionProcessRow = Prisma.SelectionProcessGetPayload<{
   include: {
     institution: true;
@@ -23,6 +23,13 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
   async findActive(page: number, pageSize: number, filters: SelectionProcessSearchFilters): Promise<SelectionProcessPage> {
     const skip = (page - 1) * pageSize;
     const qualificationGroups = normalizeStringArray(filters.qualificationGroup);
+    const subjectAreaIds = [
+      ...new Set(
+        (filters.subjectAreaIds ?? []).filter(
+          (id) => Number.isInteger(id) && id > 0,
+        ),
+      ),
+    ];
     const textMatches = filters.text
       ? await this.findTextMatches(filters.text)
       : null;
@@ -76,6 +83,17 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
         },
       });
     }
+    if (subjectAreaIds.length > 0) {
+      conditions.push({
+        subjectAreas: {
+          some: {
+            subjectAreaId: {
+              in: subjectAreaIds,
+            },
+          },
+        },
+      });
+    }
     const radiusKm = normalizeRadiusKm(filters.radiusKm);
     let nearbyInstitutionIds: number[] | null = null;
     if (filters.municipality && radiusKm) {
@@ -115,6 +133,19 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
               }
               : {}),
           },
+        },
+      });
+    }
+    // SPEC-008: multiple territorial preferences, independent of the
+    // single-territory filters already used by SPEC-004.
+    if (filters.territorialIds !== undefined) {
+      const matchingInstitutionIds = await this.findInstitutionIdsMatchingTerritories(
+        filters.territorialIds,
+      );
+      // An empty result must return zero processes; never ignore this filter.
+      conditions.push({
+        institutionId: {
+          in: matchingInstitutionIds,
         },
       });
     }
@@ -241,6 +272,106 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
         pageSize),
     };
   }
+  /**
+   * Resolve territory catalog IDs (SPEC-007) to CIDO institution IDs.
+   *
+   * Province, county and municipality selections are alternatives (OR).
+   * The returned IDs are applied to the Prisma `where` BEFORE pagination.
+   *
+   * CIDO institution identifiers are not always municipality identifiers,
+   * so the municipality name is also checked with its county and province.
+   * This is about institution location, not necessarily the job location.
+   */
+  private async findInstitutionIdsMatchingTerritories(
+    territorialIds: SelectionProcessTerritorialIds,
+  ): Promise<number[]> {
+    const provinceIds = uniquePositiveIntegerIds(territorialIds.provinceIds);
+    const countyIds = uniquePositiveIntegerIds(territorialIds.countyIds);
+    const municipalityIds = uniquePositiveIntegerIds(territorialIds.municipalityIds);
+
+    if (
+      provinceIds.length === 0 &&
+      countyIds.length === 0 &&
+      municipalityIds.length === 0
+    ) {
+      return [];
+    }
+
+    const [provinces, counties, municipalities, institutions] = await Promise.all([
+      this.prisma.province.findMany({
+        where: { id: { in: provinceIds } },
+        select: { code: true, name: true },
+      }),
+      this.prisma.county.findMany({
+        where: { id: { in: countyIds } },
+        select: { code: true, name: true },
+      }),
+      this.prisma.municipality.findMany({
+        where: { id: { in: municipalityIds } },
+        select: {
+          code: true,
+          name: true,
+          county: { select: { name: true } },
+          province: { select: { name: true } },
+        },
+      }),
+      this.prisma.institution.findMany({
+        select: {
+          id: true,
+          ineCode: true,
+          countyCode: true,
+          provinceCode: true,
+          municipality: true,
+          county: true,
+          province: true,
+        },
+      }),
+    ]);
+
+    const provinceCodes = new Set(provinces.map((province) => province.code));
+    const provinceNames = new Set(
+      provinces.map((province) => normalizeTerritoryName(province.name)),
+    );
+    const countyCodes = new Set(counties.map((county) => county.code));
+    const countyNames = new Set(
+      counties.map((county) => normalizeTerritoryName(county.name)),
+    );
+    const municipalityCodes = new Set(
+      municipalities.map((municipality) => municipality.code),
+    );
+    const municipalityLocations = new Set(
+      municipalities.map((municipality) => territoryLocationKey(
+        municipality.name,
+        municipality.county.name,
+        municipality.province.name,
+      )),
+    );
+
+    return institutions
+      .filter((institution) => {
+        const provinceCode = extractCidoAreaCode(institution.provinceCode, "800");
+        const countyCode = extractCidoAreaCode(institution.countyCode, "810");
+        const municipalityCode = extractCidoMunicipalityCode(institution.ineCode);
+
+        const matchesProvince =
+          (provinceCode !== null && provinceCodes.has(provinceCode)) ||
+          provinceNames.has(normalizeTerritoryName(institution.province));
+        const matchesCounty =
+          (countyCode !== null && countyCodes.has(countyCode)) ||
+          countyNames.has(normalizeTerritoryName(institution.county));
+        const matchesMunicipality =
+          (municipalityCode !== null && municipalityCodes.has(municipalityCode)) ||
+          municipalityLocations.has(territoryLocationKey(
+            institution.municipality,
+            institution.county,
+            institution.province,
+          ));
+
+        return matchesProvince || matchesCounty || matchesMunicipality;
+      })
+      .map((institution) => institution.id);
+  }
+
   private async findInstitutionIdsWithinRadius({ municipality, county, province, radiusKm, }: {
     municipality: string;
     county?: string;
@@ -1480,6 +1611,51 @@ function buildSelectionProcessOrderBy(sort: SelectionProcessSort): Prisma.Select
       ];
   }
 }
+function uniquePositiveIntegerIds(ids: number[]): number[] {
+  return [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+}
+
+function normalizeTerritoryName(value: string | null): string {
+  return value?.trim().toLocaleLowerCase("ca") ?? "";
+}
+
+/** An exact municipality / county / province combination for safe fallback. */
+function territoryLocationKey(
+  municipality: string | null,
+  county: string | null,
+  province: string | null,
+): string {
+  const parts = [municipality, county, province].map(normalizeTerritoryName);
+  return parts.every(Boolean) ? parts.join("\u001f") : "";
+}
+
+/** Municipal CIDO codes are commonly 9 or 10 digits, with a leading zero omitted. */
+function normalizeCidoTerritorialCode(value: string | null): string | null {
+  const raw = value?.trim();
+  if (!raw || !/^\d{9,10}$/.test(raw)) {
+    return null;
+  }
+  return raw.padStart(10, "0");
+}
+
+/** CIDO provincial codes have prefix 800; county codes have prefix 810. */
+function extractCidoAreaCode(value: string | null, prefix: "800" | "810"): string | null {
+  const code = normalizeCidoTerritorialCode(value);
+  return code?.startsWith(prefix) ? code.slice(3, 5) : null;
+}
+
+/** Only codes with an Idescat Catalan province prefix can identify a municipality. */
+function extractCidoMunicipalityCode(value: string | null): string | null {
+  const code = normalizeCidoTerritorialCode(value);
+  if (!code) {
+    return null;
+  }
+  const municipalityCode = code.slice(0, 6);
+  return ["08", "17", "25", "43"].includes(municipalityCode.slice(0, 2))
+    ? municipalityCode
+    : null;
+}
+
 function normalizeRadiusKm(value: number | undefined): number | undefined {
   if (value === undefined ||
     !Number.isFinite(value) ||

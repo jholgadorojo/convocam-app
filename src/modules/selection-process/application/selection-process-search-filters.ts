@@ -1,3 +1,4 @@
+
 export type SelectionProcessSort =
   | "relevance"
   | "publication-desc"
@@ -10,6 +11,21 @@ export type SelectionProcessApplicationPeriodFilter =
   | "future"
   | "closed"
   | "unknown";
+
+/**
+ * Selección de territorios mediante sus identificadores
+ * internos del catálogo territorial.
+ *
+ * Se utilizará en SPEC-008 — Para mí.
+ *
+ * Las coincidencias entre provincias, comarcas y municipios
+ * se combinarán mediante OR.
+ */
+export type SelectionProcessTerritorialIds = {
+  provinceIds: number[];
+  countyIds: number[];
+  municipalityIds: number[];
+};
 
 export type SelectionProcessSearchFilters = {
   text?: string;
@@ -26,7 +42,24 @@ export type SelectionProcessSearchFilters = {
   county?: string;
   municipality?: string;
 
-  /*
+  /**
+   * Selección múltiple de territorios.
+   *
+   * Nueva funcionalidad SPEC-008.
+   * No sustituye los filtros territoriales existentes
+   * del buscador general.
+   */
+  territorialIds?: SelectionProcessTerritorialIds;
+
+  /**
+   * Materias profesionales CIDO.
+   *
+   * Una convocatoria coincidirá si está relacionada
+   * con al menos una de las materias indicadas.
+   */
+  subjectAreaIds?: number[];
+
+  /**
    * Radio aproximado, en kilómetros,
    * tomando como origen el municipio
    * seleccionado.
@@ -37,7 +70,7 @@ export type SelectionProcessSearchFilters = {
   selectionSystemId?: number;
   personnelTypeId?: number;
 
-  /*
+  /**
    * Estado calculado del plazo de solicitud.
    *
    * No procede del estado oficial de CIDO.
@@ -66,7 +99,7 @@ export type SelectionProcessSearchFilters = {
   reservedYoung?: boolean;
   reservedWomen?: boolean;
 
-  /*
+  /**
    * Ordenación de los resultados.
    */
   sort?: SelectionProcessSort;
