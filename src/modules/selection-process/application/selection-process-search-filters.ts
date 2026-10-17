@@ -4,7 +4,8 @@ export type SelectionProcessSort =
   | "publication-desc"
   | "deadline-asc"
   | "deadline-desc"
-  | "municipality-asc";
+  | "municipality-asc"
+  | "deadline-priority";
 
 export type SelectionProcessApplicationPeriodFilter =
   | "open"
@@ -101,6 +102,9 @@ export type SelectionProcessSearchFilters = {
 
   /**
    * Ordenación de los resultados.
+   *
+   * deadline-priority:
+   *   Ordenación específica de SPEC-008 — Para mí.
    */
   sort?: SelectionProcessSort;
 };

@@ -75,7 +75,6 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
         : Array.isArray(filters.statusId)
           ? filters.statusId
           : [filters.statusId];
-
     if (statusIds.length > 0) {
       conditions.push({
         statusId: {
@@ -248,6 +247,11 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
           pageSize),
       };
     }
+    // SPEC-008: priority ordering is implemented in PostgreSQL in groups.
+    // The existing SPEC-004 sort orders remain unchanged.
+    if (sort === "deadline-priority") {
+      return this.findDeadlinePriorityPage(page, pageSize, skip, where);
+    }
     const orderBy = buildSelectionProcessOrderBy(sort);
     const [rows, totalItems,] = await Promise.all([
       this.prisma.selectionProcess.findMany({
@@ -273,6 +277,126 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
     };
   }
   /**
+   * SPEC-008 - "Para mi": priority is based on application dates,
+   * not on the official CIDO status.
+   *
+   * 1. Application period currently open: earliest end date first.
+   * 2. Application period not yet started: earliest start date first.
+   * 3. Unknown application period: most recently published first.
+   * 4. Application period already closed: most recent end date first.
+   *
+   * Each group is ordered and paginated in PostgreSQL. The statusId
+   * and all other selection filters remain part of the supplied `where`.
+   */
+  private async findDeadlinePriorityPage(
+    page: number,
+    pageSize: number,
+    skip: number,
+    where: Prisma.SelectionProcessWhereInput,
+  ): Promise<SelectionProcessPage> {
+    const today = getCataloniaTodayUtc();
+
+    const openWhere: Prisma.SelectionProcessWhereInput = {
+      AND: [where, buildApplicationPeriodWhereInput("open", today)],
+    };
+    const futureWhere: Prisma.SelectionProcessWhereInput = {
+      AND: [where, buildApplicationPeriodWhereInput("future", today)],
+    };
+    const unknownWhere: Prisma.SelectionProcessWhereInput = {
+      AND: [where, buildApplicationPeriodWhereInput("unknown", today)],
+    };
+    const closedWhere: Prisma.SelectionProcessWhereInput = {
+      AND: [where, buildApplicationPeriodWhereInput("closed", today)],
+    };
+
+    const [totalItems, openCount, futureCount, closedCount] = await Promise.all([
+      this.prisma.selectionProcess.count({ where }),
+      this.prisma.selectionProcess.count({ where: openWhere }),
+      this.prisma.selectionProcess.count({ where: futureWhere }),
+      this.prisma.selectionProcess.count({ where: closedWhere }),
+    ]);
+
+    // The four date-based groups are mutually exclusive and exhaustive.
+    const unknownCount = Math.max(
+      0,
+      totalItems - openCount - futureCount - closedCount,
+    );
+
+    const groups: Array<{
+      where: Prisma.SelectionProcessWhereInput;
+      count: number;
+      orderBy: Prisma.SelectionProcessOrderByWithRelationInput[];
+    }> = [
+      {
+        where: openWhere,
+        count: openCount,
+        orderBy: [
+          { applicationEndDate: { sort: "asc", nulls: "last" } },
+          { id: "asc" },
+        ],
+      },
+      {
+        where: futureWhere,
+        count: futureCount,
+        orderBy: [
+          { applicationStartDate: { sort: "asc", nulls: "last" } },
+          { id: "asc" },
+        ],
+      },
+      {
+        where: unknownWhere,
+        count: unknownCount,
+        orderBy: [
+          { lastDocumentPublicationDate: { sort: "desc", nulls: "last" } },
+          { id: "asc" },
+        ],
+      },
+      {
+        where: closedWhere,
+        count: closedCount,
+        orderBy: [
+          { applicationEndDate: { sort: "desc", nulls: "last" } },
+          { id: "asc" },
+        ],
+      },
+    ];
+
+    const rows: SelectionProcessRow[] = [];
+    let remainingSkip = skip;
+    let remainingTake = pageSize;
+
+    for (const group of groups) {
+      if (remainingTake <= 0) {
+        break;
+      }
+      if (remainingSkip >= group.count) {
+        remainingSkip -= group.count;
+        continue;
+      }
+
+      const take = Math.min(remainingTake, group.count - remainingSkip);
+      const groupRows = await this.prisma.selectionProcess.findMany({
+        where: group.where,
+        include: { institution: true },
+        orderBy: group.orderBy,
+        skip: remainingSkip,
+        take,
+      });
+      rows.push(...groupRows);
+      remainingTake -= groupRows.length;
+      remainingSkip = 0;
+    }
+
+    return {
+      items: rows.map((row) => mapSelectionProcessListItem(row)),
+      page,
+      pageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / pageSize),
+    };
+  }
+
+  /**
    * Resolve territory catalog IDs (SPEC-007) to CIDO institution IDs.
    *
    * Province, county and municipality selections are alternatives (OR).
@@ -288,7 +412,6 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
     const provinceIds = uniquePositiveIntegerIds(territorialIds.provinceIds);
     const countyIds = uniquePositiveIntegerIds(territorialIds.countyIds);
     const municipalityIds = uniquePositiveIntegerIds(territorialIds.municipalityIds);
-
     if (
       provinceIds.length === 0 &&
       countyIds.length === 0 &&
@@ -296,7 +419,6 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
     ) {
       return [];
     }
-
     const [provinces, counties, municipalities, institutions] = await Promise.all([
       this.prisma.province.findMany({
         where: { id: { in: provinceIds } },
@@ -327,7 +449,6 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
         },
       }),
     ]);
-
     const provinceCodes = new Set(provinces.map((province) => province.code));
     const provinceNames = new Set(
       provinces.map((province) => normalizeTerritoryName(province.name)),
@@ -346,13 +467,11 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
         municipality.province.name,
       )),
     );
-
     return institutions
       .filter((institution) => {
         const provinceCode = extractCidoAreaCode(institution.provinceCode, "800");
         const countyCode = extractCidoAreaCode(institution.countyCode, "810");
         const municipalityCode = extractCidoMunicipalityCode(institution.ineCode);
-
         const matchesProvince =
           (provinceCode !== null && provinceCodes.has(provinceCode)) ||
           provinceNames.has(normalizeTerritoryName(institution.province));
@@ -366,12 +485,10 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
             institution.county,
             institution.province,
           ));
-
         return matchesProvince || matchesCounty || matchesMunicipality;
       })
       .map((institution) => institution.id);
   }
-
   private async findInstitutionIdsWithinRadius({ municipality, county, province, radiusKm, }: {
     municipality: string;
     county?: string;
@@ -597,831 +714,421 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
     const matchConditions = terms.map((term) => {
       const contains = `%${term}%`;
       return Prisma.sql`
-
             (
-
               unaccent(
-
                 lower(
-
                   coalesce(
-
                     sp.title,
-
                     ''
-
                   )
-
                 )
-
               )
-
                 LIKE
-
               unaccent(
-
                 lower(
-
                   ${contains}
-
                 )
-
               )
-
               OR
-
               word_similarity(
-
                 unaccent(
-
                   lower(
-
                     ${term}
-
                   )
-
                 ),
-
                 unaccent(
-
                   lower(
-
                     coalesce(
-
                       sp.title,
-
                       ''
-
                     )
-
                   )
-
                 )
-
               ) >= 0.55
-
               OR
-
               unaccent(
-
                 lower(
-
                   coalesce(
-
                     i.name,
-
                     ''
-
                   )
-
                 )
-
               )
-
                 LIKE
-
               unaccent(
-
                 lower(
-
                   ${contains}
-
                 )
-
               )
-
               OR
-
               word_similarity(
-
                 unaccent(
-
                   lower(
-
                     ${term}
-
                   )
-
                 ),
-
                 unaccent(
-
                   lower(
-
                     coalesce(
-
                       i.name,
-
                       ''
-
                     )
-
                   )
-
                 )
-
               ) >= 0.55
-
               OR
-
               unaccent(
-
                 lower(
-
                   coalesce(
-
                     i.municipality,
-
                     ''
-
                   )
-
                 )
-
               )
-
                 LIKE
-
               unaccent(
-
                 lower(
-
                   ${contains}
-
                 )
-
               )
-
               OR
-
               word_similarity(
-
                 unaccent(
-
                   lower(
-
                     ${term}
-
                   )
-
                 ),
-
                 unaccent(
-
                   lower(
-
                     coalesce(
-
                       i.municipality,
-
                       ''
-
                     )
-
                   )
-
                 )
-
               ) >= 0.55
-
               OR
-
               unaccent(
-
                 lower(
-
                   coalesce(
-
                     i.county,
-
                     ''
-
                   )
-
                 )
-
               )
-
                 LIKE
-
               unaccent(
-
                 lower(
-
                   ${contains}
-
                 )
-
               )
-
               OR
-
               word_similarity(
-
                 unaccent(
-
                   lower(
-
                     ${term}
-
                   )
-
                 ),
-
                 unaccent(
-
                   lower(
-
                     coalesce(
-
                       i.county,
-
                       ''
-
                     )
-
                   )
-
                 )
-
               ) >= 0.55
-
               OR
-
               unaccent(
-
                 lower(
-
                   coalesce(
-
                     i.province,
-
                     ''
-
                   )
-
                 )
-
               )
-
                 LIKE
-
               unaccent(
-
                 lower(
-
                   ${contains}
-
                 )
-
               )
-
               OR
-
               word_similarity(
-
                 unaccent(
-
                   lower(
-
                     ${term}
-
                   )
-
                 ),
-
                 unaccent(
-
                   lower(
-
                     coalesce(
-
                       i.province,
-
                       ''
-
                     )
-
                   )
-
                 )
-
               ) >= 0.55
-
               OR
-
               unaccent(
-
                 lower(
-
                   coalesce(
-
                     sp."qualificationGroup",
-
                     ''
-
                   )
-
                 )
-
               )
-
                 LIKE
-
               unaccent(
-
                 lower(
-
                   ${contains}
-
                 )
-
               )
-
               OR
-
               word_similarity(
-
                 unaccent(
-
                   lower(
-
                     ${term}
-
                   )
-
                 ),
-
                 unaccent(
-
                   lower(
-
                     coalesce(
-
                       sp."qualificationGroup",
-
                       ''
-
                     )
-
                   )
-
                 )
-
               ) >= 0.55
-
             )
-
           `;
     });
     const scoreExpressions = terms.map((term) => {
       const contains = `%${term}%`;
       return Prisma.sql`
-
             GREATEST(
-
               CASE
-
                 WHEN
-
                   unaccent(
-
                     lower(
-
                       coalesce(
-
                         sp.title,
-
                         ''
-
                       )
-
                     )
-
                   )
-
                     LIKE
-
                   unaccent(
-
                     lower(
-
                       ${contains}
-
                     )
-
                   )
-
                 THEN 2.0
-
                 ELSE 0.0
-
               END,
-
               word_similarity(
-
                 unaccent(
-
                   lower(
-
                     ${term}
-
                   )
-
                 ),
-
                 unaccent(
-
                   lower(
-
                     coalesce(
-
                       sp.title,
-
                       ''
-
                     )
-
                   )
-
                 )
-
               ) * 1.5,
-
               CASE
-
                 WHEN
-
                   unaccent(
-
                     lower(
-
                       coalesce(
-
                         i.name,
-
                         ''
-
                       )
-
                     )
-
                   )
-
                     LIKE
-
                   unaccent(
-
                     lower(
-
                       ${contains}
-
                     )
-
                   )
-
                 THEN 1.4
-
                 ELSE 0.0
-
               END,
-
               word_similarity(
-
                 unaccent(
-
                   lower(
-
                     ${term}
-
                   )
-
                 ),
-
                 unaccent(
-
                   lower(
-
                     coalesce(
-
                       i.name,
-
                       ''
-
                     )
-
                   )
-
                 )
-
               ) * 1.1,
-
               CASE
-
                 WHEN
-
                   unaccent(
-
                     lower(
-
                       coalesce(
-
                         i.municipality,
-
                         ''
-
                       )
-
                     )
-
                   )
-
                     LIKE
-
                   unaccent(
-
                     lower(
-
                       ${contains}
-
                     )
-
                   )
-
                   OR
-
                   unaccent(
-
                     lower(
-
                       coalesce(
-
                         i.county,
-
                         ''
-
                       )
-
                     )
-
                   )
-
                     LIKE
-
                   unaccent(
-
                     lower(
-
                       ${contains}
-
                     )
-
                   )
-
                   OR
-
                   unaccent(
-
                     lower(
-
                       coalesce(
-
                         i.province,
-
                         ''
-
                       )
-
                     )
-
                   )
-
                     LIKE
-
                   unaccent(
-
                     lower(
-
                       ${contains}
-
                     )
-
                   )
-
                 THEN 1.0
-
                 ELSE 0.0
-
               END,
-
               GREATEST(
-
                 word_similarity(
-
                   unaccent(
-
                     lower(
-
                       ${term}
-
                     )
-
                   ),
-
                   unaccent(
-
                     lower(
-
                       coalesce(
-
                         i.municipality,
-
                         ''
-
                       )
-
                     )
-
                   )
-
                 ),
-
                 word_similarity(
-
                   unaccent(
-
                     lower(
-
                       ${term}
-
                     )
-
                   ),
-
                   unaccent(
-
                     lower(
-
                       coalesce(
-
                         i.county,
-
                         ''
-
                       )
-
                     )
-
                   )
-
                 ),
-
                 word_similarity(
-
                   unaccent(
-
                     lower(
-
                       ${term}
-
                     )
-
                   ),
-
                   unaccent(
-
                     lower(
-
                       coalesce(
-
                         i.province,
-
                         ''
-
                       )
-
                     )
-
                   )
-
                 )
-
               ) * 1.0,
-
               CASE
-
                 WHEN
-
                   unaccent(
-
                     lower(
-
                       coalesce(
-
                         sp."qualificationGroup",
-
                         ''
-
                       )
-
                     )
-
                   )
-
                     LIKE
-
                   unaccent(
-
                     lower(
-
                       ${contains}
-
                     )
-
                   )
-
                 THEN 0.8
-
                 ELSE 0.0
-
               END,
-
               word_similarity(
-
                 unaccent(
-
                   lower(
-
                     ${term}
-
                   )
-
                 ),
-
                 unaccent(
-
                   lower(
-
                     coalesce(
-
                       sp."qualificationGroup",
-
                       ''
-
                     )
-
                   )
-
                 )
-
               ) * 0.7
-
             )
-
           `;
     });
     return this.prisma.$queryRaw<TextSearchMatch[]>(Prisma.sql`
-
         SELECT
-
           sp.id,
-
           (
-
             ${Prisma.join(scoreExpressions, " + ")}
-
           )::double precision
-
             AS score
-
         FROM
-
           "selection_processes" sp
-
         LEFT JOIN
-
           "institutions" i
-
             ON
-
               i.id =
-
               sp."institutionId"
-
         WHERE
-
           sp."sourceActive" = true
-
           AND
-
           ${Prisma.join(matchConditions, " AND ")}
-
         ORDER BY
-
           score DESC,
-
           sp.id ASC
-
       `);
   }
 }
@@ -1614,11 +1321,9 @@ function buildSelectionProcessOrderBy(sort: SelectionProcessSort): Prisma.Select
 function uniquePositiveIntegerIds(ids: number[]): number[] {
   return [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
 }
-
 function normalizeTerritoryName(value: string | null): string {
   return value?.trim().toLocaleLowerCase("ca") ?? "";
 }
-
 /** An exact municipality / county / province combination for safe fallback. */
 function territoryLocationKey(
   municipality: string | null,
@@ -1628,7 +1333,6 @@ function territoryLocationKey(
   const parts = [municipality, county, province].map(normalizeTerritoryName);
   return parts.every(Boolean) ? parts.join("\u001f") : "";
 }
-
 /** Municipal CIDO codes are commonly 9 or 10 digits, with a leading zero omitted. */
 function normalizeCidoTerritorialCode(value: string | null): string | null {
   const raw = value?.trim();
@@ -1637,13 +1341,11 @@ function normalizeCidoTerritorialCode(value: string | null): string | null {
   }
   return raw.padStart(10, "0");
 }
-
 /** CIDO provincial codes have prefix 800; county codes have prefix 810. */
 function extractCidoAreaCode(value: string | null, prefix: "800" | "810"): string | null {
   const code = normalizeCidoTerritorialCode(value);
   return code?.startsWith(prefix) ? code.slice(3, 5) : null;
 }
-
 /** Only codes with an Idescat Catalan province prefix can identify a municipality. */
 function extractCidoMunicipalityCode(value: string | null): string | null {
   const code = normalizeCidoTerritorialCode(value);
@@ -1655,7 +1357,6 @@ function extractCidoMunicipalityCode(value: string | null): string | null {
     ? municipalityCode
     : null;
 }
-
 function normalizeRadiusKm(value: number | undefined): number | undefined {
   if (value === undefined ||
     !Number.isFinite(value) ||

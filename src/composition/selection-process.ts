@@ -1,3 +1,4 @@
+
 import { prisma } from "@/shared/infrastructure/database/prisma";
 
 import { SyncAllSelectionProcesses } from "@/modules/selection-process/application/sync-all-selection-processes";
@@ -13,13 +14,29 @@ import { PrismaSelectionProcessDocumentRepository } from "@/modules/selection-pr
 import { PrismaSelectionProcessRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-repository";
 import { PrismaSelectionProcessSubjectAreaRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-subject-area-repository";
 import { PrismaSubjectAreaRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-subject-area-repository";
+
 import { ReconcileMissingSelectionProcesses } from "@/modules/selection-process/application/reconcile-missing-selection-processes";
 import { RunSelectionProcessSync } from "@/modules/selection-process/application/run-selection-process-sync";
+
 import { ListActiveSelectionProcesses } from "@/modules/selection-process/application/list-active-selection-processes";
+import { ListSelectionProcessesForMe } from "@/modules/selection-process/application/list-selection-processes-for-me";
+
 import { PrismaSelectionProcessQueryRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-query-repository";
 import { GetSelectionProcessFilterOptions } from "@/modules/selection-process/application/get-selection-process-filter-options";
+
 import { GetSelectionProcessDetail } from "@/modules/selection-process/application/use-cases/get-selection-process-detail";
 import { PrismaSelectionProcessDetailRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-detail-repository";
+
+import {
+  getUserTerritorialPreferencesUseCase,
+  getUserProfessionalPreferencesUseCase,
+} from "@/composition/user-profile";
+
+/**
+ * ==========================================
+ * SINCRONIZACIÓN CIDO
+ * ==========================================
+ */
 
 const selectionProcessSource =
   new CidoSelectionProcessSource();
@@ -81,11 +98,18 @@ const reconcileMissingSelectionProcessesUseCase =
     selectionProcessSource,
     selectionProcessRepository,
   );
+
 export const runSelectionProcessSyncUseCase =
   new RunSelectionProcessSync(
     syncAllSelectionProcessesUseCase,
     reconcileMissingSelectionProcessesUseCase,
   );
+
+/**
+ * ==========================================
+ * BUSCADOR DE CONVOCATORIAS — SPEC-004
+ * ==========================================
+ */
 
 const selectionProcessQueryRepository =
   new PrismaSelectionProcessQueryRepository(
@@ -102,10 +126,36 @@ export const getSelectionProcessFilterOptionsUseCase =
     selectionProcessQueryRepository,
   );
 
+/**
+ * ==========================================
+ * PARA MÍ — SPEC-008
+ * ==========================================
+ *
+ * Reutilizamos:
+ * - Preferencias territoriales de SPEC-007.
+ * - Preferencias profesionales de SPEC-007.
+ * - Motor de búsqueda de SPEC-004.
+ */
+
+export const listSelectionProcessesForMeUseCase =
+  new ListSelectionProcessesForMe(
+    getUserTerritorialPreferencesUseCase,
+    getUserProfessionalPreferencesUseCase,
+    listActiveSelectionProcessesUseCase,
+  );
+
+/**
+ * ==========================================
+ * DETALLE DE CONVOCATORIA — SPEC-005
+ * ==========================================
+ */
+
 const selectionProcessDetailRepository =
-  new PrismaSelectionProcessDetailRepository(prisma);
+  new PrismaSelectionProcessDetailRepository(
+    prisma,
+  );
 
 export const getSelectionProcessDetailUseCase =
   new GetSelectionProcessDetail(
     selectionProcessDetailRepository,
-  );  
+  );

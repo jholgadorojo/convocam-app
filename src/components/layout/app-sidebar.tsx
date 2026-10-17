@@ -1,9 +1,11 @@
+
 import Link from "next/link";
 import {
   Bookmark,
   LayoutDashboard,
   LogIn,
   Search,
+  Target,
   User,
   UserPlus,
 } from "lucide-react";
@@ -12,7 +14,12 @@ import { LogoutButton } from "@/components/auth/logout-button";
 
 type AppSidebarProps = {
   isAuthenticated: boolean;
-  activeItem?: "dashboard" | "convocatorias" | "mis-convocatorias" | "perfil";
+  activeItem?:
+    | "dashboard"
+    | "convocatorias"
+    | "para-mi"
+    | "mis-convocatorias"
+    | "perfil";
 };
 
 export function AppSidebar({
@@ -20,7 +27,7 @@ export function AppSidebar({
   activeItem = "dashboard",
 }: AppSidebarProps) {
   return (
-    <aside className="hidden sticky top-0 h-screen min-h-screen w-[264px] shrink-0 flex-col bg-[#0E1A33] px-[14px] pb-5 pt-[18px] lg:flex ">
+    <aside className="hidden sticky top-0 h-screen min-h-screen w-[264px] shrink-0 flex-col bg-[#0E1A33] px-[14px] pb-5 pt-[18px] lg:flex">
       {/* Logo */}
       <div className="px-2 pb-[26px] pt-0.5">
         <Link href="/" className="flex items-center gap-2.5">
@@ -60,9 +67,33 @@ export function AppSidebar({
               : "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
           }
         >
-          <Search size={18} className="text-[#7D89A6]" />
+          <Search
+            size={18}
+            className="text-[#7D89A6]"
+          />
 
           Buscar convocatorias
+        </Link>
+
+        {/* SPEC-008 — Para mí */}
+        <Link
+          href={
+            isAuthenticated
+              ? "/para-mi"
+              : "/login?returnTo=/para-mi"
+          }
+          className={
+            activeItem === "para-mi"
+              ? "flex h-10 items-center gap-3 rounded-lg bg-[#1B2A4D] px-3 text-sm font-semibold text-white"
+              : "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
+          }
+        >
+          <Target
+            size={18}
+            className="text-[#7D89A6]"
+          />
+
+          Para mí
         </Link>
 
         <Link
@@ -77,7 +108,10 @@ export function AppSidebar({
               : "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
           }
         >
-          <Bookmark size={18} className="text-[#7D89A6]" />
+          <Bookmark
+            size={18}
+            className="text-[#7D89A6]"
+          />
 
           Mis convocatorias
         </Link>
@@ -113,7 +147,10 @@ export function AppSidebar({
               href="/login?returnTo=/dashboard"
               className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
             >
-              <LogIn size={18} className="text-[#7D89A6]" />
+              <LogIn
+                size={18}
+                className="text-[#7D89A6]"
+              />
 
               Iniciar sesión
             </Link>
@@ -122,7 +159,10 @@ export function AppSidebar({
               href="/register"
               className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#AEB8CE] hover:bg-[#1B2A4D]"
             >
-              <UserPlus size={18} className="text-[#7D89A6]" />
+              <UserPlus
+                size={18}
+                className="text-[#7D89A6]"
+              />
 
               Crear cuenta
             </Link>
