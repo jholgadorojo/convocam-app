@@ -3,9 +3,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   CalendarClock,
-  CheckCircle2,
   ExternalLink,
   MapPin,
+  BookmarkCheck,
   SlidersHorizontal,
   Target,
 } from "lucide-react";
@@ -179,7 +179,7 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                   </p>
                 </div>
 
-                <div className="grid min-w-0 items-start gap-3 min-[1180px]:grid-cols-2">
+                <div className="grid min-w-0 items-stretch gap-3 min-[1180px]:grid-cols-2">
                   {pageData.items.map((item) => {
                     const officialStatus = getOfficialStatusPresentation(
                       item.status,
@@ -196,9 +196,13 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                     return (
                       <article
                         key={item.id}
-                        className="min-w-0 overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm transition-shadow hover:shadow-md"
+                        className={`flex h-full min-w-0 flex-col overflow-hidden rounded-xl border shadow-sm transition-shadow hover:shadow-md ${
+                          isFollowing
+                            ? "border-[#D9DFF3] bg-[#F5F7FF]"
+                            : "border-[#E3E7EE] bg-white"
+                        }`}
                       >
-                        <div className="p-4">
+                        <div className="flex flex-1 flex-col p-4">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${officialStatus.badgeClassName}`}>
                               <span className={`h-1.5 w-1.5 rounded-full ${officialStatus.dotClassName}`} />
@@ -207,12 +211,6 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                             <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] px-3 text-xs font-semibold text-[#3B45B5]">
                               {item.isJobPool ? "Bolsa de trabajo" : "Plaza de plantilla"}
                             </span>
-                            {isFollowing && (
-                              <span className="inline-flex min-h-7 items-center gap-1 rounded-full bg-[#E8F6EE] px-3 text-xs font-semibold text-[#267447]">
-                                <CheckCircle2 size={13} />
-                                En seguimiento
-                              </span>
-                            )}
                           </div>
 
                           <h3 className="mt-4 text-[17px] font-semibold leading-snug tracking-[-0.01em] text-[#131A2C]">
@@ -244,7 +242,7 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                             </div>
                           </div>
 
-                          <div className="mt-4">
+                          <div className="mt-4 flex-1">
                             <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
                               ¿Por qué aparece para mí?
                             </p>
@@ -273,8 +271,9 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                             {isFollowing && (
                               <Link
                                 href="/mis-convocatorias"
-                                className="mr-auto text-sm font-semibold text-[#3B45B5] hover:underline"
+                                className="mr-auto inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#C9CEF5] bg-[#EEF0FC] px-3 py-2 text-sm font-semibold text-[#3B45B5] transition-colors hover:border-[#9FA8EC] hover:bg-[#E2E6FB]"
                               >
+                                <BookmarkCheck size={16} aria-hidden="true" />
                                 Mi seguimiento
                               </Link>
                             )}
