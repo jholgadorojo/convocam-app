@@ -48,6 +48,23 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
         sourceActive: true,
       },
     ];
+
+    // SPEC-009: excluir convocatorias seguidas antes de contar y paginar.
+    if (filters.excludeFollowedByUserId !== undefined) {
+      const userId = filters.excludeFollowedByUserId.trim();
+
+      if (!userId) {
+        throw new Error("excludeFollowedByUserId must not be empty");
+      }
+
+      conditions.push({
+        userSelectionProcesses: {
+          none: {
+            userId,
+          },
+        },
+      });
+    }
     if (textMatches !== null) {
       conditions.push({
         id: {
@@ -141,7 +158,7 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
       const matchingInstitutionIds = await this.findInstitutionIdsMatchingTerritories(
         filters.territorialIds,
       );
-      // An empty result must return zero processes; never ignore this filter.
+    // An empty result must return zero processes; never ignore this filter.
       conditions.push({
         institutionId: {
           in: matchingInstitutionIds,

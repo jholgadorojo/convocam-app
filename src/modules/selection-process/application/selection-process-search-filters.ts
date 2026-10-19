@@ -107,4 +107,22 @@ export type SelectionProcessSearchFilters = {
    *   Ordenación específica de SPEC-008 — Para mí.
    */
   sort?: SelectionProcessSort;
+
+  /**
+   * SPEC-009 — Dashboard del opositor.
+   *
+   * Excluye de los resultados las convocatorias
+   * que ya sigue el usuario indicado.
+   *
+   * La exclusión se aplicará en PostgreSQL
+   * antes de calcular el total de resultados
+   * y antes de aplicar la paginación.
+   *
+   * Si no se indica este filtro,
+   * las búsquedas mantienen su comportamiento actual.
+   *
+   * El identificador debe proceder del usuario
+   * autenticado, nunca de un parámetro público.
+   */
+  excludeFollowedByUserId?: string;
 };

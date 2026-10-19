@@ -40,6 +40,26 @@ type PreferencesReader<T> = {
 export type ListSelectionProcessesForMeInput = {
   userId: string;
   page?: number;
+
+  /**
+   * SPEC-009 — Dashboard.
+   *
+   * Permite solicitar un número diferente
+   * de resultados por página.
+   *
+   * SPEC-008 mantiene 10 por defecto.
+   */
+  pageSize?: number;
+
+  /**
+   * SPEC-009 — Dashboard.
+   *
+   * Cuando es true, excluye las convocatorias
+   * que el usuario ya está siguiendo.
+   *
+   * SPEC-008 mantiene false por defecto.
+   */
+  excludeFollowed?: boolean;
 };
 
 export type ListSelectionProcessesForMeResult =
@@ -67,7 +87,10 @@ export class ListSelectionProcessesForMe {
     input: ListSelectionProcessesForMeInput,
   ): Promise<ListSelectionProcessesForMeResult> {
     const userId = input.userId.trim();
+
     const page = input.page ?? 1;
+
+    const pageSize = input.pageSize ?? 10;
 
     if (!userId) {
       throw new Error("userId is required");
@@ -76,6 +99,16 @@ export class ListSelectionProcessesForMe {
     if (!Number.isInteger(page) || page < 1) {
       throw new Error(
         "page must be an integer greater than or equal to 1",
+      );
+    }
+
+    if (
+      !Number.isInteger(pageSize) ||
+      pageSize < 1 ||
+      pageSize > 100
+    ) {
+      throw new Error(
+        "pageSize must be an integer between 1 and 100",
       );
     }
 
@@ -162,11 +195,27 @@ export class ListSelectionProcessesForMe {
       }
     }
 
+    /**
+     * SPEC-009 — Dashboard.
+     *
+     * Aplicar la exclusión de convocatorias seguidas
+     * únicamente cuando se solicite expresamente.
+     *
+     * El repositorio Prisma aplica esta condición
+     * antes de contar y paginar los resultados.
+     *
+     * El identificador procede del usuario para
+     * el que se están consultando las preferencias.
+     */
+    if (input.excludeFollowed === true) {
+      filters.excludeFollowedByUserId = userId;
+    }
+
     // Buscar las convocatorias coincidentes.
     let results =
       await this.listActiveSelectionProcesses.execute({
         page,
-        pageSize: 10,
+        pageSize,
         filters,
       });
 
@@ -178,7 +227,7 @@ export class ListSelectionProcessesForMe {
       results =
         await this.listActiveSelectionProcesses.execute({
           page: results.totalPages,
-          pageSize: 10,
+          pageSize,
           filters,
         });
     }

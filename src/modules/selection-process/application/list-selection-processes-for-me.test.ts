@@ -21,23 +21,38 @@ type ProfessionalPreferences = {
     | "JOB_POOLS"
     | "BOTH"
     | null;
+
   subjectAreaIds: number[];
   qualificationGroups: string[];
 };
 
+/**
+ * Genera una página simulada para las pruebas.
+ *
+ * SPEC-009 permite utilizar un tamaño diferente
+ * de los 10 resultados habituales de SPEC-008.
+ */
 function createPage(
   page = 1,
   totalPages = 1,
+  pageSize = 10,
+  totalItems = totalPages * pageSize,
 ): SelectionProcessPage {
   return {
     items: [],
     page,
-    pageSize: 10,
-    totalItems: totalPages * 10,
+    pageSize,
+    totalItems,
     totalPages,
   };
 }
 
+/**
+ * Prepara los colaboradores del caso de uso.
+ *
+ * Se simula el repositorio para comprobar
+ * qué filtros y parámetros recibe.
+ */
 function createTestContext(
   options: {
     territorial?: TerritorialPreferences | null;
@@ -109,6 +124,12 @@ function createTestContext(
 }
 
 describe("ListSelectionProcessesForMe", () => {
+  /**
+   * ============================================================
+   * SPEC-008 — COMPORTAMIENTO EXISTENTE
+   * ============================================================
+   */
+
   it("solicita las preferencias del usuario indicado", async () => {
     const context = createTestContext({
       territorial: {
@@ -334,4 +355,292 @@ describe("ListSelectionProcessesForMe", () => {
 
     expect(context.findActive).not.toHaveBeenCalled();
   });
+
+  /**
+   * ============================================================
+   * SPEC-009 — DASHBOARD DEL OPOSITOR
+   * ============================================================
+   */
+
+  it("mantiene 10 resultados y no excluye seguimientos por defecto", async () => {
+    const context = createTestContext({
+      territorial: {
+        scope: "ALL_CATALONIA",
+        provinceIds: [],
+        countyIds: [],
+        municipalityIds: [],
+      },
+    });
+
+    await context.useCase.execute({
+      userId: "user-1",
+    });
+
+    expect(context.findActive).toHaveBeenCalledTimes(1);
+
+    expect(context.findActive).toHaveBeenCalledWith(
+      1,
+      10,
+      {
+        statusId: [2, 3],
+        sort: "deadline-priority",
+      },
+    );
+
+    const filters = context.findActive.mock.calls[0]?.[2];
+
+    expect(filters).not.toHaveProperty(
+      "excludeFollowedByUserId",
+    );
+  });
+
+  it("solicita tres oportunidades excluyendo las seguidas para el dashboard", async () => {
+    const context = createTestContext({
+      territorial: {
+        scope: "ALL_CATALONIA",
+        provinceIds: [],
+        countyIds: [],
+        municipalityIds: [],
+      },
+    });
+
+    await context.useCase.execute({
+      userId: "user-1",
+      page: 1,
+      pageSize: 3,
+      excludeFollowed: true,
+    });
+
+    expect(context.findActive).toHaveBeenCalledTimes(1);
+
+    expect(context.findActive).toHaveBeenCalledWith(
+      1,
+      3,
+      {
+        statusId: [2, 3],
+        sort: "deadline-priority",
+        excludeFollowedByUserId: "user-1",
+      },
+    );
+  });
+
+  it("combina la exclusión con las preferencias profesionales y territoriales", async () => {
+    const context = createTestContext({
+      territorial: {
+        scope: "SELECTED_TERRITORIES",
+        provinceIds: [2],
+        countyIds: [24],
+        municipalityIds: [188],
+      },
+      professional: {
+        selectionProcessType: "JOB_POOLS",
+        subjectAreaIds: [12, 18],
+        qualificationGroups: ["C1", "C2"],
+      },
+    });
+
+    await context.useCase.execute({
+      userId: "user-1",
+      pageSize: 3,
+      excludeFollowed: true,
+    });
+
+    expect(context.findActive).toHaveBeenCalledWith(
+      1,
+      3,
+      {
+        statusId: [2, 3],
+        sort: "deadline-priority",
+        territorialIds: {
+          provinceIds: [2],
+          countyIds: [24],
+          municipalityIds: [188],
+        },
+        isJobPool: true,
+        subjectAreaIds: [12, 18],
+        qualificationGroup: ["C1", "C2"],
+        excludeFollowedByUserId: "user-1",
+      },
+    );
+  });
+
+  it("no excluye seguimientos cuando excludeFollowed es false", async () => {
+    const context = createTestContext({
+      territorial: {
+        scope: "ALL_CATALONIA",
+        provinceIds: [],
+        countyIds: [],
+        municipalityIds: [],
+      },
+    });
+
+    await context.useCase.execute({
+      userId: "user-1",
+      pageSize: 3,
+      excludeFollowed: false,
+    });
+
+    expect(context.findActive).toHaveBeenCalledWith(
+      1,
+      3,
+      {
+        statusId: [2, 3],
+        sort: "deadline-priority",
+      },
+    );
+  });
+
+  it("conserva el total de oportunidades devuelto por el repositorio", async () => {
+    const expectedPage = createPage(
+      1,
+      13,
+      3,
+      38,
+    );
+
+    const context = createTestContext({
+      territorial: {
+        scope: "ALL_CATALONIA",
+        provinceIds: [],
+        countyIds: [],
+        municipalityIds: [],
+      },
+      results: [expectedPage],
+    });
+
+    const result = await context.useCase.execute({
+      userId: "user-1",
+      pageSize: 3,
+      excludeFollowed: true,
+    });
+
+    expect(result.kind).toBe("results");
+
+    if (result.kind === "results") {
+      expect(result.page.totalItems).toBe(38);
+      expect(result.page.pageSize).toBe(3);
+      expect(result.page.totalPages).toBe(13);
+    }
+
+    expect(context.findActive).toHaveBeenCalledTimes(1);
+  });
+
+  it("no consulta oportunidades del dashboard cuando faltan preferencias", async () => {
+    const context = createTestContext();
+
+    const result = await context.useCase.execute({
+      userId: "user-1",
+      pageSize: 3,
+      excludeFollowed: true,
+    });
+
+    expect(result).toEqual({
+      kind: "preferences-not-configured",
+    });
+
+    expect(context.findActive).not.toHaveBeenCalled();
+  });
+
+  it("utiliza el identificador de usuario sin espacios para la exclusión", async () => {
+    const context = createTestContext({
+      territorial: {
+        scope: "ALL_CATALONIA",
+        provinceIds: [],
+        countyIds: [],
+        municipalityIds: [],
+      },
+    });
+
+    await context.useCase.execute({
+      userId: "  user-1  ",
+      pageSize: 3,
+      excludeFollowed: true,
+    });
+
+    expect(context.findActive).toHaveBeenCalledWith(
+      1,
+      3,
+      expect.objectContaining({
+        excludeFollowedByUserId: "user-1",
+      }),
+    );
+
+    expect(
+      context.territorialReader.execute,
+    ).toHaveBeenCalledWith({
+      userId: "user-1",
+    });
+  });
+
+  it("ajusta la paginación del dashboard manteniendo el filtro de exclusión", async () => {
+    const context = createTestContext({
+      territorial: {
+        scope: "ALL_CATALONIA",
+        provinceIds: [],
+        countyIds: [],
+        municipalityIds: [],
+      },
+      results: [
+        createPage(99, 3, 3, 8),
+        createPage(3, 3, 3, 8),
+      ],
+    });
+
+    const result = await context.useCase.execute({
+      userId: "user-1",
+      page: 99,
+      pageSize: 3,
+      excludeFollowed: true,
+    });
+
+    expect(context.findActive).toHaveBeenCalledTimes(2);
+
+    expect(context.findActive).toHaveBeenNthCalledWith(
+      1,
+      99,
+      3,
+      expect.objectContaining({
+        excludeFollowedByUserId: "user-1",
+      }),
+    );
+
+    expect(context.findActive).toHaveBeenNthCalledWith(
+      2,
+      3,
+      3,
+      expect.objectContaining({
+        excludeFollowedByUserId: "user-1",
+      }),
+    );
+
+    expect(result.kind).toBe("results");
+
+    if (result.kind === "results") {
+      expect(result.page.page).toBe(3);
+      expect(result.page.totalItems).toBe(8);
+    }
+  });
+
+  it.each([
+    0,
+    -1,
+    1.5,
+    101,
+  ])(
+    "rechaza un tamaño de página inválido: %s",
+    async (pageSize) => {
+      const context = createTestContext();
+
+      await expect(
+        context.useCase.execute({
+          userId: "user-1",
+          pageSize,
+        }),
+      ).rejects.toThrow(
+        "pageSize must be an integer between 1 and 100",
+      );
+
+      expect(context.findActive).not.toHaveBeenCalled();
+    },
+  );
 });
