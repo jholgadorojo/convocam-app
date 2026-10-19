@@ -217,12 +217,16 @@ export default async function SelectionProcessDetailPage({
     );
 
   const activeSidebarItem =
-    resultsHref === "/para-mi" || resultsHref.startsWith("/para-mi?")
-      ? "para-mi"
-      : resultsHref === "/mis-convocatorias" ||
+    resultsHref === "/dashboard" ||
+      resultsHref.startsWith("/dashboard?")
+      ? "dashboard"
+      : resultsHref === "/para-mi" ||
+        resultsHref.startsWith("/para-mi?")
+        ? "para-mi"
+        : resultsHref === "/mis-convocatorias" ||
           resultsHref.startsWith("/mis-convocatorias?")
-        ? "mis-convocatorias"
-        : "convocatorias";
+          ? "mis-convocatorias"
+          : "convocatorias";
 
   const detailHref =
 
@@ -402,8 +406,11 @@ export default async function SelectionProcessDetailPage({
 
                 />
 
-                Volver a los resultados
-
+                {resultsHref === "/dashboard" ||
+                resultsHref.startsWith("/dashboard?")
+                  ? "Volver al dashboard"
+                  : "Volver a los resultados"}
+                  
               </Link>
 
               {/* ================================================
@@ -3525,6 +3532,7 @@ function getSafeResultsHref(
     "/convocatorias",
     "/para-mi",
     "/mis-convocatorias",
+    "/dashboard",
   ];
 
   if (

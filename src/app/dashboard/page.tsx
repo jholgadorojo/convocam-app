@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { auth } from "@/lib/auth";
-import { followFromDashboardAction } from "./actions";
+import { prisma } from "@/shared/infrastructure/database/prisma";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 
@@ -42,16 +42,32 @@ import { formatSelectionProcessTitle } from
   "@/modules/selection-process/presentation/selection-process-title";
 
 /**
- * SPEC-009 — PASO 6.4.5
- * Dashboard público y dashboard personal.
+ * SPEC-009 - Ajustes previos a la validacion funcional.
  *
- * Visitante: contadores públicos CIDO, buscador e invitación a registrarse.
- * Usuario autenticado: tres indicadores, dos paneles de convocatorias
- * y un panel de últimas publicaciones oficiales.
- *
- * Las oportunidades incluyen una acción para iniciar su seguimiento
- * sin abandonar el dashboard, reutilizando SPEC-006.
+ * - Sin buscador duplicado (ya existe en el menu lateral).
+ * - El seguimiento se inicia desde el detalle, no desde el dashboard.
+ * - Los enlaces de detalle son botones destacados.
+ * - Modo temporal para probar publicaciones de los ultimos dos meses.
  */
+
+/**
+ * SOLO PARA PRUEBAS.
+ *
+ * true: consulta hasta cinco documentos activos de los ultimos dos meses,
+ *       aunque sean anteriores al inicio del seguimiento.
+ * false: restaura el criterio definitivo de SPEC-009 mediante el caso de uso.
+ *
+ * No cambiar otras tablas, repositorios ni especificaciones por esta prueba.
+ */
+const TEST_RECENT_PUBLICATIONS = true;
+
+const secondaryDetailButtonClasses =
+  "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg " +
+  "border border-[#C9CEF5] bg-[#EEF0FC] px-3.5 py-2 text-sm " +
+  "font-semibold text-[#3B45B5] transition-colors " +
+  "hover:border-[#9FA8EC] hover:bg-[#E2E6FB] " +
+  "focus-visible:outline focus-visible:outline-2 " +
+  "focus-visible:outline-offset-2 focus-visible:outline-[#4F5BD5]";
 
 const calendarDateFormatter = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
@@ -82,15 +98,17 @@ export default async function DashboardPage() {
           pageSize: 3,
           excludeFollowed: true,
         }),
-        getDashboardLatestPublicationsUseCase.execute({
-          userId: session.user.id,
-        }),
+        TEST_RECENT_PUBLICATIONS
+          ? loadRecentPublicationsForTest(session.user.id)
+          : getDashboardLatestPublicationsUseCase
+              .execute({ userId: session.user.id })
+              .then((result) => result.publications),
       ])
     : null;
 
   const personalDeadlines = personalResults?.[0] ?? null;
   const forMeResult = personalResults?.[1] ?? null;
-  const latestPublications = personalResults?.[2]?.publications ?? [];
+  const latestPublications = personalResults?.[2] ?? [];
   const forMeCount =
     forMeResult?.kind === "results"
       ? forMeResult.page.totalItems
@@ -141,35 +159,6 @@ export default async function DashboardPage() {
                   : "Busca procesos selectivos y bolsas de trabajo de acceso libre en Catalunya."}
               </p>
             </header>
-
-            {/* Buscador disponible para visitantes y usuarios autenticados */}
-            <section className="rounded-xl border border-[#E3E7EE] bg-white p-6 shadow-sm">
-              <form
-                action="/convocatorias"
-                method="get"
-                className="flex flex-col gap-3 md:flex-row"
-              >
-                <div className="relative flex-1">
-                  <Search
-                    size={19}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7C859B]"
-                  />
-                  <input
-                    type="search"
-                    name="q"
-                    placeholder="Puesto, organismo, municipio..."
-                    aria-label="Buscar convocatorias"
-                    className="h-12 w-full rounded-[10px] border border-[#D5DAE3] bg-white pl-12 pr-4 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="h-12 rounded-[10px] bg-[#4F5BD5] px-6 text-sm font-semibold text-white hover:bg-[#3B45B5]"
-                >
-                  Buscar convocatorias
-                </button>
-              </form>
-            </section>
 
             {/* Dashboard autenticado: indicadores y paneles de detalle */}
             {personalDeadlines !== null && (
@@ -387,13 +376,6 @@ function UpcomingDeadlinesPanel({
             Los cinco vencimientos más cercanos en los próximos 15 días.
           </p>
         </div>
-        <Link
-          href="/mis-convocatorias"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-[#3B45B5] hover:underline"
-        >
-          Ver mis convocatorias
-          <ArrowRight size={15} />
-        </Link>
       </div>
 
       {items.length === 0 ? (
@@ -441,16 +423,19 @@ function UpcomingDeadlinesPanel({
                 </span>
               </p>
 
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="rounded-md bg-[#F4F6F9] px-2.5 py-1.5 text-xs font-medium text-[#4E5870]">
                   Mi estado: {getPersonalStatusLabel(item.personalStatus)}
                 </span>
+              </div>
+
+              <div className="mt-3 flex justify-end border-t border-[#EEF1F5] pt-3">
                 <Link
                   href={dashboardDetailHref(item.selectionProcessId)}
-                  className="inline-flex items-center gap-1 text-sm font-semibold text-[#3B45B5] hover:underline"
+                  className={secondaryDetailButtonClasses}
                 >
                   Ver detalle
-                  <ArrowRight size={15} />
+                  <ArrowRight size={16} aria-hidden="true" />
                 </Link>
               </div>
             </article>
@@ -483,13 +468,6 @@ function NewOpportunitiesPanel({
             Las tres primeras coincidencias con tu perfil que aún no sigues.
           </p>
         </div>
-        <Link
-          href={preferencesNotConfigured ? "/mi-perfil" : "/para-mi"}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-[#3B45B5] hover:underline"
-        >
-          {preferencesNotConfigured ? "Configurar perfil" : "Ir a Para mí"}
-          <ArrowRight size={15} />
-        </Link>
       </div>
 
       {preferencesNotConfigured ? (
@@ -551,36 +529,22 @@ function NewOpportunitiesPanel({
                   </span>
                 </p>
 
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="flex items-start gap-1.5 text-xs text-[#69738A]">
                     <CalendarDays size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
                     {getOpportunityDateText(item)}
                   </span>
-                  <Link
-                    href={dashboardDetailHref(item.id)}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-[#3B45B5] hover:underline"
-                  >
-                    Ver detalle
-                    <ArrowRight size={15} />
-                  </Link>
                 </div>
 
-                {/* Seguir sin salir del dashboard. */}
+                {/* Revisar antes de seguir: la decision se toma en el detalle. */}
                 <div className="mt-3 flex justify-end border-t border-[#EEF1F5] pt-3">
-                  <form action={followFromDashboardAction}>
-                    <input
-                      type="hidden"
-                      name="selectionProcessId"
-                      value={item.id}
-                    />
-                    <button
-                      type="submit"
-                      className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-[#4F5BD5] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#3B45B5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4F5BD5]"
-                    >
-                      <Bookmark size={16} aria-hidden="true" />
-                      Seguir convocatoria
-                    </button>
-                  </form>
+                  <Link
+                    href={dashboardDetailHref(item.id)}
+                    className={secondaryDetailButtonClasses}
+                  >
+                    Ver detalle
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </Link>
                 </div>
               </article>
             );
@@ -602,7 +566,7 @@ function LatestOfficialPublicationsPanel({
       aria-labelledby="dashboard-publications-heading"
       className="min-w-0 rounded-xl border border-[#E3E7EE] bg-white p-5 shadow-sm"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#EEF1F5] pb-4">
+      <div className="border-b border-[#EEF1F5] pb-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <FileText size={19} className="shrink-0 text-[#4F5BD5]" />
@@ -614,17 +578,19 @@ function LatestOfficialPublicationsPanel({
             </h2>
           </div>
           <p className="mt-1 text-sm text-[#69738A]">
-            Los cinco documentos más recientes publicados desde el día
-            en que empezaste a seguir cada convocatoria.
+            {TEST_RECENT_PUBLICATIONS
+              ? "Prueba temporal: hasta cinco documentos activos de los " +
+                "últimos dos meses de convocatorias que sigues, aunque " +
+                "se publicaran antes de empezar a seguirlas."
+              : "Los cinco documentos más recientes publicados desde " +
+                "el día en que empezaste a seguir cada convocatoria."}
           </p>
+          {TEST_RECENT_PUBLICATIONS && (
+            <span className="mt-2 inline-flex rounded-md bg-[#FFF2DF] px-2.5 py-1 text-xs font-semibold text-[#955000]">
+              Prueba temporal: últimos dos meses
+            </span>
+          )}
         </div>
-        <Link
-          href="/mis-convocatorias"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-[#3B45B5] hover:underline"
-        >
-          Ver mis convocatorias
-          <ArrowRight size={15} aria-hidden="true" />
-        </Link>
       </div>
 
       {items.length === 0 ? (
@@ -633,8 +599,11 @@ function LatestOfficialPublicationsPanel({
             No hay publicaciones oficiales para mostrar.
           </p>
           <p className="mt-1 text-sm text-[#69738A]">
-            Aquí aparecerán los documentos activos publicados desde el día
-            en que comenzaste a seguir cada convocatoria.
+            {TEST_RECENT_PUBLICATIONS
+              ? "No se han encontrado documentos activos publicados en los " +
+                "últimos dos meses para las convocatorias que sigues."
+              : "Aquí aparecerán los documentos activos publicados " +
+                "desde el día en que comenzaste a seguir cada convocatoria."}
           </p>
         </div>
       ) : (
@@ -646,26 +615,47 @@ function LatestOfficialPublicationsPanel({
             >
               <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F4F6F9] px-2.5 py-1.5 text-xs font-medium text-[#4E5870]">
-                      <CalendarDays size={14} aria-hidden="true" />
-                      {formatCalendarDate(item.publicationDate)}
-                    </span>
-                    {item.phase.trim() !== "" && (
-                      <span className="max-w-full break-words rounded-md bg-[#EEF0FC] px-2.5 py-1.5 text-xs font-medium text-[#3B45B5]">
-                        {item.phase}
-                      </span>
-                    )}
+                  {/* Fecha y convocatoria en una misma fila en pantallas amplias. */}
+                  <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
+                    <div className="inline-flex shrink-0 items-center gap-2.5 self-start rounded-lg border border-[#BFC7F8] bg-[#EEF0FC] px-3 py-2 shadow-sm">
+                      <CalendarDays
+                        size={19}
+                        className="shrink-0 text-[#3B45B5]"
+                        aria-hidden="true"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-[#4E5870]">
+                          Fecha de publicación
+                        </span>
+                        <time
+                          dateTime={item.publicationDate.toISOString().slice(0, 10)}
+                          className="mt-0.5 text-base font-bold leading-tight tabular-nums text-[#2D3699]"
+                        >
+                          {formatCalendarDate(item.publicationDate)}
+                        </time>
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-[#69738A]">
+                        Convocatoria
+                      </p>
+                      <p className="mt-1 break-words text-[17px] font-bold leading-snug text-[#131A2C]">
+                        {formatSelectionProcessTitle(item.selectionProcessTitle)}
+                      </p>
+                    </div>
                   </div>
 
+                  {item.phase.trim() !== "" && (
+                    <span className="mt-3 inline-flex max-w-full break-words rounded-md bg-[#EEF0FC] px-2.5 py-1.5 text-xs font-medium text-[#3B45B5]">
+                      {item.phase}
+                    </span>
+                  )}
+
+                  {/* El titulo del documento no cambia. */}
                   <h3 className="mt-3 break-words text-[15px] font-semibold leading-snug text-[#131A2C]">
                     {item.summary.trim() || "Publicación oficial"}
                   </h3>
-
-                  <p className="mt-2 break-words text-sm leading-relaxed text-[#4E5870]">
-                    <span className="font-semibold">Convocatoria:</span>{" "}
-                    {formatSelectionProcessTitle(item.selectionProcessTitle)}
-                  </p>
 
                   <p className="mt-2 flex items-start gap-1.5 text-sm text-[#4E5870]">
                     <MapPin
@@ -682,10 +672,10 @@ function LatestOfficialPublicationsPanel({
                 <div className="flex flex-wrap items-center gap-3 sm:shrink-0 sm:flex-col sm:items-end">
                   <Link
                     href={dashboardDetailHref(item.selectionProcessId)}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-[#3B45B5] hover:underline"
+                    className={secondaryDetailButtonClasses}
                   >
-                    Ver convocatoria
-                    <ArrowRight size={15} aria-hidden="true" />
+                    Ver detalle
+                    <ArrowRight size={16} aria-hidden="true" />
                   </Link>
                   {item.documentUrl.trim() !== "" ? (
                     <a
@@ -710,6 +700,106 @@ function LatestOfficialPublicationsPanel({
       )}
     </section>
   );
+}
+
+/**
+ * PRUEBA TEMPORAL DE PUBLICACIONES (SOLO EN ESTA PAGINA).
+ *
+ * Para comprobar la interfaz con datos reales, se consultan documentos
+ * activos de los dos meses previos del calendario de Catalunya.
+ *
+ * IMPORTANTE: durante esta prueba NO se aplica la fecha followedAt.
+ * La consulta sigue limitada a convocatorias que sigue el usuario.
+ * La ruta definitiva permanece disponible al desactivar el indicador
+ * TEST_RECENT_PUBLICATIONS y vuelve a usar Clean Architecture.
+ */
+async function loadRecentPublicationsForTest(
+  userId: string,
+): Promise<DashboardLatestPublicationItem[]> {
+  const today = getCataloniaCalendarDate(new Date());
+  const fromDate = subtractUtcCalendarMonths(today, 2);
+
+  const documents = await prisma.selectionProcessDocument.findMany({
+    where: {
+      sourceActive: true,
+      publicationDate: {
+        gte: fromDate,
+        lte: today,
+      },
+      selectionProcess: {
+        is: {
+          userSelectionProcesses: {
+            some: { userId },
+          },
+        },
+      },
+    },
+    orderBy: [
+      { publicationDate: "desc" },
+      { id: "desc" },
+    ],
+    take: 5,
+    select: {
+      id: true,
+      selectionProcessId: true,
+      publicationDate: true,
+      summary: true,
+      phase: true,
+      documentUrl: true,
+      selectionProcess: {
+        select: {
+          title: true,
+          institution: {
+            select: {
+              municipality: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return documents.map((document) => ({
+    documentId: document.id,
+    selectionProcessId: document.selectionProcessId,
+    selectionProcessTitle: document.selectionProcess.title,
+    municipality:
+      document.selectionProcess.institution?.municipality ?? null,
+    publicationDate: document.publicationDate,
+    summary: document.summary,
+    phase: document.phase,
+    documentUrl: document.documentUrl,
+  }));
+}
+
+/** Devuelve la fecha local de Catalunya como DATE a medianoche UTC. */
+function getCataloniaCalendarDate(instant: Date): Date {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/** Restar meses naturales sin desbordar el ultimo dia del mes. */
+function subtractUtcCalendarMonths(date: Date, months: number): Date {
+  const result = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - months, 1),
+  );
+
+  const lastDay = new Date(
+    Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+
+  result.setUTCDate(Math.min(date.getUTCDate(), lastDay));
+  return result;
 }
 
 function dashboardDetailHref(selectionProcessId: number): string {
