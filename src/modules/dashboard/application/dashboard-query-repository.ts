@@ -3,34 +3,51 @@ import type { PersonalSelectionProcessStatus } from
   "@/modules/user-selection-process/domain/personal-selection-process-status";
 
 /**
- * SPEC-009 — Dashboard del opositor.
+ * ============================================================
+ * SPEC-009 — DASHBOARD DEL OPOSITOR
+ * ============================================================
  *
- * Criterios para consultar los plazos próximos
- * de las convocatorias que sigue un usuario.
+ * Contrato de consultas del dashboard.
+ *
+ * Define los datos que necesita la aplicación.
+ *
+ * Las consultas reales a PostgreSQL
+ * se implementan en Infrastructure.
+ */
+
+/**
+ * ============================================================
+ * 1. PLAZOS PRÓXIMOS
+ * ============================================================
+ */
+
+/**
+ * Criterios de búsqueda de plazos próximos.
  */
 export type DashboardUpcomingDeadlinesQuery = {
   userId: string;
 
   /**
-   * Primera fecha incluida en la consulta.
+   * Fecha inicial incluida.
    *
-   * Se representará como una fecha de calendario
+   * Representa una fecha de calendario
    * normalizada a las 00:00 UTC.
    */
   fromDate: Date;
 
   /**
-   * Última fecha incluida en la consulta.
+   * Fecha final incluida.
    *
-   * Para SPEC-009 será hoy + 15 días naturales,
-   * según el calendario de Catalunya.
+   * El dashboard utilizará hoy + 15 días
+   * naturales según el calendario
+   * de Catalunya.
    */
   toDate: Date;
 
   /**
-   * Estados personales que deben incluirse.
+   * Estados personales permitidos.
    *
-   * En el dashboard utilizaremos:
+   * Para SPEC-009:
    *
    * INTERESTED
    * PREPARING_APPLICATION
@@ -40,8 +57,8 @@ export type DashboardUpcomingDeadlinesQuery = {
 };
 
 /**
- * Información necesaria para mostrar una convocatoria
- * en el panel "Plazos próximos".
+ * Datos de una convocatoria
+ * con plazo próximo.
  */
 export type DashboardUpcomingDeadlineItem = {
   selectionProcessId: number;
@@ -56,28 +73,119 @@ export type DashboardUpcomingDeadlineItem = {
 };
 
 /**
- * Contrato de lectura de información personal
- * para el dashboard.
+ * ============================================================
+ * 2. ÚLTIMAS PUBLICACIONES OFICIALES
+ * ============================================================
+ */
+
+/**
+ * Criterios de consulta de documentos oficiales.
+ */
+export type DashboardLatestPublicationsQuery = {
+  /**
+   * Usuario autenticado.
+   *
+   * Solo se consultan documentos
+   * de sus convocatorias seguidas.
+   */
+  userId: string;
+
+  /**
+   * Número máximo de publicaciones.
+   *
+   * En SPEC-009 utilizaremos 5.
+   */
+  limit: number;
+};
+
+/**
+ * Datos que necesita el dashboard
+ * para mostrar una publicación oficial.
+ */
+export type DashboardLatestPublicationItem = {
+  /**
+   * Identificador del documento CIDO
+   * en nuestra base de datos.
+   */
+  documentId: number;
+
+  /**
+   * Convocatoria relacionada.
+   */
+  selectionProcessId: number;
+
+  /**
+   * Título completo de la convocatoria.
+   */
+  selectionProcessTitle: string;
+
+  /**
+   * Municipio de la institución.
+   *
+   * Puede ser null si CIDO
+   * no proporciona este dato.
+   */
+  municipality: string | null;
+
+  /**
+   * Fecha oficial de publicación.
+   *
+   * Procede de publicationDate,
+   * un campo DATE de PostgreSQL.
+   */
+  publicationDate: Date;
+
+  /**
+   * Resumen oficial del documento.
+   */
+  summary: string;
+
+  /**
+   * Fase oficial CIDO.
+   */
+  phase: string;
+
+  /**
+   * URL original del documento oficial.
+   *
+   * No almacenamos el archivo PDF.
+   */
+  documentUrl: string;
+};
+
+/**
+ * ============================================================
+ * 3. CONTRATO DEL REPOSITORIO
+ * ============================================================
  *
- * La aplicación define qué necesita.
+ * La aplicación define las operaciones.
  *
- * La infraestructura Prisma implementará
- * posteriormente cómo obtenerlo desde PostgreSQL.
+ * Prisma se encargará de implementarlas
+ * utilizando PostgreSQL.
  */
 export interface DashboardQueryRepository {
   /**
-   * Cuenta todas las convocatorias seguidas
-   * por el usuario.
+   * ----------------------------------------------------------
+   * CONTADOR: EN SEGUIMIENTO
+   * ----------------------------------------------------------
    *
-   * No filtra por estado personal ni por fechas.
+   * Cuenta todas las convocatorias
+   * que sigue un usuario.
+   *
+   * No filtra por estado personal,
+   * plazo ni estado oficial.
    */
   countFollowedByUser(
     userId: string,
   ): Promise<number>;
 
   /**
+   * ----------------------------------------------------------
+   * CONTADOR: PLAZOS PRÓXIMOS
+   * ----------------------------------------------------------
+   *
    * Cuenta las convocatorias seguidas
-   * que cumplen los criterios de plazo próximo.
+   * que cumplen los criterios indicados.
    *
    * El intervalo de fechas es inclusivo.
    */
@@ -86,17 +194,58 @@ export interface DashboardQueryRepository {
   ): Promise<number>;
 
   /**
-   * Recupera las convocatorias seguidas
-   * cuyos plazos finalizan próximamente.
+   * ----------------------------------------------------------
+   * LISTADO: PLAZOS PRÓXIMOS
+   * ----------------------------------------------------------
    *
-   * Se ordenarán por applicationEndDate ascendente.
+   * Obtiene las convocatorias con
+   * vencimiento más cercano.
    *
-   * El límite permitirá recuperar solamente
-   * las cinco primeras para el dashboard.
+   * Ordenación:
+   *
+   * 1. applicationEndDate ASC
+   * 2. selectionProcessId ASC
    */
   listUpcomingDeadlines(
     query: DashboardUpcomingDeadlinesQuery & {
       limit: number;
     },
   ): Promise<DashboardUpcomingDeadlineItem[]>;
+
+  /**
+   * ----------------------------------------------------------
+   * LISTADO: ÚLTIMAS PUBLICACIONES OFICIALES
+   * ----------------------------------------------------------
+   *
+   * Recupera los documentos oficiales
+   * más recientes de las convocatorias
+   * que sigue el usuario.
+   *
+   * Reglas:
+   *
+   * 1. El seguimiento pertenece al usuario.
+   *
+   * 2. El documento tiene sourceActive = true.
+   *
+   * 3. publicationDate debe ser igual o posterior
+   *    al día local de Catalunya en el que el
+   *    usuario comenzó a seguir la convocatoria.
+   *
+   * 4. Se permiten varios documentos
+   *    de una misma convocatoria.
+   *
+   * 5. No se filtra por el estado personal
+   *    ni por el estado oficial del proceso.
+   *
+   * Ordenación:
+   *
+   * 1. publicationDate DESC
+   * 2. documentId DESC
+   *
+   * El límite se aplica en PostgreSQL,
+   * después de filtrar y ordenar.
+   */
+  listLatestOfficialPublications(
+    query: DashboardLatestPublicationsQuery,
+  ): Promise<DashboardLatestPublicationItem[]>;
 }

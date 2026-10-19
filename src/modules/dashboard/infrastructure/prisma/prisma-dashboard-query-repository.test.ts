@@ -41,6 +41,59 @@ type Fixture = {
   sourceActive?: boolean;
 };
 
+/**
+ * Fechas de seguimiento fijas para comprobar los dias locales.
+ * Prisma guarda followedAt como timestamp sin zona horaria;
+ * la aplicacion escribe los instantes en UTC.
+ */
+const DEFAULT_FOLLOWED_AT = "2026-10-18T12:00:00.000Z";
+
+const SPECIAL_FOLLOWED_AT: Record<string, string> = {
+  // El 18 a las 22:30 UTC ya es dia 19 en Catalunya.
+  tomorrow: "2026-10-18T22:30:00.000Z",
+
+  // Tras pasar al horario de verano, ya es 30 de marzo.
+  "day-3": "2026-03-29T22:30:00.000Z",
+
+  // Tras pasar al horario de invierno, ya es 26 de octubre.
+  "day-4": "2026-10-25T23:30:00.000Z",
+};
+
+type DocumentFixture = {
+  key: string;
+  selectionProcessKey: string;
+  publicationDate: string;
+  sourceActive?: boolean;
+};
+
+/**
+ * Documentos en varias convocatorias, incluidos:
+ * - publicaciones previas o iguales al dia de seguimiento;
+ * - documentos activos e inactivos;
+ * - otros usuarios y convocatorias sin seguimiento;
+ * - varias publicaciones de una misma convocatoria;
+ * - cambios de horario de Catalunya.
+ */
+const DOCUMENT_FIXTURES: DocumentFixture[] = [
+  { key: "today-before", selectionProcessKey: "today", publicationDate: "2026-10-17" },
+  { key: "today-same", selectionProcessKey: "today", publicationDate: "2026-10-18" },
+  { key: "today-tie-older", selectionProcessKey: "today", publicationDate: "2026-11-02" },
+  { key: "today-tie-newer", selectionProcessKey: "today", publicationDate: "2026-11-02" },
+  { key: "today-inactive", selectionProcessKey: "today", publicationDate: "2026-11-10", sourceActive: false },
+  { key: "tomorrow-before", selectionProcessKey: "tomorrow", publicationDate: "2026-10-18" },
+  { key: "tomorrow-same", selectionProcessKey: "tomorrow", publicationDate: "2026-10-19" },
+  { key: "tomorrow-newest", selectionProcessKey: "tomorrow", publicationDate: "2026-11-03" },
+  { key: "same-day-document", selectionProcessKey: "same-day", publicationDate: "2026-10-27" },
+  { key: "spring-before", selectionProcessKey: "day-3", publicationDate: "2026-03-29" },
+  { key: "spring-same", selectionProcessKey: "day-3", publicationDate: "2026-03-30" },
+  { key: "autumn-before", selectionProcessKey: "day-4", publicationDate: "2026-10-25" },
+  { key: "autumn-same", selectionProcessKey: "day-4", publicationDate: "2026-10-26" },
+  { key: "no-institution-document", selectionProcessKey: "no-institution", publicationDate: "2026-10-28" },
+  { key: "historical-document", selectionProcessKey: "historical", publicationDate: "2026-10-29" },
+  { key: "other-user-document", selectionProcessKey: "other-user", publicationDate: "2026-11-06" },
+  { key: "not-followed-document", selectionProcessKey: "not-followed", publicationDate: "2026-11-08" },
+];
+
 const FIXTURES: Fixture[] = [
   { key: "today", endDate: "2026-10-18", personalStatus: "INTERESTED", followedBy: "first" },
   { key: "tomorrow", endDate: "2026-10-19", personalStatus: "PREPARING_APPLICATION", followedBy: "first" },
@@ -82,6 +135,7 @@ function upcomingQuery(
 describe("PrismaDashboardQueryRepository", () => {
   const repository = new PrismaDashboardQueryRepository(prisma);
   const selectionProcessIds = new Map<string, number>();
+  const documentIds = new Map<string, number>();
 
   beforeAll(async () => {
     // Usuarios de prueba independientes de cualquier cuenta real.
@@ -116,6 +170,7 @@ describe("PrismaDashboardQueryRepository", () => {
       userId: string;
       selectionProcessId: number;
       personalStatus: PersistedPersonalStatus;
+      followedAt: Date;
     }[] = [];
 
     for (const fixture of FIXTURES) {
@@ -152,11 +207,43 @@ describe("PrismaDashboardQueryRepository", () => {
               : SECOND_USER_ID,
           selectionProcessId: selectionProcess.id,
           personalStatus: fixture.personalStatus,
+          followedAt: new Date(
+            SPECIAL_FOLLOWED_AT[fixture.key] ?? DEFAULT_FOLLOWED_AT,
+          ),
         });
       }
     }
 
     await prisma.userSelectionProcess.createMany({ data: follows });
+
+    // Documentos ficticios para las pruebas de publicaciones oficiales.
+    for (const fixture of DOCUMENT_FIXTURES) {
+      const selectionProcessId = selectionProcessIds.get(
+        fixture.selectionProcessKey,
+      );
+
+      if (selectionProcessId === undefined) {
+        throw new Error(`Convocatoria no encontrada: ${fixture.selectionProcessKey}`);
+      }
+
+      const document = await prisma.selectionProcessDocument.create({
+        data: {
+          cidoId: `${PREFIX}-DOC-${fixture.key}`,
+          selectionProcessId,
+          publicationDate: dateOnly(fixture.publicationDate),
+          summary: `Resumen oficial ${fixture.key}`,
+          bulletinId: 1,
+          bulletin: "BOP",
+          entryDate: dateOnly(fixture.publicationDate),
+          phaseId: 1,
+          phase: "Fase de prueba",
+          documentUrl: `https://example.com/convocam-test/${fixture.key}.pdf`,
+          sourceActive: fixture.sourceActive ?? true,
+        },
+      });
+
+      documentIds.set(fixture.key, document.id);
+    }
   });
 
   afterAll(async () => {
@@ -164,6 +251,10 @@ describe("PrismaDashboardQueryRepository", () => {
     try {
       await prisma.userSelectionProcess.deleteMany({
         where: { userId: { in: [FIRST_USER_ID, SECOND_USER_ID] } },
+      });
+
+      await prisma.selectionProcessDocument.deleteMany({
+        where: { cidoId: { startsWith: PREFIX } },
       });
 
       await prisma.selectionProcess.deleteMany({
@@ -311,6 +402,204 @@ describe("PrismaDashboardQueryRepository", () => {
       await expect(
         repository.listUpcomingDeadlines({
           ...upcomingQuery(),
+          limit,
+        }),
+      ).rejects.toThrow("limit must be an integer between 1 and 100");
+    },
+  );
+  /**
+   * ============================================================
+   * SPEC-009 - ULTIMAS PUBLICACIONES OFICIALES
+   * ============================================================
+   */
+
+  it("devuelve los documentos validos ordenados por fecha e id descendentes", async () => {
+    const result = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 100,
+    });
+
+    // Son 10 documentos validos de las convocatorias seguidas.
+    expect(result).toHaveLength(10);
+    expect(result.map((item) => item.documentId)).toEqual([
+      documentIds.get("tomorrow-newest"),
+      documentIds.get("today-tie-newer"),
+      documentIds.get("today-tie-older"),
+      documentIds.get("historical-document"),
+      documentIds.get("no-institution-document"),
+      documentIds.get("same-day-document"),
+      documentIds.get("autumn-same"),
+      documentIds.get("tomorrow-same"),
+      documentIds.get("today-same"),
+      documentIds.get("spring-same"),
+    ]);
+  });
+
+  it("aplica el limite de cinco despues de ordenar y filtrar", async () => {
+    const result = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 5,
+    });
+
+    expect(result).toHaveLength(5);
+    expect(result.map((item) => item.documentId)).toEqual([
+      documentIds.get("tomorrow-newest"),
+      documentIds.get("today-tie-newer"),
+      documentIds.get("today-tie-older"),
+      documentIds.get("historical-document"),
+      documentIds.get("no-institution-document"),
+    ]);
+  });
+
+  it("incluye la publicacion del mismo dia local del seguimiento", async () => {
+    const result = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 100,
+    });
+
+    const ids = result.map((item) => item.documentId);
+
+    expect(ids).toContain(documentIds.get("today-same"));
+    expect(ids).toContain(documentIds.get("tomorrow-same"));
+    expect(ids).not.toContain(documentIds.get("today-before"));
+    expect(ids).not.toContain(documentIds.get("tomorrow-before"));
+  });
+
+  it("interpreta en hora catalana un seguimiento hecho al final del dia UTC", async () => {
+    // 18/10/2026, 22:30 UTC = 19/10/2026, 00:30 Catalunya.
+    const result = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 100,
+    });
+
+    const ids = result.map((item) => item.documentId);
+    expect(ids).not.toContain(documentIds.get("tomorrow-before"));
+    expect(ids).toContain(documentIds.get("tomorrow-same"));
+  });
+
+  it("respeta el cambio al horario de verano de Catalunya", async () => {
+    // 29/03/2026, 22:30 UTC = 30/03/2026, 00:30 Catalunya.
+    const result = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 100,
+    });
+
+    const ids = result.map((item) => item.documentId);
+    expect(ids).not.toContain(documentIds.get("spring-before"));
+    expect(ids).toContain(documentIds.get("spring-same"));
+  });
+
+  it("respeta el cambio al horario de invierno de Catalunya", async () => {
+    // 25/10/2026, 23:30 UTC = 26/10/2026, 00:30 Catalunya.
+    const result = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 100,
+    });
+
+    const ids = result.map((item) => item.documentId);
+    expect(ids).not.toContain(documentIds.get("autumn-before"));
+    expect(ids).toContain(documentIds.get("autumn-same"));
+  });
+
+  it("excluye documentos inactivos y convocatorias no seguidas", async () => {
+    const result = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 100,
+    });
+
+    const ids = result.map((item) => item.documentId);
+    expect(ids).not.toContain(documentIds.get("today-inactive"));
+    expect(ids).not.toContain(documentIds.get("not-followed-document"));
+    expect(ids).not.toContain(documentIds.get("other-user-document"));
+  });
+
+  it("mantiene separados los documentos de cada usuario", async () => {
+    const first = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 100,
+    });
+    const second = await repository.listLatestOfficialPublications({
+      userId: SECOND_USER_ID,
+      limit: 100,
+    });
+
+    expect(first.map((item) => item.documentId)).not.toContain(
+      documentIds.get("other-user-document"),
+    );
+    expect(second.map((item) => item.documentId)).toEqual([
+      documentIds.get("other-user-document"),
+    ]);
+  });
+
+  it("incluye publicaciones de procesos historicos seguidos", async () => {
+    const result = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 100,
+    });
+
+    expect(result.map((item) => item.documentId)).toContain(
+      documentIds.get("historical-document"),
+    );
+  });
+
+  it("devuelve los datos oficiales del documento y admite municipio nulo", async () => {
+    const result = await repository.listLatestOfficialPublications({
+      userId: FIRST_USER_ID,
+      limit: 100,
+    });
+
+    const withoutInstitution = result.find(
+      (item) => item.documentId === documentIds.get("no-institution-document"),
+    );
+
+    expect(withoutInstitution).toEqual({
+      documentId: documentIds.get("no-institution-document"),
+      selectionProcessId: selectionProcessIds.get("no-institution"),
+      selectionProcessTitle: "Convocatoria dashboard no-institution",
+      municipality: null,
+      publicationDate: dateOnly("2026-10-28"),
+      summary: "Resumen oficial no-institution-document",
+      phase: "Fase de prueba",
+      documentUrl:
+        "https://example.com/convocam-test/no-institution-document.pdf",
+    });
+  });
+
+  it("devuelve vacio cuando el usuario no sigue ninguna convocatoria", async () => {
+    const result = await repository.listLatestOfficialPublications({
+      userId: `${PREFIX}-UNKNOWN`,
+      limit: 5,
+    });
+
+    expect(result).toEqual([]);
+  });
+
+  it("rechaza un identificador de usuario en blanco", async () => {
+    await expect(
+      repository.listLatestOfficialPublications({
+        userId: "   ",
+        limit: 5,
+      }),
+    ).rejects.toThrow("userId is required");
+  });
+
+  it("acepta espacios alrededor del identificador de usuario", async () => {
+    const result = await repository.listLatestOfficialPublications({
+      userId: `  ${SECOND_USER_ID}  `,
+      limit: 5,
+    });
+
+    expect(result.map((item) => item.documentId)).toEqual([
+      documentIds.get("other-user-document"),
+    ]);
+  });
+
+  it.each([0, -1, 1.5, 101])(
+    "rechaza limites invalidos para publicaciones: %s",
+    async (limit) => {
+      await expect(
+        repository.listLatestOfficialPublications({
+          userId: FIRST_USER_ID,
           limit,
         }),
       ).rejects.toThrow("limit must be an integer between 1 and 100");

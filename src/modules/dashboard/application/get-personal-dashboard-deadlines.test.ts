@@ -44,7 +44,7 @@ function createDeadline(
   endDate: string,
   personalStatus:
     PersonalSelectionProcessStatus =
-      PersonalSelectionProcessStatus.INTERESTED,
+    PersonalSelectionProcessStatus.INTERESTED,
 ): DashboardUpcomingDeadlineItem {
   return {
     selectionProcessId: id,
@@ -110,6 +110,12 @@ function createTestContext(
     countFollowedByUser,
     countUpcomingDeadlines,
     listUpcomingDeadlines,
+
+    // Método incorporado en SPEC-009, paso 6.3.10.
+    // Estas pruebas no lo utilizan.
+    listLatestOfficialPublications: vi.fn(
+      async () => [],
+    ),
   };
 
   const useCase =

@@ -8,6 +8,8 @@ import { PersonalSelectionProcessStatus } from
   "@/modules/user-selection-process/domain/personal-selection-process-status";
 
 import type {
+  DashboardLatestPublicationItem,
+  DashboardLatestPublicationsQuery,
   DashboardQueryRepository,
   DashboardUpcomingDeadlineItem,
   DashboardUpcomingDeadlinesQuery,
@@ -16,12 +18,15 @@ import type {
 /**
  * SPEC-009 — Dashboard del opositor.
  *
- * Implementación Prisma del contrato
- * DashboardQueryRepository.
+ * Repositorio Prisma para las consultas
+ * personales del dashboard.
  *
- * Recupera los seguimientos personales
- * y los plazos próximos directamente
- * desde PostgreSQL.
+ * Responsabilidades:
+ *
+ * 1. Contar convocatorias seguidas.
+ * 2. Contar plazos próximos.
+ * 3. Listar plazos próximos.
+ * 4. Listar últimas publicaciones oficiales.
  */
 export class PrismaDashboardQueryRepository
   implements DashboardQueryRepository
@@ -32,17 +37,14 @@ export class PrismaDashboardQueryRepository
 
   /**
    * ============================================================
-   * CONTADOR: EN SEGUIMIENTO
+   * 1. CONTADOR: EN SEGUIMIENTO
    * ============================================================
    *
-   * Cuenta todas las convocatorias que sigue
-   * el usuario, independientemente de:
+   * Cuenta todas las convocatorias seguidas
+   * por el usuario.
    *
-   * - Su estado personal.
-   * - Las fechas del proceso.
-   * - El estado oficial de CIDO.
-   *
-   * Incluye los seguimientos históricos.
+   * No filtra por fechas, estado personal
+   * ni estado oficial de CIDO.
    */
   async countFollowedByUser(
     userId: string,
@@ -56,17 +58,16 @@ export class PrismaDashboardQueryRepository
 
   /**
    * ============================================================
-   * CONTADOR: PLAZOS PRÓXIMOS
+   * 2. CONTADOR: PLAZOS PRÓXIMOS
    * ============================================================
    *
    * Cuenta los seguimientos que cumplen:
    *
-   * - Pertenecen al usuario.
-   * - Tienen un estado personal permitido.
-   * - Finalizan dentro del intervalo indicado.
+   * - Usuario indicado.
+   * - Estado personal permitido.
+   * - Fecha final dentro del intervalo.
    *
-   * Los dos extremos del intervalo
-   * están incluidos.
+   * Incluye ambos extremos del intervalo.
    */
   async countUpcomingDeadlines(
     query: DashboardUpcomingDeadlinesQuery,
@@ -78,18 +79,16 @@ export class PrismaDashboardQueryRepository
 
   /**
    * ============================================================
-   * LISTADO: PLAZOS PRÓXIMOS
+   * 3. LISTADO: PLAZOS PRÓXIMOS
    * ============================================================
    *
-   * Recupera solamente las convocatorias
-   * necesarias para el dashboard.
+   * Ordena por:
    *
-   * Ordenación:
-   * 1. Fecha de finalización ascendente.
-   * 2. Identificador de convocatoria ascendente.
+   * 1. applicationEndDate ascendente.
+   * 2. selectionProcessId ascendente.
    *
-   * La segunda condición garantiza un orden
-   * estable cuando coinciden las fechas.
+   * Recupera únicamente el número de
+   * convocatorias solicitado.
    */
   async listUpcomingDeadlines(
     query: DashboardUpcomingDeadlinesQuery & {
@@ -142,13 +141,6 @@ export class PrismaDashboardQueryRepository
         },
       });
 
-    /**
-     * Transformar los resultados Prisma
-     * al contrato de aplicación.
-     *
-     * El filtro de fechas garantiza que
-     * applicationEndDate no sea null.
-     */
     return rows.map(
       (row): DashboardUpcomingDeadlineItem => {
         const applicationEndDate =
@@ -184,15 +176,148 @@ export class PrismaDashboardQueryRepository
 
   /**
    * ============================================================
-   * FILTRO COMPARTIDO DE PLAZOS PRÓXIMOS
+   * 4. LISTADO: ÚLTIMAS PUBLICACIONES OFICIALES
    * ============================================================
    *
-   * Se utiliza tanto en el contador
-   * como en el listado.
+   * Recupera documentos oficiales de las
+   * convocatorias seguidas por el usuario.
    *
-   * De esta manera garantizamos que
-   * ambos emplean exactamente
-   * los mismos criterios.
+   * Condiciones:
+   *
+   * - Seguimiento perteneciente al usuario.
+   * - Documento activo en CIDO.
+   * - Publicación realizada desde el día
+   *   local en que comenzó el seguimiento.
+   *
+   * Incluye publicaciones del mismo día
+   * en que se siguió la convocatoria.
+   *
+   * Ordenación:
+   *
+   * 1. publicationDate DESC.
+   * 2. documentId DESC.
+   *
+   * El límite se aplica en PostgreSQL.
+   */
+  async listLatestOfficialPublications(
+    query: DashboardLatestPublicationsQuery,
+  ): Promise<DashboardLatestPublicationItem[]> {
+    const userId = query.userId.trim();
+
+    if (!userId) {
+      throw new Error("userId is required");
+    }
+
+    if (
+      !Number.isInteger(query.limit) ||
+      query.limit < 1 ||
+      query.limit > 100
+    ) {
+      throw new Error(
+        "limit must be an integer between 1 and 100",
+      );
+    }
+
+    /**
+     * Usamos SQL parametrizado porque necesitamos
+     * comparar dos campos de tablas diferentes:
+     *
+     * - Documento: publicationDate (DATE).
+     * - Seguimiento: followedAt (DateTime).
+     *
+     * followed_at utiliza el tipo PostgreSQL
+     * timestamp sin zona horaria.
+     *
+     * Interpretamos su valor como UTC y
+     * lo convertimos al calendario de Catalunya.
+     *
+     * El resultado es únicamente la fecha
+     * local, sin considerar la hora.
+     *
+     * Las variables userId y limit se envían
+     * como parámetros seguros de Prisma.
+     */
+    const publications =
+      await this.prisma.$queryRaw<
+        DashboardLatestPublicationItem[]
+      >(
+        Prisma.sql`
+          SELECT
+            document.id
+              AS "documentId",
+
+            document."selectionProcessId"
+              AS "selectionProcessId",
+
+            selection_process.title
+              AS "selectionProcessTitle",
+
+            institution.municipality
+              AS "municipality",
+
+            document."publicationDate"
+              AS "publicationDate",
+
+            document.summary
+              AS "summary",
+
+            document.phase
+              AS "phase",
+
+            document."documentUrl"
+              AS "documentUrl"
+
+          FROM "selection_process_documents"
+            AS document
+
+          INNER JOIN "user_selection_processes"
+            AS following
+            ON following.selection_process_id =
+              document."selectionProcessId"
+
+          INNER JOIN "selection_processes"
+            AS selection_process
+            ON selection_process.id =
+              document."selectionProcessId"
+
+          LEFT JOIN "institutions"
+            AS institution
+            ON institution.id =
+              selection_process."institutionId"
+
+          WHERE
+            following.user_id = ${userId}
+
+            AND document."sourceActive" = TRUE
+
+            AND document."publicationDate" >= (
+              (
+                following.followed_at
+                  AT TIME ZONE 'UTC'
+                  AT TIME ZONE 'Europe/Madrid'
+              )::date
+            )
+
+          ORDER BY
+            document."publicationDate" DESC,
+            document.id DESC
+
+          LIMIT ${query.limit}
+        `,
+      );
+
+    return publications;
+  }
+
+  /**
+   * ============================================================
+   * 5. FILTRO COMPARTIDO: PLAZOS PRÓXIMOS
+   * ============================================================
+   *
+   * Es utilizado por el contador y el listado.
+   *
+   * De esta manera, ambos consultan exactamente
+   * las mismas convocatorias.
    */
   private buildUpcomingWhere(
     query: DashboardUpcomingDeadlinesQuery,
