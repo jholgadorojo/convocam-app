@@ -35,5 +35,5 @@ export const auth = betterAuth({
   },
 
 
-  trustedOrigins: ["http://127.0.0.1:3000", "http://192.168.3.182:3000"],
+  trustedOrigins: ["http://127.0.0.1:3000", "http://192.168.0.173:3000", "http://192.168.3.182:3000"],
 });
