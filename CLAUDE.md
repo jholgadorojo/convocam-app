@@ -23,6 +23,7 @@ pnpm exec vitest run -t "crea correctamente"                                # po
 pnpm exec prisma migrate dev --config prisma7.config.ts --name <nombre>
 pnpm exec prisma generate --config prisma7.config.ts
 pnpm exec prisma studio --config prisma7.config.ts
+pnpm exec tsx prisma/import-idescat-territories.ts   # carga provincias/comarcas/municipios desde prisma/data/idescat-territories.csv
 ```
 
 - La config de Prisma está en `prisma7.config.ts` (nombre no estándar) y carga `.env` con `dotenv`. El cliente se genera en `src/generated/prisma` (no editar a mano); hay que regenerarlo tras cambiar `prisma/schema.prisma`.
@@ -31,7 +32,9 @@ pnpm exec prisma studio --config prisma7.config.ts
 
 ## Arquitectura
 
-Arquitectura hexagonal por módulos en `src/modules/<módulo>/`. Referencia: `user-profile`.
+Arquitectura hexagonal por módulos en `src/modules/<módulo>/`. Referencia: `user-profile`. Módulos: `user-profile` (perfil, residencia, titulaciones, preferencias territoriales y profesionales), `selection-process` (convocatorias CIDO: sincronización, buscador, detalle, «para mí»), `user-selection-process` (seguimiento de convocatorias y estado personal `PersonalSelectionProcessStatus`) y `dashboard` (solo consultas, sin dominio).
+
+La estructura varía entre módulos: `user-profile` agrupa `application/` en `use-cases/`, `dto/` y `repositories/` y usa `adapters/`; los demás usan `infrastructure/prisma/` (y `infrastructure/cido/`) en lugar de `adapters/`, y en `user-selection-process` la interfaz del repositorio vive en `domain/`. Varios módulos tienen `presentation/` con lógica de presentación (etiquetas, clases de badge de estado) e incluso componentes React reutilizables. Al añadir código, imitar la estructura del módulo que se toca.
 
 - `domain/`: entidades con constructor privado. `Entity.create(...)` valida y construye una entidad nueva (sin `id`). `Entity.restore(...)` rehidrata desde persistencia (exige `id`). Sin dependencias de framework ni de Prisma.
 - `application/`: casos de uso (clases con `execute(dto)` que devuelven DTOs, no entidades), DTOs y las **interfaces** de repositorio (puertos).
@@ -51,7 +54,17 @@ Importa convocatorias de la API pública CIDO de la Diputació de Barcelona (`ht
 - `infrastructure/cido/`: `cido-client.ts` (funciones `fetch` por endpoint: `/oposicions`, `/oposicions/{id}/institucio`, `/materies`, `/documents`), tipos de respuesta `cido-*-types.ts`, mappers CIDO → `*SyncData` y las implementaciones `Cido*Source`.
 - `infrastructure/prisma/`: repositorios basados en `upsert` por `cidoId` (único en cada tabla), que devuelven el `id` numérico interno.
 - `SyncSelectionProcesses.execute({ limit, offset })`: para cada convocatoria de la página hace upsert de institución → convocatoria → materias (y reemplaza la tabla puente `SelectionProcessSubjectArea`) → documentos. Las filas sincronizadas llevan campos de seguimiento `sourceActive`, `sourceSyncedAt`, `sourceLastSeenAt`, `sourceHash`; los documentos que desaparecen de CIDO se marcan `sourceActive: false` en vez de borrarse.
-- Endpoints de depuración en `src/app/api/debug/cido/`: `GET /api/debug/cido` (vista previa de convocatorias mapeadas), `GET /api/debug/cido/institution?cidoId=...` y `POST /api/debug/cido/sync` (ejecuta la sincronización con `limit: 5, offset: 0`).
+- Sincronización completa: `RunSelectionProcessSync` = `SyncAllSelectionProcesses` (recorre todas las páginas, `pageSize` 500, y devuelve `syncStartedAt`) + `ReconcileMissingSelectionProcesses` (las convocatorias activas no vistas desde `syncStartedAt` se reconsultan por `cidoId` en CIDO; si ya no existen se marcan `sourceActive: false`).
+- Consultas de lectura (buscador, filtros, «para mí», detalle) en `PrismaSelectionProcessQueryRepository` / `PrismaSelectionProcessDetailRepository`. La búsqueda tolerante usa SQL crudo (`Prisma.sql`) con las extensiones `unaccent` y `pg_trgm` creadas en una migración.
+- Endpoints de depuración en `src/app/api/debug/cido/`: `GET /api/debug/cido` (vista previa de convocatorias mapeadas), `GET /api/debug/cido/institution?cidoId=...`, `POST /api/debug/cido/sync` (sincroniza con `limit: 5, offset: 0`) y `POST /api/debug/cido/sync-all` (sincronización completa + reconciliación).
+
+### Dashboard (`dashboard`)
+
+Casos de uso de solo lectura cableados en `src/composition/dashboard.ts`: contadores públicos (reutiliza `listActiveSelectionProcessesUseCase`; estados oficiales CIDO 2 = pendiente de plazo, 3 = plazo abierto), plazos próximos de las convocatorias seguidas (15 días naturales en `Europe/Madrid`, solo estados personales `INTERESTED` y `PREPARING_APPLICATION`) y últimas publicaciones de documentos de las convocatorias seguidas desde el día en que empezó el seguimiento. `PrismaDashboardQueryRepository` filtra por usuario en PostgreSQL (incluye `$queryRaw`).
+
+### Capa Next.js
+
+Páginas en `src/app/` con rutas en español (`convocatorias`, `convocatorias/[id]`, `mis-convocatorias`, `para-mi`, `mi-perfil`, `dashboard`, `login`, `register`). Las mutaciones se hacen con Server Actions (`actions.ts` junto a la página, `"use server"`) que obtienen el usuario con `auth.api.getSession({ headers: await headers() })` —nunca del formulario—, llaman al caso de uso desde `@/composition/...` y hacen `revalidatePath`. El código hace referencia a especificaciones numeradas (`SPEC-004`, `SPEC-006`, `SPEC-009`…) en comentarios.
 
 ### Autenticación
 
