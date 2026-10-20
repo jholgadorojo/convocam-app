@@ -1,3 +1,4 @@
+
 import {
   describe,
   expect,
@@ -152,6 +153,12 @@ describe(
 
                   province:
                     "Barcelona",
+
+                  latitude:
+                    null,
+
+                  longitude:
+                    null,
                 },
               },
             },

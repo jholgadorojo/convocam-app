@@ -1,3 +1,4 @@
+
 import type { PrismaClient } from "@/generated/prisma/client";
 
 import type { UserSelectionProcessListItem } from "../../application/user-selection-process-list-item";
@@ -27,7 +28,7 @@ export class PrismaUserSelectionProcessQueryRepository
             include: {
               institution: true,
 
-              /*
+              /**
                * Solo necesitamos el documento
                * oficial más reciente.
                *
@@ -141,7 +142,7 @@ export class PrismaUserSelectionProcessQueryRepository
           cidoUrl:
             selectionProcess.cidoUrl,
 
-          /*
+          /**
            * Documento oficial más reciente.
            *
            * Si la convocatoria todavía no tiene
@@ -161,6 +162,18 @@ export class PrismaUserSelectionProcessQueryRepository
                 }
               : null,
 
+          /**
+           * Institución asociada a la convocatoria.
+           *
+           * Incorporamos las coordenadas existentes
+           * en PostgreSQL para el mapa de seguimiento.
+           *
+           * Prisma devuelve Decimal.
+           * Lo convertimos a number.
+           *
+           * Si no existen coordenadas,
+           * mantenemos null.
+           */
           institution:
             selectionProcess.institution
               ? {
@@ -183,6 +196,18 @@ export class PrismaUserSelectionProcessQueryRepository
                     selectionProcess
                       .institution
                       .province,
+
+                  latitude:
+                    selectionProcess
+                      .institution
+                      .latitude
+                      ?.toNumber() ?? null,
+
+                  longitude:
+                    selectionProcess
+                      .institution
+                      .longitude
+                      ?.toNumber() ?? null,
                 }
               : null,
         },

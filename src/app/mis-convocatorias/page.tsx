@@ -17,13 +17,27 @@ import {
   getOfficialStatusPresentation,
 } from "@/modules/selection-process/presentation/selection-process-status";
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
+import type { PersonalSelectionProcessStatus } from "@/modules/user-selection-process/domain/personal-selection-process-status";
+import { PersonalSelectionProcessStatusIndicators } from "@/modules/user-selection-process/presentation/personal-selection-process-status-indicators";
+import { PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS } from "@/modules/user-selection-process/presentation/personal-selection-process-status-options";
 import { PersonalSelectionProcessStatusPicker } from "@/modules/user-selection-process/presentation/personal-selection-process-status-picker";
 import { UnfollowSelectionProcessForm } from "@/modules/user-selection-process/presentation/unfollow-selection-process-form";
+import { FollowedMunicipalitiesMap } from "@/modules/user-selection-process/presentation/followed-municipalities-map";
 import {
   changePersonalStatusFromMySelectionProcessesAction,
   unfollowFromMySelectionProcessesAction,
 } from "./actions";
-export default async function MySelectionProcessesPage() {
+type MySelectionProcessesPageProps = {
+  searchParams: Promise<{
+    municipality?: string | string[];
+    province?: string | string[];
+    personalStatus?: string | string[];
+  }>;
+};
+
+export default async function MySelectionProcessesPage({
+  searchParams,
+}: MySelectionProcessesPageProps) {
   const session =
     await auth.api.getSession({
       headers: await headers(),
@@ -37,6 +51,83 @@ export default async function MySelectionProcessesPage() {
     await listUserSelectionProcessesUseCase.execute(
       session.user.id,
     );
+
+  // Filtramos exclusivamente convocatorias del usuario autenticado.
+  // El mapa y los indicadores siempre reciben la lista completa.
+  const params = await searchParams;
+  const selectedMunicipality =
+    typeof params.municipality === "string"
+      ? params.municipality.trim() || null
+      : null;
+  const selectedProvince =
+    selectedMunicipality && typeof params.province === "string"
+      ? params.province.trim() || null
+      : null;
+
+  // personalStatus aparece repetido en la URL cuando se seleccionan
+  // varios estados. Solo aceptamos los ocho estados definidos en el dominio.
+  const rawStatuses =
+    typeof params.personalStatus === "string"
+      ? [params.personalStatus]
+      : Array.isArray(params.personalStatus)
+        ? params.personalStatus
+        : [];
+  const selectedStatuses: PersonalSelectionProcessStatus[] =
+    PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS
+      .map((option) => option.value)
+      .filter((status) => rawStatuses.includes(status));
+  const selectedStatusSet = new Set<PersonalSelectionProcessStatus>(
+    selectedStatuses,
+  );
+  const hasSelectedStatuses = selectedStatuses.length > 0;
+  const hasActiveFilters = selectedMunicipality !== null || hasSelectedStatuses;
+
+  const filteredSelectionProcesses = userSelectionProcesses.filter((item) => {
+    if (hasSelectedStatuses && !selectedStatusSet.has(item.personalStatus)) {
+      return false;
+    }
+    if (!selectedMunicipality) {
+      return true;
+    }
+    const institution = item.selectionProcess.institution;
+    if (!institution?.municipality) {
+      return false;
+    }
+    return (
+      normalizeLocation(institution.municipality) ===
+        normalizeLocation(selectedMunicipality) &&
+      (selectedProvince === null ||
+        normalizeLocation(institution.province ?? "") ===
+          normalizeLocation(selectedProvince))
+    );
+  });
+
+  // Volver desde el detalle conserva todos los filtros activos.
+  const returnToParams = new URLSearchParams();
+  if (selectedMunicipality) {
+    returnToParams.set("municipality", selectedMunicipality);
+    if (selectedProvince) {
+      returnToParams.set("province", selectedProvince);
+    }
+  }
+  for (const status of selectedStatuses) {
+    returnToParams.append("personalStatus", status);
+  }
+  const returnToQuery = returnToParams.toString();
+  const returnTo = returnToQuery
+    ? `/mis-convocatorias?${returnToQuery}`
+    : "/mis-convocatorias";
+
+  // Quitar el municipio no elimina los estados personales seleccionados.
+  const statusOnlyParams = new URLSearchParams();
+  for (const status of selectedStatuses) {
+    statusOnlyParams.append("personalStatus", status);
+  }
+  const statusOnlyQuery = statusOnlyParams.toString();
+  const statusOnlyHref = statusOnlyQuery
+    ? `/mis-convocatorias?${statusOnlyQuery}`
+    : "/mis-convocatorias";
+
   return (
     <div className="flex min-h-screen bg-[#F4F6F9]">
       <AppSidebar
@@ -53,9 +144,7 @@ export default async function MySelectionProcessesPage() {
         />
         <main className="flex-1 px-4 py-8 lg:px-6 lg:pb-12">
           <div className="flex flex-col gap-7">
-            {/* ==================================================*
-*                CABECERA*
-*            ================================================== */}
+            {/* CABECERA */}
             <header>
               <h1 className="text-[28px] font-semibold tracking-tight text-[#131A2C]">
                 Mis convocatorias
@@ -66,9 +155,7 @@ export default async function MySelectionProcessesPage() {
                 siguiendo.
               </p>
             </header>
-            {/* ==================================================*
-*                SIN CONVOCATORIAS*
-*            ================================================== */}
+            {/* SIN CONVOCATORIAS */}
             {userSelectionProcesses.length === 0 ? (
               <section className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
                 <h2 className="text-lg font-semibold text-[#131A2C]">
@@ -86,10 +173,9 @@ export default async function MySelectionProcessesPage() {
                 </Link>
               </section>
             ) : (
-              <section className="flex min-w-0 flex-col gap-4">
-                {/* ==================================================*
-*                    CONTADOR*
-*                ================================================== */}
+              <section className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,13fr)_minmax(0,7fr)]">
+                <div className="flex min-w-0 flex-col gap-4">
+                {/* CONTADOR */}
                 <div>
                   <h2 className="text-[17px] font-semibold text-[#131A2C]">
                     Convocatorias en seguimiento
@@ -101,11 +187,62 @@ export default async function MySelectionProcessesPage() {
                       : "convocatorias"}
                   </p>
                 </div>
-                {/* ==================================================*
-*                    GRID*
-*                ================================================== */}
-                <div className="grid min-w-0 items-stretch gap-3 min-[1180px]:grid-cols-2">
-                  {userSelectionProcesses.map(
+                {/* RESUMEN DE FILTROS ACTIVOS */}
+                {hasActiveFilters && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#DDE1FA] bg-[#EEF0FC] px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-[#4E5870]">
+                        Mostrando {filteredSelectionProcesses.length} de{" "}
+                        {userSelectionProcesses.length}{" "}
+                        {userSelectionProcesses.length === 1
+                          ? "convocatoria"
+                          : "convocatorias"}
+                      </p>
+                      <p className="mt-0.5 text-sm font-semibold text-[#131A2C]">
+                        {selectedMunicipality && (
+                          <span>
+                            Municipio: {selectedMunicipality}
+                            {selectedProvince ? ` · ${selectedProvince}` : ""}
+                          </span>
+                        )}
+                        {hasSelectedStatuses && (
+                          <span>
+                            {selectedMunicipality ? " · " : ""}
+                            {selectedStatuses.length}{" "}
+                            {selectedStatuses.length === 1
+                              ? "estado seleccionado"
+                              : "estados seleccionados"}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedMunicipality && (
+                        <Link
+                          href={statusOnlyHref}
+                          className="rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-xs font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
+                        >
+                          Quitar municipio
+                        </Link>
+                      )}
+                      <Link
+                        href="/mis-convocatorias"
+                        className="rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-xs font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
+                      >
+                        Limpiar filtros
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* GRID */}
+                <div className="grid min-w-0 grid-cols-1 items-stretch gap-3">
+                  {filteredSelectionProcesses.length === 0 ? (
+                    <div className="rounded-xl border border-[#E3E7EE] bg-white p-6 text-sm text-[#4E5870]">
+                      No hay convocatorias que coincidan con los filtros seleccionados.
+                    </div>
+                  ) : (
+                    filteredSelectionProcesses.map(
                     (item) => {
                       const convocatoria =
                         item.selectionProcess;
@@ -135,9 +272,7 @@ export default async function MySelectionProcessesPage() {
                           className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm transition-shadow hover:shadow-md"
                         >
                           <div className="flex flex-1 flex-col p-4">
-                            {/* ======================================*
-*                                ESTADO / TIPO / PLAZO*
-*                            ====================================== */}
+                            {/* ESTADO / TIPO / PLAZO */}
                             <div className="flex flex-wrap items-center gap-2">
                               <span
                                 className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${officialStatus.badgeClassName}`}
@@ -163,9 +298,7 @@ export default async function MySelectionProcessesPage() {
                                 )}
                               </span>
                             </div>
-                            {/* ======================================*
-*                                TÍTULO / UBICACIÓN*
-*                            ====================================== */}
+                            {/* TÍTULO / UBICACIÓN */}
                             <div className="mt-4">
                               <h3 className="text-[17px] font-semibold leading-snug tracking-[-0.01em] text-[#131A2C]">
                                 {formatSelectionProcessTitle(
@@ -184,9 +317,7 @@ export default async function MySelectionProcessesPage() {
                                 </span>
                               </div>
                             </div>
-                            {/* ======================================*
-*                                SOLICITUD*
-*                            ====================================== */}
+                            {/* SOLICITUD */}
                             <div className="mt-4 rounded-lg border border-[#E7EAF0] bg-[#F7F8FA] px-3.5 py-3">
                               <div className="flex items-start gap-2.5">
                                 <CalendarClock
@@ -203,9 +334,7 @@ export default async function MySelectionProcessesPage() {
                                 </div>
                               </div>
                             </div>
-                            {/* ======================================*
-*                                RESERVAS*
-*                            ====================================== */}
+                            {/* RESERVAS */}
                             {hasReservations && (
                               <div className="mt-3">
                                 <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
@@ -250,9 +379,7 @@ export default async function MySelectionProcessesPage() {
                                 </div>
                               </div>
                             )}
-                            {/* ======================================*
-*                                ÚLTIMO DOCUMENTO*
-*                            ====================================== */}
+                            {/* ÚLTIMO DOCUMENTO */}
                             <div className="mt-4 border-t border-[#EEF1F5] pt-3">
                               {convocatoria.latestDocument ? (
                                 <a
@@ -303,9 +430,7 @@ export default async function MySelectionProcessesPage() {
                                 </div>
                               )}
                             </div>
-                            {/* ======================================*
-*                                MI ESTADO*
-*                            ====================================== */}
+                            {/* MI ESTADO */}
                             <div className="mt-3">
                               <PersonalSelectionProcessStatusPicker
                                 selectionProcessId={
@@ -319,9 +444,7 @@ export default async function MySelectionProcessesPage() {
                                 }
                               />
                             </div>
-                            {/* ======================================*
-*                                INFORMACIÓN PERSONAL*
-*                            ====================================== */}
+                            {/* INFORMACIÓN PERSONAL */}
                             <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-[#FAFBFC] px-3.5 py-2.5">
                               <div>
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[#8A93A7]">
@@ -345,9 +468,7 @@ export default async function MySelectionProcessesPage() {
                                 </p>
                               </div>
                             </div>
-                            {/* ======================================*
-*                                ACCIONES*
-*                            ====================================== */}
+                            {/* ACCIONES */}
                             <div className="mt-3 flex-1" aria-hidden="true" />
                             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EEF1F5] pt-3">
                               <UnfollowSelectionProcessForm
@@ -361,7 +482,7 @@ export default async function MySelectionProcessesPage() {
                               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                                 <Link
                                   href={`/convocatorias/${convocatoria.id}?returnTo=${encodeURIComponent(
-                                    "/mis-convocatorias",
+                                    returnTo,
                                   )}`}
                                   className="inline-flex items-center justify-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
                                 >
@@ -387,8 +508,24 @@ export default async function MySelectionProcessesPage() {
                         </article>
                       );
                     },
+                    )
                   )}
                 </div>
+                </div>
+                <aside className="flex min-w-0 flex-col gap-4">
+                  <FollowedMunicipalitiesMap
+                    items={userSelectionProcesses}
+                    selectedMunicipality={selectedMunicipality}
+                    selectedProvince={selectedProvince}
+                    selectedStatuses={selectedStatuses}
+                  />
+                  <PersonalSelectionProcessStatusIndicators
+                    items={userSelectionProcesses}
+                    selectedMunicipality={selectedMunicipality}
+                    selectedProvince={selectedProvince}
+                    selectedStatuses={selectedStatuses}
+                  />
+                </aside>
               </section>
             )}
           </div>
@@ -397,9 +534,7 @@ export default async function MySelectionProcessesPage() {
     </div>
   );
 }
-/* ============================================================*
-*   COMPONENTES*
-*============================================================ */
+/* COMPONENTES */
 function ReservationBadge({
   children,
 }: {
@@ -411,9 +546,7 @@ function ReservationBadge({
     </span>
   );
 }
-/* ============================================================*
-*   PLAZO DE SOLICITUD*
-*============================================================ */
+/* PLAZO DE SOLICITUD */
 function buildApplicationPeriodBadgeText(
   period: ReturnType<
     typeof getApplicationPeriodPresentation
@@ -538,9 +671,7 @@ function getCataloniaTodayUtc(): Date {
     ),
   );
 }
-/* ============================================================*
-*   OTROS HELPERS*
-*============================================================ */
+/* OTROS HELPERS */
 function hasReservedPlaces(
   reservedPlaces: {
     disability: number | null;
@@ -586,4 +717,8 @@ function formatDate(
       timeZone: "UTC",
     },
   ).format(date);
+}
+
+function normalizeLocation(value: string): string {
+  return value.trim().toLocaleLowerCase("ca-ES");
 }

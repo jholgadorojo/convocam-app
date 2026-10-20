@@ -6,8 +6,6 @@
 
 - En para-mi, cuando se siga una convocatoria no tiene que salir esa convocatoria en el apartado para-mi
 
-- En mis convocatorias, cambiar la visualizacio a una tarjeta, y en la derecha, poner primero un mapa con la localizaciones de mis convocatorias, un filtro por estado con los contadores…
-
 - Cuando se eliminan preferencias, tengo que preguntar si quiero eliminar convocatorias con las preferencia eliminadas.
 
 # HECHO
@@ -27,6 +25,9 @@
 - Arreglar tarjeta titulo corto, cambiar color mi seguimiento o hacerlo mas vistoso
 
 - No funciona la busqueda de municipios
+
+- En mis convocatorias, cambiar la visualizacio a una tarjeta, y en la derecha, poner primero un mapa con la localizaciones de mis convocatorias, un filtro por estado con los contadores…
+
 
 # FASE 2
 

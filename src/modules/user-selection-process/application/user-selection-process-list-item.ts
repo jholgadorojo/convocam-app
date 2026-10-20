@@ -1,10 +1,11 @@
+
 import type { PersonalSelectionProcessStatus } from "../domain/personal-selection-process-status";
 
 export type UserSelectionProcessListItem = {
   id: number;
 
   personalStatus:
-  PersonalSelectionProcessStatus;
+    PersonalSelectionProcessStatus;
 
   followedAt: Date;
 
@@ -53,6 +54,10 @@ export type UserSelectionProcessListItem = {
       municipality: string | null;
       county: string | null;
       province: string | null;
+
+      // Coordenadas geográficas para el mapa
+      latitude: number | null;
+      longitude: number | null;
     } | null;
 
     latestDocument: {

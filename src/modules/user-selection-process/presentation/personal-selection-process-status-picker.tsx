@@ -1,106 +1,16 @@
 "use client";
-
-import {
-    BadgeCheck,
-    CheckCircle2,
-    CircleX,
-    Clock3,
-    FileCheck2,
-    Flag,
-    Heart,
-    Send,
-    X,
-} from "lucide-react";
-
+import { Heart, X } from "lucide-react";
 import { useState } from "react";
-
 import { PersonalSelectionProcessStatus } from "../domain/personal-selection-process-status";
-
+import { PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS } from "./personal-selection-process-status-options";
 type PersonalSelectionProcessStatusPickerProps = {
     selectionProcessId: number;
-
     currentStatus: PersonalSelectionProcessStatus;
-
     action: (
         formData: FormData,
     ) => Promise<void>;
     embedded?: boolean;
 };
-
-const STATUS_OPTIONS = [
-    {
-        value:
-            PersonalSelectionProcessStatus.INTERESTED,
-        label: "Me interesa",
-        description:
-            "Quiero seguir esta convocatoria.",
-        icon: Heart,
-    },
-
-    {
-        value:
-            PersonalSelectionProcessStatus.PREPARING_APPLICATION,
-        label: "Preparando solicitud",
-        description:
-            "Estoy preparando la documentación.",
-        icon: FileCheck2,
-    },
-
-    {
-        value:
-            PersonalSelectionProcessStatus.APPLICATION_SUBMITTED,
-        label: "Solicitud presentada",
-        description:
-            "Ya he presentado la solicitud.",
-        icon: Send,
-    },
-
-    {
-        value:
-            PersonalSelectionProcessStatus.ADMITTED,
-        label: "Admitido",
-        description:
-            "He sido admitido en el proceso.",
-        icon: BadgeCheck,
-    },
-
-    {
-        value:
-            PersonalSelectionProcessStatus.EXCLUDED,
-        label: "Excluido",
-        description:
-            "He quedado excluido del proceso.",
-        icon: CircleX,
-    },
-
-    {
-        value:
-            PersonalSelectionProcessStatus.EXAM_PENDING,
-        label: "Examen pendiente",
-        description:
-            "Estoy pendiente de realizar el examen.",
-        icon: Clock3,
-    },
-
-    {
-        value:
-            PersonalSelectionProcessStatus.EXAM_COMPLETED,
-        label: "Examen realizado",
-        description:
-            "Ya he realizado el examen.",
-        icon: CheckCircle2,
-    },
-
-    {
-        value:
-            PersonalSelectionProcessStatus.COMPLETED,
-        label: "Finalizado",
-        description:
-            "He terminado el seguimiento del proceso.",
-        icon: Flag,
-    },
-] as const;
-
 export function PersonalSelectionProcessStatusPicker({
     selectionProcessId,
     currentStatus,
@@ -109,38 +19,28 @@ export function PersonalSelectionProcessStatusPicker({
 }: PersonalSelectionProcessStatusPickerProps) {
     const [isOpen, setIsOpen] =
         useState(false);
-
     const currentOption =
-        STATUS_OPTIONS.find(
+        PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS.find(
             (option) =>
                 option.value ===
                 currentStatus,
         );
-
     const CurrentIcon =
         currentOption?.icon ??
         Heart;
-
     return (
         <>
-            {/* ======================================
-          ESTADO ACTUAL
-      ====================================== */}
             {embedded ? (
                 <div className="flex flex-col gap-3">
-                    {/* Estado actual */}
                     <div className="flex min-w-0 items-center gap-2.5">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EEF0FC] text-[#4F5BD5]">
                             <CurrentIcon size={17} />
                         </span>
-
                         <span className="min-w-0 text-[15px] font-semibold leading-snug text-[#131A2C]">
                             {currentOption?.label ??
                                 "Estado personal"}
                         </span>
                     </div>
-
-                    {/* Cambiar estado */}
                     <button
                         type="button"
                         onClick={() => {
@@ -158,19 +58,16 @@ export function PersonalSelectionProcessStatusPicker({
                             <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
                                 Mi estado
                             </p>
-
                             <div className="mt-1.5 flex items-center gap-2">
                                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EEF0FC] text-[#4F5BD5]">
                                     <CurrentIcon size={15} />
                                 </span>
-
                                 <span className="truncate text-sm font-semibold text-[#131A2C]">
                                     {currentOption?.label ??
                                         "Estado personal"}
                                 </span>
                             </div>
                         </div>
-
                         <button
                             type="button"
                             onClick={() =>
@@ -183,10 +80,6 @@ export function PersonalSelectionProcessStatusPicker({
                     </div>
                 </div>
             )}
-
-            {/* ======================================
-          MODAL
-      ====================================== */}
             {isOpen && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -205,7 +98,6 @@ export function PersonalSelectionProcessStatusPicker({
                         }
                         className="w-full max-w-[620px] overflow-hidden rounded-2xl border border-[#E3E7EE] bg-white shadow-xl"
                     >
-                        {/* Cabecera */}
                         <div className="flex items-start justify-between gap-4 border-b border-[#EEF1F5] px-5 py-4">
                             <div>
                                 <h2
@@ -214,14 +106,12 @@ export function PersonalSelectionProcessStatusPicker({
                                 >
                                     Cambiar mi estado
                                 </h2>
-
                                 <p className="mt-1 text-sm text-[#69738A]">
                                     Indica en qué punto te
                                     encuentras dentro de esta
                                     convocatoria.
                                 </p>
                             </div>
-
                             <button
                                 type="button"
                                 onClick={() =>
@@ -233,18 +123,14 @@ export function PersonalSelectionProcessStatusPicker({
                                 <X size={18} />
                             </button>
                         </div>
-
-                        {/* Estados */}
                         <div className="grid gap-2 p-4 sm:grid-cols-2">
-                            {STATUS_OPTIONS.map(
+                            {PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS.map(
                                 (option) => {
                                     const Icon =
                                         option.icon;
-
                                     const isCurrent =
                                         option.value ===
                                         currentStatus;
-
                                     return (
                                         <form
                                             key={
@@ -264,7 +150,6 @@ export function PersonalSelectionProcessStatusPicker({
                                                     selectionProcessId
                                                 }
                                             />
-
                                             <input
                                                 type="hidden"
                                                 name="personalStatus"
@@ -272,7 +157,6 @@ export function PersonalSelectionProcessStatusPicker({
                                                     option.value
                                                 }
                                             />
-
                                             <button
                                                 type="submit"
                                                 disabled={
@@ -295,7 +179,6 @@ export function PersonalSelectionProcessStatusPicker({
                                                         size={17}
                                                     />
                                                 </span>
-
                                                 <span className="min-w-0">
                                                     <span className="flex items-center gap-2">
                                                         <span className="text-sm font-semibold text-[#131A2C]">
@@ -303,14 +186,12 @@ export function PersonalSelectionProcessStatusPicker({
                                                                 option.label
                                                             }
                                                         </span>
-
                                                         {isCurrent && (
                                                             <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-[#4F5BD5]">
                                                                 Actual
                                                             </span>
                                                         )}
                                                     </span>
-
                                                     <span className="mt-1 block text-xs leading-relaxed text-[#69738A]">
                                                         {
                                                             option.description
@@ -323,8 +204,6 @@ export function PersonalSelectionProcessStatusPicker({
                                 },
                             )}
                         </div>
-
-                        {/* Pie */}
                         <div className="flex justify-end border-t border-[#EEF1F5] px-5 py-3">
                             <button
                                 type="button"
