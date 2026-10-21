@@ -9,6 +9,8 @@ type Props = {
   selectedStatuses?: readonly PersonalSelectionProcessStatus[];
   selectedMunicipality?: string | null;
   selectedProvince?: string | null;
+  /** Distribucion: panel lateral actual u ocho indicadores en una franja superior. */
+  layout?: "sidebar" | "horizontal";
 };
 
 /**
@@ -17,6 +19,7 @@ type Props = {
  * - Los contadores siempre se calculan sobre el total de convocatorias seguidas.
  * - La seleccion multiple utiliza parametros de URL repetidos: personalStatus.
  * - Conserva el municipio y la provincia al activar o desactivar un estado.
+ * - layout="horizontal" organiza los ocho estados a lo ancho de la cabecera.
  * - Es un componente de servidor: no cambia ningun estado en la base de datos.
  */
 export function PersonalSelectionProcessStatusIndicators({
@@ -24,7 +27,9 @@ export function PersonalSelectionProcessStatusIndicators({
   selectedStatuses = [],
   selectedMunicipality = null,
   selectedProvince = null,
+  layout = "sidebar",
 }: Props) {
+  const isHorizontal = layout === "horizontal";
   const counts = new Map<PersonalSelectionProcessStatus, number>();
 
   for (const item of items) {
@@ -60,7 +65,13 @@ export function PersonalSelectionProcessStatusIndicators({
       </div>
 
       <div className="p-4">
-        <div className="grid grid-cols-2 gap-2">
+        <div
+          className={
+            isHorizontal
+              ? "grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8"
+              : "grid grid-cols-2 gap-2"
+          }
+        >
           {PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS.map((option) => {
             const Icon = option.icon;
             const count = counts.get(option.value) ?? 0;
@@ -81,6 +92,8 @@ export function PersonalSelectionProcessStatusIndicators({
                 scroll={false}
                 aria-label={`${isSelected ? "Quitar filtro" : "Añadir filtro"}: ${option.label}. ${count} ${count === 1 ? "convocatoria" : "convocatorias"}.`}
                 className={`flex min-w-0 flex-col gap-2 rounded-xl border p-3 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4F5BD5] ${
+                  isHorizontal ? "min-h-[112px]" : ""
+                } ${
                   isSelected
                     ? "border-[#4F5BD5] bg-[#EEF0FC]"
                     : "border-[#E3E7EE] bg-white hover:border-[#BFC5F4] hover:bg-[#F7F8FF]"
