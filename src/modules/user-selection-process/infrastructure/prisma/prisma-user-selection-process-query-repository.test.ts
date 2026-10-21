@@ -212,17 +212,12 @@ describe(
         expect(
           result[0].selectionProcess.institution,
         ).toEqual({
-          name:
-            "Ajuntament de Cardedeu",
-
-          municipality:
-            "Cardedeu",
-
-          county:
-            "Vallès Oriental",
-
-          province:
-            "Barcelona",
+          name: "Ajuntament de Cardedeu",
+          municipality: "Cardedeu",
+          county: "Vallès Oriental",
+          province: "Barcelona",
+          latitude: null,
+          longitude: null,
         });
       },
     );

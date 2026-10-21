@@ -28,10 +28,15 @@ import {
   getOfficialStatusPresentation,
 } from "@/modules/selection-process/presentation/selection-process-status";
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
+import { FollowedMunicipalitiesMap } from "@/modules/user-selection-process/presentation/followed-municipalities-map";
 import { followFromForMeAction } from "./actions";
 
 type ForMePageProps = {
-  searchParams: Promise<{ page?: string | string[] }>;
+  searchParams: Promise<{
+    page?: string | string[];
+    municipality?: string | string[];
+    province?: string | string[];
+  }>;
 };
 
 export default async function ForMePage({ searchParams }: ForMePageProps) {
@@ -45,6 +50,14 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
 
   const params = await searchParams;
   const requestedPage = parsePage(params.page);
+  const selectedMunicipality =
+    typeof params.municipality === "string"
+      ? params.municipality.trim() || null
+      : null;
+  const selectedProvince =
+    selectedMunicipality && typeof params.province === "string"
+      ? params.province.trim() || null
+      : null;
   const userId = session.user.id;
 
   const [result, territorialPreferences, professionalPreferences, followed] =
@@ -52,6 +65,9 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
       listSelectionProcessesForMeUseCase.execute({
         userId,
         page: requestedPage,
+        municipality: selectedMunicipality ?? undefined,
+        province: selectedProvince ?? undefined,
+        includeMunicipalityMapPoints: true,
       }),
       getUserTerritorialPreferencesUseCase.execute({ userId }),
       getUserProfessionalPreferencesUseCase.execute({ userId }),
@@ -85,7 +101,10 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
   }
 
   const pageData = result.kind === "results" ? result.page : null;
+  const mapPoints =
+    result.kind === "results" ? (result.municipalityMapPoints ?? []) : [];
   const currentPage = pageData?.page ?? 1;
+  const returnTo = pageHref(currentPage, selectedMunicipality, selectedProvince);
 
   return (
     <div className="flex min-h-screen bg-[#F4F6F9]">
@@ -142,7 +161,7 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                   Ir a Mi perfil
                 </Link>
               </section>
-            ) : pageData && pageData.items.length === 0 ? (
+            ) : pageData && pageData.items.length === 0 && !selectedMunicipality ? (
               <section className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
                 <h2 className="text-lg font-semibold text-[#131A2C]">
                   No hay convocatorias que coincidan
@@ -160,185 +179,222 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                 </Link>
               </section>
             ) : pageData ? (
-              <section className="flex min-w-0 flex-col gap-4">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <h2 className="text-[17px] font-semibold text-[#131A2C]">
-                      Convocatorias para ti
-                    </h2>
-                    <p className="mt-1 text-sm text-[#69738A]">
-                      {pageData.totalItems} {pageData.totalItems === 1
-                        ? "convocatoria encontrada"
-                        : "convocatorias encontradas"}
-                      {pageData.totalPages > 0 &&
-                        ` · Página ${currentPage} de ${pageData.totalPages}`}
+              <section className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,13fr)_minmax(0,7fr)]">
+                <div className="flex min-w-0 flex-col gap-4">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <h2 className="text-[17px] font-semibold text-[#131A2C]">
+                        Convocatorias para ti
+                      </h2>
+                      <p className="mt-1 text-sm text-[#69738A]">
+                        {pageData.totalItems} {pageData.totalItems === 1
+                          ? "convocatoria encontrada"
+                          : "convocatorias encontradas"}
+                        {pageData.totalPages > 0 &&
+                          ` · Página ${currentPage} de ${pageData.totalPages}`}
+                      </p>
+                    </div>
+                    <p className="text-xs text-[#69738A]">
+                      Primero, plazos abiertos próximos a finalizar
                     </p>
                   </div>
-                  <p className="text-xs text-[#69738A]">
-                    Primero, plazos abiertos próximos a finalizar
-                  </p>
-                </div>
 
-                <div className="grid min-w-0 items-stretch gap-3 min-[1180px]:grid-cols-2">
-                  {pageData.items.map((item) => {
-                    const officialStatus = getOfficialStatusPresentation(
-                      item.status,
-                      item.statusId,
-                    );
-                    const applicationPeriod = getApplicationPeriodPresentation(
-                      item.applicationStartDate,
-                      item.applicationEndDate,
-                    );
-                    const isFollowing = followedIds.has(item.id);
-                    const returnTo = pageHref(currentPage);
-                    const detailHref = `/convocatorias/${item.id}?returnTo=${encodeURIComponent(returnTo)}`;
-
-                    return (
-                      <article
-                        key={item.id}
-                        className={`flex h-full min-w-0 flex-col overflow-hidden rounded-xl border shadow-sm transition-shadow hover:shadow-md ${
-                          isFollowing
-                            ? "border-[#D9DFF3] bg-[#F5F7FF]"
-                            : "border-[#E3E7EE] bg-white"
-                        }`}
+                  {selectedMunicipality && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#DDE1FA] bg-[#F7F7FF] px-4 py-3 text-sm text-[#4E5870]">
+                      <span>
+                        Municipio seleccionado: <strong className="font-semibold text-[#131A2C]">{selectedMunicipality}</strong>
+                        {selectedProvince && ` · ${selectedProvince}`}
+                      </span>
+                      <Link
+                        href="/para-mi"
+                        className="font-semibold text-[#3B45B5] hover:underline"
                       >
-                        <div className="flex flex-1 flex-col p-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${officialStatus.badgeClassName}`}>
-                              <span className={`h-1.5 w-1.5 rounded-full ${officialStatus.dotClassName}`} />
-                              {officialStatus.label}
-                            </span>
-                            <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] px-3 text-xs font-semibold text-[#3B45B5]">
-                              {item.isJobPool ? "Bolsa de trabajo" : "Plaza de plantilla"}
-                            </span>
-                          </div>
+                        Quitar filtro
+                      </Link>
+                    </div>
+                  )}
 
-                          <h3 className="mt-4 text-[17px] font-semibold leading-snug tracking-[-0.01em] text-[#131A2C]">
-                            {formatSelectionProcessTitle(item.title)}
-                          </h3>
-
-                          <p className="mt-2 flex items-start gap-2 text-[13.5px] text-[#4E5870]">
-                            <MapPin size={15} className="mt-0.5 shrink-0 text-[#7C859B]" />
-                            <span>{locationText(item.institution)}</span>
-                          </p>
-
-                          <div className="mt-4 rounded-lg border border-[#E7EAF0] bg-[#F7F8FA] px-3.5 py-3">
-                            <div className="flex items-start gap-2.5">
-                              <CalendarClock size={17} className="mt-0.5 shrink-0 text-[#4F5BD5]" />
-                              <div>
+                  {pageData.items.length === 0 ? (
+                    <div className="rounded-xl border border-[#E3E7EE] bg-white p-6 shadow-sm">
+                      <h3 className="text-[17px] font-semibold text-[#131A2C]">
+                        No hay convocatorias en {selectedMunicipality}
+                      </h3>
+                      <p className="mt-2 text-sm leading-relaxed text-[#69738A]">
+                        Ninguna convocatoria de este municipio coincide actualmente
+                        con las preferencias de tu perfil. Selecciona otro marcador
+                        del mapa o quita el filtro territorial.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex min-w-0 flex-col gap-3">
+                      {pageData.items.map((item) => {
+                        const officialStatus = getOfficialStatusPresentation(
+                          item.status,
+                          item.statusId,
+                        );
+                        const applicationPeriod = getApplicationPeriodPresentation(
+                          item.applicationStartDate,
+                          item.applicationEndDate,
+                        );
+                        const isFollowing = followedIds.has(item.id);
+                        const detailHref = `/convocatorias/${item.id}?returnTo=${encodeURIComponent(returnTo)}`;
+    
+                        return (
+                          <article
+                            key={item.id}
+                            className={`flex h-full min-w-0 flex-col overflow-hidden rounded-xl border shadow-sm transition-shadow hover:shadow-md ${
+                              isFollowing
+                                ? "border-[#D9DFF3] bg-[#F5F7FF]"
+                                : "border-[#E3E7EE] bg-white"
+                            }`}
+                          >
+                            <div className="flex flex-1 flex-col p-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ${officialStatus.badgeClassName}`}>
+                                  <span className={`h-1.5 w-1.5 rounded-full ${officialStatus.dotClassName}`} />
+                                  {officialStatus.label}
+                                </span>
+                                <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] px-3 text-xs font-semibold text-[#3B45B5]">
+                                  {item.isJobPool ? "Bolsa de trabajo" : "Plaza de plantilla"}
+                                </span>
+                              </div>
+    
+                              <h3 className="mt-4 text-[17px] font-semibold leading-snug tracking-[-0.01em] text-[#131A2C]">
+                                {formatSelectionProcessTitle(item.title)}
+                              </h3>
+    
+                              <p className="mt-2 flex items-start gap-2 text-[13.5px] text-[#4E5870]">
+                                <MapPin size={15} className="mt-0.5 shrink-0 text-[#7C859B]" />
+                                <span>{locationText(item.institution)}</span>
+                              </p>
+    
+                              <div className="mt-4 rounded-lg border border-[#E7EAF0] bg-[#F7F8FA] px-3.5 py-3">
+                                <div className="flex items-start gap-2.5">
+                                  <CalendarClock size={17} className="mt-0.5 shrink-0 text-[#4F5BD5]" />
+                                  <div>
+                                    <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+                                      Plazo de solicitud
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold text-[#131A2C]">
+                                      {applicationPeriod.label}
+                                      {(applicationPeriod.state === "open" || applicationPeriod.state === "future") &&
+                                        ` · ${applicationPeriod.detail}`}
+                                    </p>
+                                    <p className="mt-1 text-xs text-[#69738A]">
+                                      Inicio: {formatDate(item.applicationStartDate)}
+                                      {" · "}Fin: {formatDate(item.applicationEndDate)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+    
+                              <div className="mt-4 flex-1">
                                 <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
-                                  Plazo de solicitud
+                                  ¿Por qué aparece para mí?
                                 </p>
-                                <p className="mt-1 text-sm font-semibold text-[#131A2C]">
-                                  {applicationPeriod.label}
-                                  {(applicationPeriod.state === "open" || applicationPeriod.state === "future") &&
-                                    ` · ${applicationPeriod.detail}`}
-                                </p>
-                                <p className="mt-1 text-xs text-[#69738A]">
-                                  Inicio: {formatDate(item.applicationStartDate)}
-                                  {" · "}Fin: {formatDate(item.applicationEndDate)}
-                                </p>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {(matchReasons.length > 0
+                                    ? matchReasons
+                                    : ["Preferencias generales de tu perfil"]
+                                  ).map((reason) => (
+                                    <span
+                                      key={reason}
+                                      className="inline-flex rounded-full border border-[#DDE1FA] bg-[#F7F7FF] px-2.5 py-1 text-[11px] font-medium text-[#3B45B5]"
+                                    >
+                                      {reason}
+                                    </span>
+                                  ))}
+                                </div>
+                                {territorialPreferences?.scope === "SELECTED_TERRITORIES" && (
+                                  <p className="mt-1.5 text-[11px] text-[#7C859B]">
+                                    La coincidencia territorial se basa en la ubicación
+                                    del organismo convocante, no necesariamente del puesto.
+                                  </p>
+                                )}
+                              </div>
+    
+                              <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#EEF1F5] pt-3">
+                                {isFollowing && (
+                                  <Link
+                                    href="/mis-convocatorias"
+                                    className="mr-auto inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#C9CEF5] bg-[#EEF0FC] px-3 py-2 text-sm font-semibold text-[#3B45B5] transition-colors hover:border-[#9FA8EC] hover:bg-[#E2E6FB]"
+                                  >
+                                    <BookmarkCheck size={16} aria-hidden="true" />
+                                    Mi seguimiento
+                                  </Link>
+                                )}
+                                <a
+                                  href={item.cidoUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
+                                >
+                                  Fuente oficial <ExternalLink size={13} />
+                                </a>
+                                <Link
+                                  href={detailHref}
+                                  className={isFollowing
+                                    ? "inline-flex items-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
+                                    : "inline-flex items-center rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"}
+                                >
+                                  Ver detalle
+                                </Link>
+                                {!isFollowing && (
+                                  <form action={followFromForMeAction}>
+                                    <input
+                                      type="hidden"
+                                      name="selectionProcessId"
+                                      value={item.id}
+                                    />
+                                    <button
+                                      type="submit"
+                                      className="inline-flex items-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
+                                    >
+                                      Seguir convocatoria
+                                    </button>
+                                  </form>
+                                )}
                               </div>
                             </div>
-                          </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
 
-                          <div className="mt-4 flex-1">
-                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
-                              ¿Por qué aparece para mí?
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {(matchReasons.length > 0
-                                ? matchReasons
-                                : ["Preferencias generales de tu perfil"]
-                              ).map((reason) => (
-                                <span
-                                  key={reason}
-                                  className="inline-flex rounded-full border border-[#DDE1FA] bg-[#F7F7FF] px-2.5 py-1 text-[11px] font-medium text-[#3B45B5]"
-                                >
-                                  {reason}
-                                </span>
-                              ))}
-                            </div>
-                            {territorialPreferences?.scope === "SELECTED_TERRITORIES" && (
-                              <p className="mt-1.5 text-[11px] text-[#7C859B]">
-                                La coincidencia territorial se basa en la ubicación
-                                del organismo convocante, no necesariamente del puesto.
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#EEF1F5] pt-3">
-                            {isFollowing && (
-                              <Link
-                                href="/mis-convocatorias"
-                                className="mr-auto inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#C9CEF5] bg-[#EEF0FC] px-3 py-2 text-sm font-semibold text-[#3B45B5] transition-colors hover:border-[#9FA8EC] hover:bg-[#E2E6FB]"
-                              >
-                                <BookmarkCheck size={16} aria-hidden="true" />
-                                Mi seguimiento
-                              </Link>
-                            )}
-                            <a
-                              href={item.cidoUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
-                            >
-                              Fuente oficial <ExternalLink size={13} />
-                            </a>
-                            <Link
-                              href={detailHref}
-                              className={isFollowing
-                                ? "inline-flex items-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
-                                : "inline-flex items-center rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"}
-                            >
-                              Ver detalle
-                            </Link>
-                            {!isFollowing && (
-                              <form action={followFromForMeAction}>
-                                <input
-                                  type="hidden"
-                                  name="selectionProcessId"
-                                  value={item.id}
-                                />
-                                <button
-                                  type="submit"
-                                  className="inline-flex items-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
-                                >
-                                  Seguir convocatoria
-                                </button>
-                              </form>
-                            )}
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
+                  {pageData.totalPages > 1 && (
+                    <nav
+                      aria-label="Paginación de convocatorias para mí"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-[#E3E7EE] bg-white px-4 py-3 text-sm"
+                    >
+                      {currentPage > 1 ? (
+                        <Link href={pageHref(currentPage - 1, selectedMunicipality, selectedProvince)} className="font-semibold text-[#3B45B5] hover:underline">
+                          ← Anterior
+                        </Link>
+                      ) : (
+                        <span className="text-[#A4ADBE]">← Anterior</span>
+                      )}
+                      <span className="text-[#4E5870]">
+                        {currentPage} / {pageData.totalPages}
+                      </span>
+                      {currentPage < pageData.totalPages ? (
+                        <Link href={pageHref(currentPage + 1, selectedMunicipality, selectedProvince)} className="font-semibold text-[#3B45B5] hover:underline">
+                          Siguiente →
+                        </Link>
+                      ) : (
+                        <span className="text-[#A4ADBE]">Siguiente →</span>
+                      )}
+                    </nav>
+                  )}
                 </div>
-
-                {pageData.totalPages > 1 && (
-                  <nav
-                    aria-label="Paginación de convocatorias para mí"
-                    className="flex items-center justify-between gap-3 rounded-xl border border-[#E3E7EE] bg-white px-4 py-3 text-sm"
-                  >
-                    {currentPage > 1 ? (
-                      <Link href={pageHref(currentPage - 1)} className="font-semibold text-[#3B45B5] hover:underline">
-                        ← Anterior
-                      </Link>
-                    ) : (
-                      <span className="text-[#A4ADBE]">← Anterior</span>
-                    )}
-                    <span className="text-[#4E5870]">
-                      {currentPage} / {pageData.totalPages}
-                    </span>
-                    {currentPage < pageData.totalPages ? (
-                      <Link href={pageHref(currentPage + 1)} className="font-semibold text-[#3B45B5] hover:underline">
-                        Siguiente →
-                      </Link>
-                    ) : (
-                      <span className="text-[#A4ADBE]">Siguiente →</span>
-                    )}
-                  </nav>
-                )}
+                <aside className="min-w-0 xl:sticky xl:top-6 xl:self-start">
+                  <FollowedMunicipalitiesMap
+                    mode="for-me"
+                    mapPoints={mapPoints}
+                    selectedMunicipality={selectedMunicipality}
+                    selectedProvince={selectedProvince}
+                  />
+                </aside>
               </section>
             ) : null}
 
@@ -362,8 +418,19 @@ function parsePage(value: string | string[] | undefined): number {
   return raw && Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
-function pageHref(page: number): string {
-  return page <= 1 ? "/para-mi" : `/para-mi?page=${page}`;
+function pageHref(
+  page: number,
+  municipality: string | null,
+  province: string | null,
+): string {
+  const params = new URLSearchParams();
+  if (page > 1) params.set("page", String(page));
+  if (municipality) {
+    params.set("municipality", municipality);
+    if (province) params.set("province", province);
+  }
+  const query = params.toString();
+  return query ? `/para-mi?${query}` : "/para-mi";
 }
 
 function locationText(

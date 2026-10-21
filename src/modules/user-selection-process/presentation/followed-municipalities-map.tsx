@@ -1,11 +1,13 @@
+import type { SelectionProcessMunicipalityMapPoint } from "../../selection-process/application/selection-process-municipality-map-point";
 import type { UserSelectionProcessListItem } from "../application/user-selection-process-list-item";
 import type { PersonalSelectionProcessStatus } from "../domain/personal-selection-process-status";
 import { FollowedMunicipalitiesMapZoom } from "./followed-municipalities-map-zoom";
 
 /**
- * Mapa de los municipios con convocatorias seguidas.
- * Contorno de Catalunya y comarcas: cartografia oficial del ICGC.
- * Datos descargados en servidor con cache de 30 dias.
+ * Mapa compartido por "Mis convocatorias" y "Para mi".
+ * En "Mis convocatorias" agrupa los seguimientos del usuario.
+ * En "Para mi" recibe los municipios agregados por PostgreSQL.
+ * Contorno y comarcas: cartografia oficial del ICGC, cache de 30 dias.
  */
 const CATALONIA_BOUNDARY_URL =
   "https://maps.icgc.cat/vector01/rest/services/divisions_administratives_wms/MapServer/23/query";
@@ -41,19 +43,43 @@ type GroupedMunicipality = {
 type MapProjection = {
   project: (longitude: number, latitude: number) => { x: number; y: number };
 };
-type Props = {
-  items: readonly UserSelectionProcessListItem[];
+type SharedProps = {
   selectedMunicipality?: string | null;
   selectedProvince?: string | null;
+};
+
+type FollowedProps = SharedProps & {
+  /** Compatibilidad con "Mis convocatorias": no cambia ninguna llamada actual. */
+  mode?: "followed";
+  items: readonly UserSelectionProcessListItem[];
+  mapPoints?: never;
   selectedStatuses?: readonly PersonalSelectionProcessStatus[];
 };
-export async function FollowedMunicipalitiesMap({
-  items,
-  selectedMunicipality = null,
-  selectedProvince = null,
-  selectedStatuses = [],
-}: Props) {
-  const { markers, missingMunicipalities } = groupMunicipalities(items);
+
+type ForMeProps = SharedProps & {
+  mode: "for-me";
+  mapPoints: readonly SelectionProcessMunicipalityMapPoint[];
+  items?: never;
+  selectedStatuses?: never;
+};
+
+type Props = FollowedProps | ForMeProps;
+
+export async function FollowedMunicipalitiesMap(props: Props) {
+  const selectedMunicipality = props.selectedMunicipality ?? null;
+  const selectedProvince = props.selectedProvince ?? null;
+  const isForMe = props.mode === "for-me";
+  const selectedStatuses = isForMe ? [] : (props.selectedStatuses ?? []);
+  const basePath = isForMe ? "/para-mi" : "/mis-convocatorias";
+  const mapTitle = isForMe
+    ? "Mapa de convocatorias para mí"
+    : "Mapa de mis convocatorias";
+  const mapDescription = isForMe
+    ? "Municipios con convocatorias que coinciden con tu perfil."
+    : "Municipios donde sigues convocatorias.";
+  const { markers, missingMunicipalities } = isForMe
+    ? markersFromMapPoints(props.mapPoints)
+    : groupMunicipalities(props.items);
   let boundary: Coordinate[][];
   try {
     boundary = await getAdministrativeBoundaries(CATALONIA_BOUNDARY_URL);
@@ -61,7 +87,7 @@ export async function FollowedMunicipalitiesMap({
     return (
       <section className="rounded-xl border border-[#E3E7EE] bg-white p-5 shadow-sm">
         <h2 className="text-[17px] font-semibold text-[#131A2C]">
-          Mapa de mis convocatorias
+          {mapTitle}
         </h2>
         <p className="mt-3 text-sm text-[#69738A]">
           No se ha podido cargar el mapa de Catalunya. Las convocatorias
@@ -82,21 +108,38 @@ export async function FollowedMunicipalitiesMap({
   const projection = createProjection(boundary);
   const boundaryPath = buildPolygonPath(boundary, projection);
   const comarcaPath = buildPolygonPath(comarcaBoundaries, projection);
+
+  // El municipio seleccionado ya llega mediante la URL de ambas pantallas.
+  // Centramos el zoom en su marcador, sin modificar los filtros existentes.
+  // Si no tiene coordenadas validas, mantenemos la vista completa.
+  const selectedMarker = selectedMunicipality
+    ? markers.find((marker) =>
+        normalizeLocation(marker.municipality) ===
+          normalizeLocation(selectedMunicipality) &&
+        (selectedProvince === null ||
+          normalizeLocation(marker.province) ===
+            normalizeLocation(selectedProvince)),
+      )
+    : null;
+  const focusPoint = selectedMarker
+    ? projection.project(selectedMarker.longitude, selectedMarker.latitude)
+    : null;
+
   return (
     <section
-      aria-label="Mapa de mis convocatorias"
+      aria-label={mapTitle}
       className="overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm"
     >
       <div className="border-b border-[#EEF1F5] px-5 py-4">
         <h2 className="text-[17px] font-semibold text-[#131A2C]">
-          Mapa de mis convocatorias
+          {mapTitle}
         </h2>
         <p className="mt-1 text-sm text-[#69738A]">
-          Municipios donde sigues convocatorias.
+          {mapDescription}
         </p>
       </div>
       <div className="p-4">
-        <FollowedMunicipalitiesMapZoom>
+        <FollowedMunicipalitiesMapZoom focusPoint={focusPoint}>
           <svg
             viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
             role="group"
@@ -147,14 +190,15 @@ export async function FollowedMunicipalitiesMap({
                 (selectedProvince === null ||
                   normalizeLocation(selectedProvince) ===
                     normalizeLocation(marker.province));
-              // Al activar o quitar el filtro territorial, se conservan
-              // los estados personales seleccionados en la URL.
+              // "Mis convocatorias" conserva los estados personales.
+              // "Para mi" filtra en /para-mi y vuelve a la pagina 1.
               const href = isSelected
-                ? buildMunicipalityHref(null, null, selectedStatuses)
+                ? buildMunicipalityHref(null, null, selectedStatuses, basePath)
                 : buildMunicipalityHref(
                     marker.municipality,
                     marker.province,
                     selectedStatuses,
+                    basePath,
                   );
               return (
                 <a
@@ -170,47 +214,80 @@ export async function FollowedMunicipalitiesMap({
                   }
                   className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4F5BD5]"
                 >
-                  {/* El navegador muestra el municipio al pasar el ratón. */}
-                  <title>{marker.municipality}</title>
-                  {/* Zona transparente que facilita pulsar el marcador. */}
-                  <circle cx={x} cy={y} r={radius + 12} fill="transparent" />
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={radius + 6}
-                    fill="#4F5BD5"
-                    opacity={isSelected ? "0.35" : "0.15"}
-                  />
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={radius}
-                    fill={isSelected ? "#25358F" : "#4F5BD5"}
-                    stroke={isSelected ? "#15245F" : "#FFFFFF"}
-                    strokeWidth={isSelected ? "3" : "2.5"}
-                  />
-                  <text
-                    x={x}
-                    y={y + 0.5}
-                    fill="#FFFFFF"
-                    fontSize={marker.count >= 100 ? 12 : 14}
-                    fontWeight="700"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    pointerEvents="none"
+                  {/* Tooltip nativo al pasar el raton por el marcador. */}
+                  <title>
+                    {isForMe
+                      ? `${marker.municipality}: ${marker.count} ${
+                          marker.count === 1
+                            ? "convocatoria recomendada"
+                            : "convocatorias recomendadas"
+                        }`
+                      : marker.municipality}
+                  </title>
+                  {/*
+                    El zoom amplía el SVG completo. Compensamos esa escala
+                    solo en los marcadores para que su diámetro, el contador
+                    y la zona pulsable mantengan un tamaño legible.
+                    La variable la publica el controlador de zoom compartido.
+                  */}
+                  <g
+                    style={{
+                      transform: "scale(var(--map-marker-inverse-zoom, 1))",
+                      transformOrigin: `${x}px ${y}px`,
+                      transformBox: "view-box",
+                    }}
                   >
-                    {marker.count}
-                  </text>
+                    {/* Zona transparente que facilita pulsar el marcador. */}
+                    <circle cx={x} cy={y} r={radius + 12} fill="transparent" />
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r={radius + 6}
+                      fill="#4F5BD5"
+                      opacity={isSelected ? "0.35" : "0.15"}
+                    />
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r={radius}
+                      fill={isSelected ? "#25358F" : "#4F5BD5"}
+                      stroke={isSelected ? "#15245F" : "#FFFFFF"}
+                      strokeWidth={isSelected ? "3" : "2.5"}
+                    />
+                    <text
+                      x={x}
+                      y={y + 0.5}
+                      fill="#FFFFFF"
+                      fontSize={marker.count >= 100 ? 12 : 14}
+                      fontWeight="700"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      pointerEvents="none"
+                    >
+                      {marker.count}
+                    </text>
+                  </g>
                 </a>
               );
             })}
           </svg>
         </FollowedMunicipalitiesMapZoom>
         <p className="mt-3 text-xs leading-relaxed text-[#69738A]">
-          Pasa el cursor sobre un marcador para ver el municipio. Pulsa para
-          mostrar sus convocatorias. El número indica cuántas sigues allí.
-          Pulsa de nuevo el marcador seleccionado para quitar el filtro
-          territorial sin perder los filtros de estado.
+          {isForMe ? (
+            <>
+              Pasa el cursor sobre un marcador para ver el municipio y sus
+              convocatorias recomendadas. Pulsa para filtrar las tarjetas.
+              El número indica cuántas coinciden con tu perfil. Pulsa de nuevo
+              el marcador seleccionado para mostrar todos los municipios.
+            </>
+          ) : (
+            <>
+              Pasa el cursor sobre un marcador para ver el municipio. Pulsa para
+              mostrar sus convocatorias. El número indica cuántas sigues allí.
+              Pulsa de nuevo el marcador seleccionado para quitar el filtro
+              territorial sin perder los filtros de estado.
+            </>
+          )}
         </p>
         {comarcaBoundariesUnavailable && (
           <p className="mt-2 text-xs text-[#69738A]">
@@ -220,7 +297,9 @@ export async function FollowedMunicipalitiesMap({
         )}
         {markers.length === 0 && (
           <p className="mt-2 text-xs text-[#69738A]">
-            No hay coordenadas disponibles para situar tus convocatorias.
+            {isForMe
+              ? "No hay coordenadas disponibles para situar las convocatorias recomendadas."
+              : "No hay coordenadas disponibles para situar tus convocatorias."}
           </p>
         )}
         {missingMunicipalities > 0 && (
@@ -246,6 +325,40 @@ export async function FollowedMunicipalitiesMap({
     </section>
   );
 }
+/** Los puntos de "Para mi" ya llegan agrupados y contados desde PostgreSQL. */
+function markersFromMapPoints(
+  points: readonly SelectionProcessMunicipalityMapPoint[],
+): { markers: Marker[]; missingMunicipalities: number } {
+  const markers: Marker[] = [];
+  let missingMunicipalities = 0;
+
+  for (const point of points) {
+    if (!point.municipality.trim() || !Number.isFinite(point.count) || point.count <= 0) {
+      continue;
+    }
+    if (
+      !Number.isFinite(point.latitude) ||
+      !Number.isFinite(point.longitude) ||
+      point.latitude < CATALONIA_LIMITS.minLatitude ||
+      point.latitude > CATALONIA_LIMITS.maxLatitude ||
+      point.longitude < CATALONIA_LIMITS.minLongitude ||
+      point.longitude > CATALONIA_LIMITS.maxLongitude
+    ) {
+      missingMunicipalities += 1;
+      continue;
+    }
+    markers.push({
+      municipality: point.municipality,
+      province: point.province,
+      count: point.count,
+      latitude: point.latitude,
+      longitude: point.longitude,
+    });
+  }
+
+  return { markers, missingMunicipalities };
+}
+
 function groupMunicipalities(items: readonly UserSelectionProcessListItem[]): {
   markers: Marker[];
   missingMunicipalities: number;
@@ -311,6 +424,7 @@ function buildMunicipalityHref(
   municipality: string | null,
   province: string | null,
   selectedStatuses: readonly PersonalSelectionProcessStatus[],
+  basePath: "/mis-convocatorias" | "/para-mi" = "/mis-convocatorias",
 ): string {
   const params = new URLSearchParams();
 
@@ -327,7 +441,7 @@ function buildMunicipalityHref(
   }
 
   const query = params.toString();
-  return query ? `/mis-convocatorias?${query}` : "/mis-convocatorias";
+  return query ? `${basePath}?${query}` : basePath;
 }
 async function getAdministrativeBoundaries(sourceUrl: string): Promise<Coordinate[][]> {
   const url = new URL(sourceUrl);

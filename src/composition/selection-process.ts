@@ -1,4 +1,3 @@
-
 import { prisma } from "@/shared/infrastructure/database/prisma";
 
 import { SyncAllSelectionProcesses } from "@/modules/selection-process/application/sync-all-selection-processes";
@@ -135,6 +134,7 @@ export const getSelectionProcessFilterOptionsUseCase =
  * - Preferencias territoriales de SPEC-007.
  * - Preferencias profesionales de SPEC-007.
  * - Motor de búsqueda de SPEC-004.
+ * - Consulta municipal del mapa de SPEC-010.
  */
 
 export const listSelectionProcessesForMeUseCase =
@@ -142,6 +142,7 @@ export const listSelectionProcessesForMeUseCase =
     getUserTerritorialPreferencesUseCase,
     getUserProfessionalPreferencesUseCase,
     listActiveSelectionProcessesUseCase,
+    selectionProcessQueryRepository,
   );
 
 /**

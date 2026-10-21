@@ -1,6 +1,7 @@
-
 import { ListActiveSelectionProcesses } from "./list-active-selection-processes";
 
+import type { SelectionProcessMunicipalityMapPoint } from "./selection-process-municipality-map-point";
+import type { SelectionProcessMunicipalityMapQueryRepository } from "./selection-process-query-repository";
 import type { SelectionProcessPage } from "./selection-process-page";
 import type { SelectionProcessSearchFilters } from "./selection-process-search-filters";
 
@@ -42,24 +43,33 @@ export type ListSelectionProcessesForMeInput = {
   page?: number;
 
   /**
-   * SPEC-009 — Dashboard.
-   *
-   * Permite solicitar un número diferente
-   * de resultados por página.
-   *
+   * SPEC-009 - Dashboard.
+   * Permite solicitar un numero diferente de resultados por pagina.
    * SPEC-008 mantiene 10 por defecto.
    */
   pageSize?: number;
 
   /**
-   * SPEC-009 — Dashboard.
-   *
-   * Cuando es true, excluye las convocatorias
-   * que el usuario ya está siguiendo.
-   *
+   * SPEC-009 - Dashboard.
+   * Cuando es true, excluye las convocatorias que el usuario ya sigue.
    * SPEC-008 mantiene false por defecto.
    */
   excludeFollowed?: boolean;
+
+  /**
+   * SPEC-010 - Mapa de "Para mi".
+   * Filtra las tarjetas por municipio y, opcionalmente, provincia.
+   * No limita los marcadores del mapa: el usuario puede cambiar de municipio.
+   */
+  municipality?: string;
+  province?: string;
+
+  /**
+   * SPEC-010 - Mapa de "Para mi".
+   * Devuelve los municipios de TODAS las coincidencias, sin paginacion.
+   * El valor por defecto es false para mantener las llamadas existentes.
+   */
+  includeMunicipalityMapPoints?: boolean;
 };
 
 export type ListSelectionProcessesForMeResult =
@@ -69,6 +79,8 @@ export type ListSelectionProcessesForMeResult =
   | {
       kind: "results";
       page: SelectionProcessPage;
+      /** Solo se incluye cuando se solicita expresamente. */
+      municipalityMapPoints?: SelectionProcessMunicipalityMapPoint[];
     };
 
 export class ListSelectionProcessesForMe {
@@ -81,6 +93,14 @@ export class ListSelectionProcessesForMe {
 
     private readonly listActiveSelectionProcesses:
       ListActiveSelectionProcesses,
+
+    /**
+     * Dependencia opcional temporalmente para no romper las llamadas y
+     * pruebas anteriores. Se conectara en el Composition Root en el paso
+     * siguiente, antes de que "Para mi" solicite los puntos del mapa.
+     */
+    private readonly municipalityMapQueryRepository?:
+      SelectionProcessMunicipalityMapQueryRepository,
   ) {}
 
   async execute(
@@ -117,12 +137,8 @@ export class ListSelectionProcessesForMe {
       territorialPreferences,
       professionalPreferences,
     ] = await Promise.all([
-      this.territorialPreferencesReader.execute({
-        userId,
-      }),
-      this.professionalPreferencesReader.execute({
-        userId,
-      }),
+      this.territorialPreferencesReader.execute({ userId }),
+      this.professionalPreferencesReader.execute({ userId }),
     ]);
 
     // Comprobar si existen preferencias configuradas.
@@ -146,8 +162,8 @@ export class ListSelectionProcessesForMe {
       };
     }
 
-    // Filtros comunes de «Para mí».
-    const filters: SelectionProcessSearchFilters = {
+    // Filtros comunes de "Para mi": mismos criterios para tarjetas y mapa.
+    const baseFilters: SelectionProcessSearchFilters = {
       statusId: [2, 3],
       sort: "deadline-priority",
     };
@@ -157,13 +173,10 @@ export class ListSelectionProcessesForMe {
       territorialPreferences?.scope ===
       "SELECTED_TERRITORIES"
     ) {
-      filters.territorialIds = {
-        provinceIds:
-          territorialPreferences.provinceIds,
-        countyIds:
-          territorialPreferences.countyIds,
-        municipalityIds:
-          territorialPreferences.municipalityIds,
+      baseFilters.territorialIds = {
+        provinceIds: territorialPreferences.provinceIds,
+        countyIds: territorialPreferences.countyIds,
+        municipalityIds: territorialPreferences.municipalityIds,
       };
     }
 
@@ -173,53 +186,70 @@ export class ListSelectionProcessesForMe {
         professionalPreferences.selectionProcessType;
 
       if (processType === "POSITIONS") {
-        filters.isJobPool = false;
+        baseFilters.isJobPool = false;
       } else if (processType === "JOB_POOLS") {
-        filters.isJobPool = true;
+        baseFilters.isJobPool = true;
       }
 
-      // BOTH o null: sin restricción por tipo.
-
-      if (
-        professionalPreferences.subjectAreaIds.length > 0
-      ) {
-        filters.subjectAreaIds =
+      // BOTH o null: sin restriccion por tipo.
+      if (professionalPreferences.subjectAreaIds.length > 0) {
+        baseFilters.subjectAreaIds =
           professionalPreferences.subjectAreaIds;
       }
 
-      if (
-        professionalPreferences.qualificationGroups.length > 0
-      ) {
-        filters.qualificationGroup =
+      if (professionalPreferences.qualificationGroups.length > 0) {
+        baseFilters.qualificationGroup =
           professionalPreferences.qualificationGroups;
       }
     }
 
-    /**
-     * SPEC-009 — Dashboard.
-     *
-     * Aplicar la exclusión de convocatorias seguidas
-     * únicamente cuando se solicite expresamente.
-     *
-     * El repositorio Prisma aplica esta condición
-     * antes de contar y paginar los resultados.
-     *
-     * El identificador procede del usuario para
-     * el que se están consultando las preferencias.
-     */
+    // SPEC-009: exclusion voluntaria, aplicada antes de contar y paginar.
     if (input.excludeFollowed === true) {
-      filters.excludeFollowedByUserId = userId;
+      baseFilters.excludeFollowedByUserId = userId;
     }
 
-    // Buscar las convocatorias coincidentes.
-    let results =
-      await this.listActiveSelectionProcesses.execute({
+    // SPEC-010: solo las tarjetas usan el filtro del municipio seleccionado.
+    // El mapa recibe baseFilters sin este filtro y mantiene todos los puntos.
+    const filters: SelectionProcessSearchFilters = { ...baseFilters };
+    const selectedMunicipality = input.municipality?.trim();
+    if (selectedMunicipality) {
+      filters.municipality = selectedMunicipality;
+      const selectedProvince = input.province?.trim();
+      if (selectedProvince) {
+        filters.province = selectedProvince;
+      }
+    }
+
+    // La consulta del mapa solo se activa cuando "Para mi" la solicita.
+    // Asi no cambia el comportamiento de SPEC-008, SPEC-009 ni sus tests.
+    let mapPointsPromise: Promise<SelectionProcessMunicipalityMapPoint[]> | null =
+      null;
+    if (input.includeMunicipalityMapPoints === true) {
+      if (!this.municipalityMapQueryRepository) {
+        throw new Error(
+          "municipalityMapQueryRepository is required to load map points",
+        );
+      }
+      mapPointsPromise =
+        this.municipalityMapQueryRepository.listMunicipalityMapPoints(
+          baseFilters,
+        );
+    }
+
+    // Consultar simultaneamente tarjetas paginadas y puntos de todos los
+    // municipios. No descargamos todos los procesos para dibujar el mapa.
+    const [initialResults, municipalityMapPoints] = await Promise.all([
+      this.listActiveSelectionProcesses.execute({
         page,
         pageSize,
         filters,
-      });
+      }),
+      mapPointsPromise ?? Promise.resolve(null),
+    ]);
 
-    // Ajustar una página superior a la última disponible.
+    let results = initialResults;
+
+    // Ajustar una pagina superior a la ultima disponible.
     if (
       results.totalPages > 0 &&
       page > results.totalPages
@@ -230,6 +260,16 @@ export class ListSelectionProcessesForMe {
           pageSize,
           filters,
         });
+    }
+
+    // No incluir la nueva propiedad en los resultados de las llamadas
+    // existentes: sus contratos y pruebas mantienen el mismo resultado.
+    if (municipalityMapPoints !== null) {
+      return {
+        kind: "results",
+        page: results,
+        municipalityMapPoints,
+      };
     }
 
     return {
