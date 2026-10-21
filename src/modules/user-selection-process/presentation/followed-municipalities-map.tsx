@@ -1,6 +1,8 @@
 import type { SelectionProcessMunicipalityMapPoint } from "../../selection-process/application/selection-process-municipality-map-point";
 import type { UserSelectionProcessListItem } from "../application/user-selection-process-list-item";
 import type { PersonalSelectionProcessStatus } from "../domain/personal-selection-process-status";
+import { IcgcMunicipalitiesMap } from "./icgc-municipalities-map";
+import type { IcgcMunicipalityMarker } from "./icgc-municipalities-map";
 import { FollowedMunicipalitiesMapZoom } from "./followed-municipalities-map-zoom";
 
 /**
@@ -9,6 +11,13 @@ import { FollowedMunicipalitiesMapZoom } from "./followed-municipalities-map-zoo
  * En "Para mi" recibe los municipios agregados por PostgreSQL.
  * Contorno y comarcas: cartografia oficial del ICGC, cache de 30 dias.
  */
+/**
+ * Activacion provisional del mapa ICGC en ambas pantallas.
+ * El SVG previo permanece abajo para comparar y poder revertir cambiando
+ * este valor a false, sin modificar las paginas ni las reglas de negocio.
+ */
+const USE_ICGC_MAP = true;
+
 const CATALONIA_BOUNDARY_URL =
   "https://maps.icgc.cat/vector01/rest/services/divisions_administratives_wms/MapServer/23/query";
 
@@ -80,6 +89,94 @@ export async function FollowedMunicipalitiesMap(props: Props) {
   const { markers, missingMunicipalities } = isForMe
     ? markersFromMapPoints(props.mapPoints)
     : groupMunicipalities(props.items);
+  if (USE_ICGC_MAP) {
+    // Mantenemos exactamente los mismos municipios, contadores y enlaces
+    // de filtrado que utilizaba el SVG. Solo cambia el motor visual.
+    // En "Para mi", el enlace omite page para empezar en la pagina 1.
+    // En "Mis convocatorias" conserva los estados personales activos.
+    const mapMarkers: IcgcMunicipalityMarker[] = markers.map((marker) => {
+      const selected =
+        selectedMunicipality !== null &&
+        normalizeLocation(selectedMunicipality) ===
+          normalizeLocation(marker.municipality) &&
+        (selectedProvince === null ||
+          normalizeLocation(selectedProvince) ===
+            normalizeLocation(marker.province));
+
+      return {
+        municipality: marker.municipality,
+        province: marker.province,
+        latitude: marker.latitude,
+        longitude: marker.longitude,
+        count: marker.count,
+        selected,
+        href: selected
+          ? buildMunicipalityHref(null, null, selectedStatuses, basePath)
+          : buildMunicipalityHref(
+              marker.municipality,
+              marker.province,
+              selectedStatuses,
+              basePath,
+            ),
+      };
+    });
+
+    return (
+      <section
+        aria-label={mapTitle}
+        className="overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm"
+      >
+        <div className="border-b border-[#EEF1F5] px-5 py-4">
+          <h2 className="text-[17px] font-semibold text-[#131A2C]">
+            {mapTitle}
+          </h2>
+          <p className="mt-1 text-sm text-[#69738A]">
+            {mapDescription}
+          </p>
+        </div>
+        <div className="p-4">
+          <IcgcMunicipalitiesMap
+            markers={mapMarkers}
+            mode={isForMe ? "for-me" : "followed"}
+            height={410}
+          />
+          <p className="mt-3 text-xs leading-relaxed text-[#69738A]">
+            {isForMe ? (
+              <>
+                Pasa el cursor sobre un marcador para ver el municipio y sus
+                convocatorias recomendadas. Pulsa para filtrar las tarjetas.
+                El número indica cuántas coinciden con tu perfil. Pulsa de
+                nuevo el marcador seleccionado para mostrar todos los municipios.
+              </>
+            ) : (
+              <>
+                Pasa el cursor sobre un marcador para ver el municipio. Pulsa
+                para mostrar sus convocatorias. El número indica cuántas sigues
+                allí. Pulsa de nuevo el marcador seleccionado para quitar el
+                filtro territorial sin perder los filtros de estado.
+              </>
+            )}
+          </p>
+          {markers.length === 0 && (
+            <p className="mt-2 text-xs text-[#69738A]">
+              {isForMe
+                ? "No hay coordenadas disponibles para situar las convocatorias recomendadas."
+                : "No hay coordenadas disponibles para situar tus convocatorias."}
+            </p>
+          )}
+          {missingMunicipalities > 0 && (
+            <p className="mt-2 text-xs text-[#69738A]">
+              {missingMunicipalities === 1
+                ? "Hay 1 municipio que no se puede situar por falta de coordenadas."
+                : `Hay ${missingMunicipalities} municipios que no se pueden situar por falta de coordenadas.`}
+            </p>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // Modo clasico: cartografia SVG conservada temporalmente como respaldo.
   let boundary: Coordinate[][];
   try {
     boundary = await getAdministrativeBoundaries(CATALONIA_BOUNDARY_URL);
