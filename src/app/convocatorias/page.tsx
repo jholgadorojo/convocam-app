@@ -6,14 +6,30 @@ import { auth } from "@/lib/auth";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { TerritoryFilters } from "./territory-filters";
-import { getSelectionProcessFilterOptionsUseCase, listActiveSelectionProcessesUseCase, } from "@/composition/selection-process";
+import {
+  getSelectionProcessFilterOptionsUseCase,
+  listActiveSelectionProcessesUseCase,
+  listSelectionProcessMunicipalityMapPointsUseCase,
+} from "@/composition/selection-process";
 import { getApplicationPeriodPresentation, getOfficialStatusPresentation, } from "@/modules/selection-process/presentation/selection-process-status";
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
-import type { SelectionProcessApplicationPeriodFilter, SelectionProcessSort, } from "@/modules/selection-process/application/selection-process-search-filters";
+import type {
+  SelectionProcessApplicationPeriodFilter,
+  SelectionProcessSearchFilters,
+  SelectionProcessSort,
+} from "@/modules/selection-process/application/selection-process-search-filters";
+import {
+  SelectionProcessResultsViewToggle,
+  type SelectionProcessResultsView,
+} from "@/modules/selection-process/presentation/selection-process-results-view-toggle";
+import { IcgcMunicipalitiesMap } from "@/modules/user-selection-process/presentation/icgc-municipalities-map";
+
 const FILTER_FORM_ID = "convocatorias-filter-form";
+
 type SearchParams = {
     q?: string;
     page?: string;
+    view?: string;
     sort?: string;
     qualificationGroup?: string | string[];
     isJobPool?: string | string[];
@@ -34,9 +50,11 @@ type SearchParams = {
     reservedYoung?: string;
     reservedWomen?: string;
 };
+
 type ConvocatoriasPageProps = {
     searchParams: Promise<SearchParams>;
 };
+
 type CurrentFilterState = {
     sort: SelectionProcessSort;
     qualificationGroups: string[];
@@ -57,6 +75,7 @@ type CurrentFilterState = {
     reservedYoung: boolean;
     reservedWomen: boolean;
 };
+
 export default async function ConvocatoriasPage({ searchParams, }: ConvocatoriasPageProps) {
     const session = await auth.api.getSession({
         headers: await headers(),
@@ -64,51 +83,42 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
     const isAuthenticated = Boolean(session?.user);
     const params = await searchParams;
     const filterOptions = await getSelectionProcessFilterOptionsUseCase.execute();
-    /**
-    
-     * ==========================================================
-    
-     * BÚSQUEDA
-    
-     * ==========================================================
-    
-     */
+
+/**
+ * ==========================================================
+ * BÚSQUEDA
+ * ==========================================================
+ */
     const query = params.q?.trim() ?? "";
+    // El listado sigue siendo la vista predeterminada.
+    const activeView: SelectionProcessResultsView =
+        params.view === "map" ? "map" : "list";
     const requestedSort = parseSelectionProcessSort(params.sort);
     const sort = resolveSelectionProcessSort(requestedSort, Boolean(query));
-    /**
-    
-     * ==========================================================
-    
-     * PAGINACIÓN
-    
-     * ==========================================================
-    
-     */
+
+/**
+ * ==========================================================
+ * PAGINACIÓN
+ * ==========================================================
+ */
     const page = parsePositiveInteger(params.page) ?? 1;
-    /**
-    
-     * ==========================================================
-    
-     * GRUPO DE TITULACIÓN
-    
-     * ==========================================================
-    
-     */
+
+/**
+ * ==========================================================
+ * GRUPO DE TITULACIÓN
+ * ==========================================================
+ */
     const selectedQualificationGroups = [
         ...new Set(normalizeArray(params.qualificationGroup)
             .map((value) => value.trim())
             .filter(Boolean)),
     ];
-    /**
-    
-     * ==========================================================
-    
-     * PLAZA / BOLSA
-    
-     * ==========================================================
-    
-     */
+
+/**
+ * ==========================================================
+ * PLAZA / BOLSA
+ * ==========================================================
+ */
     const jobPoolValues = [
         ...new Set(normalizeArray(params.isJobPool).filter((value) => value === "true" ||
             value === "false")),
@@ -119,15 +129,12 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
         hasJobPools
         ? undefined
         : hasJobPools;
-    /**
-    
-     * ==========================================================
-    
-     * ESTADO
-    
-     * ==========================================================
-    
-     */
+
+/**
+ * ==========================================================
+ * ESTADO
+ * ==========================================================
+ */
     const rawStatusIds = [
         ...new Set(normalizeArray(params.statusId)
             .map((value) => parsePositiveInteger(value))
@@ -151,55 +158,43 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
         ? rawStatusIds
         : defaultStatusIds;
     const applicationPeriod = parseSelectionProcessApplicationPeriod(params.applicationPeriod);
-    /**
-    
-     * ==========================================================
-    
-     * TERRITORIO
-    
-     * ==========================================================
-    
-     */
+
+/**
+ * ==========================================================
+ * TERRITORIO
+ * ==========================================================
+ */
     const province = cleanString(params.province);
     const county = cleanString(params.county);
     const municipality = cleanString(params.municipality);
     const radiusKm = municipality
         ? parseRadiusKm(params.radiusKm)
         : undefined;
-    /**
-    
-     * ==========================================================
-    
-     * OTROS FILTROS
-    
-     * ==========================================================
-    
-     */
+
+/**
+ * ==========================================================
+ * OTROS FILTROS
+ * ==========================================================
+ */
     const scopeId = parsePositiveInteger(params.scopeId);
     const selectionSystemId = parsePositiveInteger(params.selectionSystemId);
     const personnelTypeId = parsePositiveInteger(params.personnelTypeId);
-    /**
-    
-     * ==========================================================
-    
-     * FECHAS
-    
-     * ==========================================================
-    
-     */
+
+/**
+ * ==========================================================
+ * FECHAS
+ * ==========================================================
+ */
     const applicationEndDateFromValue = cleanString(params.applicationEndDateFrom);
     const applicationEndDateToValue = cleanString(params.applicationEndDateTo);
     const applicationEndDateFrom = parseDate(applicationEndDateFromValue);
     const applicationEndDateTo = parseDate(applicationEndDateToValue);
-    /**
-    
-     * ==========================================================
-    
-     * RESERVAS
-    
-     * ==========================================================
-    
-     */
+
+/**
+ * ==========================================================
+ * RESERVAS
+ * ==========================================================
+ */
     const reservedDisability = params.reservedDisability ===
         "true";
     const reservedUnemployed = params.reservedUnemployed ===
@@ -228,21 +223,19 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
         reservedYoung,
         reservedWomen,
     };
-    const resultsUrl = buildPageHref(page, query, currentFilters);
+    const resultsUrl = buildPageHref(page, query, currentFilters, activeView);
+    const listHref = buildPageHref(page, query, currentFilters, "list");
+    const mapHref = buildPageHref(page, query, currentFilters, "map");
     const filterFormKey = buildFilterFormKey(query, page, currentFilters);
-    /**
-    
-     * ==========================================================
-    
-     * POSTGRESQL
-    
-     * ==========================================================
-    
-     */
-    const result = await listActiveSelectionProcessesUseCase.execute({
-        page,
-        pageSize: 20,
-        filters: {
+
+/**
+ * ==========================================================
+ * POSTGRESQL
+ * ==========================================================
+ */
+    // Un mismo objeto de filtros para el listado y los municipios del mapa.
+    // Asi ambos muestran las mismas coincidencias, con o sin paginacion.
+    const searchFilters: SelectionProcessSearchFilters = {
             sort,
             text: query ||
                 undefined,
@@ -277,8 +270,53 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
             reservedWomen: reservedWomen
                 ? true
                 : undefined,
-        },
+    };
+
+    const result = await listActiveSelectionProcessesUseCase.execute({
+        page,
+        pageSize: 20,
+        filters: searchFilters,
     });
+
+    // La consulta municipal es independiente de la paginacion (20 tarjetas).
+    // No se realiza al navegar por el listado para evitar trabajo adicional.
+    const municipalityMapPoints = activeView === "map"
+        ? await listSelectionProcessMunicipalityMapPointsUseCase.execute(searchFilters)
+        : [];
+
+    const mappedCount = municipalityMapPoints.reduce(
+        (total, point) => total + point.count,
+        0,
+    );
+
+    const mapMarkers = municipalityMapPoints.map((point) => ({
+        municipality: point.municipality,
+        province: point.province,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        count: point.count,
+        selected: Boolean(
+            municipality &&
+            point.municipality.toLocaleLowerCase("ca-ES") === municipality.toLocaleLowerCase("ca-ES") &&
+            (!province || point.province.toLocaleLowerCase("ca-ES") === province.toLocaleLowerCase("ca-ES")),
+        ),
+        // Un marcador abre el listado filtrado por municipio. Se conserva el
+        // resto de filtros, pero se limpia la comarca/radio para evitar que
+        // el municipio elegido quede excluido por el filtro territorial anterior.
+        href: buildPageHref(
+            1,
+            query,
+            {
+                ...currentFilters,
+                province: point.province || undefined,
+                county: undefined,
+                municipality: point.municipality,
+                radiusKm: undefined,
+            },
+            "list",
+        ),
+    }));
+
     return (<div className="flex min-h-screen bg-[#F4F6F9]">
 
       <AppSidebar isAuthenticated={isAuthenticated} activeItem="convocatorias"/>
@@ -360,7 +398,7 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
 
                   </h2>
 
-                  <Link href="/convocatorias" className="text-[13.5px] font-semibold text-[#3B45B5] hover:text-[#2E3794]">
+                  <Link href={activeView === "map" ? "/convocatorias?view=map" : "/convocatorias"} className="text-[13.5px] font-semibold text-[#3B45B5] hover:text-[#2E3794]">
 
                     Limpiar
 
@@ -369,6 +407,14 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
                 </div>
 
                 <form key={filterFormKey} id={FILTER_FORM_ID} action="/convocatorias">
+                  {/* El formulario mantiene la vista al buscar o aplicar filtros. */}
+                  {activeView === "map" && (
+                    <>
+                      <input type="hidden" name="view" value="map" />
+                      {/* En el mapa no se muestra el selector de ordenacion. */}
+                      <input type="hidden" name="sort" value={sort} />
+                    </>
+                  )}
 
                   {/* Tipo */}
 
@@ -628,7 +674,13 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
                   </div>
 
                   <div className="flex flex-wrap items-end gap-2">
-
+                  <SelectionProcessResultsViewToggle
+                    activeView={activeView}
+                    listHref={listHref}
+                    mapHref={mapHref}
+                  />
+                  {activeView === "list" && (
+                  <div className="flex flex-wrap items-end gap-2">
                     <label className="flex min-w-[230px] flex-col gap-1.5 text-sm text-[#131A2C]">
 
                       <span className="text-xs font-medium text-[#69738A]">
@@ -678,12 +730,51 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
                       Ordenar
 
                     </button>
-
+                  </div>
+                  )}
                   </div>
 
                 </div>
 
-                {result.items.length ===
+              {activeView === "map" && (
+                <div className="rounded-xl border border-[#E3E7EE] bg-white p-4 shadow-sm">
+                  {mapMarkers.length > 0 ? (
+                    <>
+                      <p className="mb-3 text-sm text-[#4E5870]">
+                        Selecciona un municipio para ver sus convocatorias en el listado.
+                        Puedes ampliar el mapa y acercarte a los marcadores agrupados.
+                      </p>
+                      <IcgcMunicipalitiesMap
+                        markers={mapMarkers}
+                        mode="search"
+                        height={580}
+                      />
+                      {mappedCount < result.totalItems && (
+                        <p className="mt-3 text-xs leading-relaxed text-[#69738A]">
+                          {result.totalItems - mappedCount} convocatorias coincidentes no tienen
+                          ubicación municipal representable en el mapa; siguen disponibles en el listado.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-center">
+                      <MapPin size={28} className="text-[#7C859B]" aria-hidden="true" />
+                      <p className="text-base font-semibold text-[#131A2C]">
+                        {result.totalItems === 0
+                          ? "No se han encontrado convocatorias"
+                          : "No hay municipios con coordenadas disponibles"}
+                      </p>
+                      <p className="max-w-lg text-sm text-[#69738A]">
+                        {result.totalItems === 0
+                          ? "Prueba con otros criterios de búsqueda."
+                          : "Las convocatorias encontradas siguen disponibles en el listado."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+                {activeView === "list" && (result.items.length ===
             0 ? (<div className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
 
                     <Search size={30} className="mx-auto text-[#7C859B]"/>
@@ -899,11 +990,11 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
                           </div>
 
                         </article>);
-        }))}
+        })))}
 
-                {/* Paginación */}
+                {/* Paginación: exclusivamente para la vista listado. */}
 
-                {result.totalPages >
+                {activeView === "list" && result.totalPages >
             1 && (<div className="flex items-center justify-between rounded-xl border border-[#E3E7EE] bg-white px-5 py-4 shadow-sm">
 
                     <div className="text-sm text-[#4E5870]">
@@ -968,6 +1059,7 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
 
     </div>);
 }
+
 /**
 
  * ============================================================
@@ -977,10 +1069,12 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
  * ============================================================
 
  */
+
 type ResultInfoItemProps = {
     label: string;
     value: string;
 };
+
 function ResultInfoItem({ label, value, }: ResultInfoItemProps) {
     return (<div className="min-w-0 border-b border-r border-[#E7EAF0] px-4 py-3">
 
@@ -998,6 +1092,7 @@ function ResultInfoItem({ label, value, }: ResultInfoItemProps) {
 
     </div>);
 }
+
 function ReservationBadge({ children, }: {
     children: ReactNode;
 }) {
@@ -1007,6 +1102,7 @@ function ReservationBadge({ children, }: {
 
     </span>);
 }
+
 function hasReservedPlaces(reservedPlaces: {
     disability: number | null;
     unemployed: boolean;
@@ -1019,6 +1115,7 @@ function hasReservedPlaces(reservedPlaces: {
         reservedPlaces.youngPeople ||
         reservedPlaces.women);
 }
+
 function formatNumberOfPositions(numberOfPositions: number | null, isJobPool: boolean): string {
     if (isJobPool) {
         return "—";
@@ -1029,6 +1126,7 @@ function formatNumberOfPositions(numberOfPositions: number | null, isJobPool: bo
     }
     return String(numberOfPositions);
 }
+
 function buildApplicationPeriodBadgeText(period: ReturnType<typeof getApplicationPeriodPresentation>): string {
     if (period.state ===
         "open") {
@@ -1044,6 +1142,7 @@ function buildApplicationPeriodBadgeText(period: ReturnType<typeof getApplicatio
     }
     return period.label;
 }
+
 /**
 
  * ============================================================
@@ -1053,6 +1152,7 @@ function buildApplicationPeriodBadgeText(period: ReturnType<typeof getApplicatio
  * ============================================================
 
  */
+
 function normalizeArray(value: string | string[] | undefined): string[] {
     if (value === undefined) {
         return [];
@@ -1061,12 +1161,14 @@ function normalizeArray(value: string | string[] | undefined): string[] {
         ? value
         : [value];
 }
+
 function cleanString(value: string | undefined): string | undefined {
     const cleaned = value?.trim();
     return cleaned
         ? cleaned
         : undefined;
 }
+
 function parsePositiveInteger(value: string | undefined): number | undefined {
     if (!value) {
         return undefined;
@@ -1078,6 +1180,7 @@ function parsePositiveInteger(value: string | undefined): number | undefined {
     }
     return number;
 }
+
 function parseRadiusKm(value: string | undefined): number | undefined {
     if (!value) {
         return undefined;
@@ -1094,6 +1197,7 @@ function parseRadiusKm(value: string | undefined): number | undefined {
         ? radius
         : undefined;
 }
+
 function parseSelectionProcessApplicationPeriod(value: string | undefined): SelectionProcessApplicationPeriodFilter | undefined {
     if (value === "open" ||
         value === "future" ||
@@ -1103,6 +1207,7 @@ function parseSelectionProcessApplicationPeriod(value: string | undefined): Sele
     }
     return undefined;
 }
+
 function parseSelectionProcessSort(value: string | undefined): SelectionProcessSort | undefined {
     const allowedSortValues: SelectionProcessSort[] = [
         "relevance",
@@ -1115,6 +1220,7 @@ function parseSelectionProcessSort(value: string | undefined): SelectionProcessS
         ? (value as SelectionProcessSort)
         : undefined;
 }
+
 function resolveSelectionProcessSort(sort: SelectionProcessSort | undefined, hasTextSearch: boolean): SelectionProcessSort {
     if (sort === undefined) {
         return hasTextSearch
@@ -1127,6 +1233,7 @@ function resolveSelectionProcessSort(sort: SelectionProcessSort | undefined, has
     }
     return sort;
 }
+
 function parseDate(value: string | undefined): Date | undefined {
     if (!value) {
         return undefined;
@@ -1136,6 +1243,7 @@ function parseDate(value: string | undefined): Date | undefined {
         ? undefined
         : date;
 }
+
 /**
 
  * ============================================================
@@ -1145,8 +1253,17 @@ function parseDate(value: string | undefined): Date | undefined {
  * ============================================================
 
  */
-function buildPageHref(page: number, query: string, filters: CurrentFilterState): string {
+
+function buildPageHref(
+    page: number,
+    query: string,
+    filters: CurrentFilterState,
+    view: SelectionProcessResultsView = "list",
+): string {
     const params = new URLSearchParams();
+    if (view === "map") {
+        params.set("view", "map");
+    }
     if (query) {
         params.set("q", query);
     }
@@ -1154,6 +1271,7 @@ function buildPageHref(page: number, query: string, filters: CurrentFilterState)
     params.set("page", String(page));
     return `/convocatorias?${params.toString()}`;
 }
+
 function buildFilterFormKey(query: string, page: number, filters: CurrentFilterState): string {
     return JSON.stringify({
         query,
@@ -1178,6 +1296,7 @@ function buildFilterFormKey(query: string, page: number, filters: CurrentFilterS
         reservedWomen: filters.reservedWomen,
     });
 }
+
 function appendFiltersToParams(params: URLSearchParams, filters: CurrentFilterState) {
     params.set("sort", filters.sort);
     filters.qualificationGroups.forEach((group) => {
@@ -1237,6 +1356,7 @@ function appendFiltersToParams(params: URLSearchParams, filters: CurrentFilterSt
         params.set("reservedWomen", "true");
     }
 }
+
 /**
 
  * ============================================================
@@ -1246,6 +1366,7 @@ function appendFiltersToParams(params: URLSearchParams, filters: CurrentFilterSt
  * ============================================================
 
  */
+
 function formatDate(date: Date): string {
     return new Intl.DateTimeFormat("es-ES", {
         day: "2-digit",
@@ -1254,6 +1375,7 @@ function formatDate(date: Date): string {
         timeZone: "UTC",
     }).format(date);
 }
+
 function formatLocation(municipality: string | null | undefined, county: string | null | undefined, province: string | null | undefined): string {
     const values = [
         municipality,
@@ -1267,6 +1389,7 @@ function formatLocation(municipality: string | null | undefined, county: string 
         ? values.join(" · ")
         : "Ubicación no disponible";
 }
+
 /**
 
  * ============================================================
@@ -1276,10 +1399,12 @@ function formatLocation(municipality: string | null | undefined, county: string 
  * ============================================================
 
  */
+
 type FilterSectionProps = {
     title: string;
     children: ReactNode;
 };
+
 function FilterSection({ title, children, }: FilterSectionProps) {
     return (<fieldset className="border-b border-[#EEF1F5] px-5 py-4">
 
@@ -1297,12 +1422,14 @@ function FilterSection({ title, children, }: FilterSectionProps) {
 
     </fieldset>);
 }
+
 type FilterCheckLabelProps = {
     name: string;
     value: string;
     label: string;
     checked: boolean;
 };
+
 function FilterCheckLabel({ name, value, label, checked, }: FilterCheckLabelProps) {
     return (<label className="flex min-h-[30px] cursor-pointer items-start gap-2.5 text-sm text-[#131A2C]">
 
@@ -1316,16 +1443,19 @@ function FilterCheckLabel({ name, value, label, checked, }: FilterCheckLabelProp
 
     </label>);
 }
+
 type FilterSelectOption = {
     value: string;
     label: string;
 };
+
 type FilterSelectProps = {
     name: string;
     defaultValue: string;
     emptyLabel: string;
     options: FilterSelectOption[];
 };
+
 function FilterSelect({ name, defaultValue, emptyLabel, options, }: FilterSelectProps) {
     return (<select name={name} defaultValue={defaultValue} className="h-10 w-full rounded-lg border border-[#D5DAE3] bg-white px-3 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5]">
 

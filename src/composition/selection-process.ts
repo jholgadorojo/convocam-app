@@ -18,6 +18,7 @@ import { ReconcileMissingSelectionProcesses } from "@/modules/selection-process/
 import { RunSelectionProcessSync } from "@/modules/selection-process/application/run-selection-process-sync";
 
 import { ListActiveSelectionProcesses } from "@/modules/selection-process/application/list-active-selection-processes";
+import { ListSelectionProcessMunicipalityMapPoints } from "@/modules/selection-process/application/list-selection-process-municipality-map-points";
 import { ListSelectionProcessesForMe } from "@/modules/selection-process/application/list-selection-processes-for-me";
 
 import { PrismaSelectionProcessQueryRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-query-repository";
@@ -122,6 +123,20 @@ export const listActiveSelectionProcessesUseCase =
 
 export const getSelectionProcessFilterOptionsUseCase =
   new GetSelectionProcessFilterOptions(
+    selectionProcessQueryRepository,
+  );
+
+/**
+ * ==========================================
+ * MAPA DEL BUSCADOR PUBLICO — SPEC-010.7
+ * ==========================================
+ *
+ * Consulta todos los municipios que cumplen los filtros, sin
+ * limitar los contadores a la pagina actual del listado.
+ */
+
+export const listSelectionProcessMunicipalityMapPointsUseCase =
+  new ListSelectionProcessMunicipalityMapPoints(
     selectionProcessQueryRepository,
   );
 

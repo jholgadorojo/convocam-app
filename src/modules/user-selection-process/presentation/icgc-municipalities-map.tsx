@@ -67,7 +67,7 @@ export type IcgcMunicipalityMarker = {
 
 type Props = {
   markers: readonly IcgcMunicipalityMarker[];
-  mode: "followed" | "for-me";
+  mode: "followed" | "for-me" | "search";
   /** Altura en pixeles del area cartografica. */
   height?: number;
   className?: string;
@@ -87,13 +87,21 @@ function hasValidCoordinates(marker: IcgcMunicipalityMarker): boolean {
   );
 }
 
+/**
+ * El mapa se utiliza en tres contextos distintos. El texto de los marcadores
+ * debe reflejar el contexto sin modificar el conteo ni los enlaces de filtrado.
+ */
+function markerQualifier(mode: Props["mode"]): string {
+  if (mode === "search") return "del buscador";
+  return mode === "for-me" ? "recomendadas" : "seguidas";
+}
+
 function markerDescription(
   marker: IcgcMunicipalityMarker,
   mode: Props["mode"],
 ): string {
   const noun = marker.count === 1 ? "convocatoria" : "convocatorias";
-  const qualifier = mode === "for-me" ? "recomendadas" : "seguidas";
-  return `${marker.municipality}: ${marker.count} ${noun} ${qualifier}`;
+  return `${marker.municipality}: ${marker.count} ${noun} ${markerQualifier(mode)}`;
 }
 
 type ProjectedMunicipality = {
@@ -481,7 +489,7 @@ export function IcgcMunicipalitiesMap({
           const noun = total === 1 ? "convocatoria" : "convocatorias";
           const description =
             `${grouped.length} municipios · ${total} ${noun} ` +
-            (mode === "for-me" ? "recomendadas" : "seguidas");
+            markerQualifier(mode);
 
           const button = document.createElement("button");
           button.type = "button";
