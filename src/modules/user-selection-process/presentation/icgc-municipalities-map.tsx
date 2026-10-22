@@ -214,9 +214,15 @@ function safeMarkerHref(marker: IcgcMunicipalityMarker): string {
     : "#";
 }
 
-/** Una cifra corta cabe en los circulos; el total exacto sigue en el tooltip. */
+// Formato corto solo para cifras de 5 dígitos o más, que no caben en el círculo.
+const COMPACT_COUNT_FORMAT = new Intl.NumberFormat("es", {
+  notation: "compact",
+  maximumFractionDigits: 0,
+});
+
+/** Hasta 4 cifras se muestran exactas; a partir de 10.000, en formato corto. */
 function markerCountLabel(count: number): string {
-  return count > 999 ? "999+" : String(count);
+  return count < 10_000 ? String(count) : COMPACT_COUNT_FORMAT.format(count);
 }
 
 /**
@@ -235,6 +241,47 @@ function markerSize(count: number, minimumSize: number): number {
   const scaled = MARKER_MIN_SIZE_PX + 9 * Math.log10(Math.max(1, count));
   return Math.round(
     Math.min(MARKER_MAX_SIZE_PX, Math.max(minimumSize, scaled)),
+  );
+}
+
+/** Leyenda bajo el mapa. Las muestras imitan los marcadores reales. */
+function MapLegend({
+  mode,
+  showSelected,
+}: {
+  mode: Props["mode"];
+  showSelected: boolean;
+}) {
+  return (
+    <ul
+      aria-label="Leyenda del mapa"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#69738A]"
+    >
+      <li className="flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="size-3 rounded-full border-2 border-white bg-[#4F5BD5] shadow"
+        />
+        Municipio
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="size-3.5 rounded-full border-2 border-white bg-[#3847AD] shadow-[0_0_0_3px_rgb(56_71_173/0.3)]"
+        />
+        Grupo de municipios (pulsa para acercar)
+      </li>
+      {showSelected && (
+        <li className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="size-3 rounded-full border-2 border-[#172554] bg-[#25358F]"
+          />
+          Municipio filtrado
+        </li>
+      )}
+      <li>Más tamaño = más convocatorias {markerQualifier(mode)}</li>
+    </ul>
   );
 }
 
@@ -539,12 +586,6 @@ export function IcgcMunicipalitiesMap({
           button.style.height = `${size}px`;
           button.style.fontSize = "13px";
           button.textContent = markerCountLabel(total);
-
-          const municipalityBadge = document.createElement("span");
-          municipalityBadge.textContent = `${grouped.length} mun.`;
-          municipalityBadge.setAttribute("aria-hidden", "true");
-          municipalityBadge.className = "convocam-map-group-badge";
-          button.appendChild(municipalityBadge);
 
           // Tooltip con un municipio por línea. Se limita la lista para que
           // un grupo muy grande no tape el mapa; el resto se resume al final.
@@ -880,6 +921,9 @@ export function IcgcMunicipalitiesMap({
               {loadError}
             </div>
           )}
+          <div className="shrink-0 px-4 pt-2">
+            <MapLegend mode={mode} showSelected={Boolean(selectedMarker)} />
+          </div>
           <p className="shrink-0 px-4 py-2 text-[11px] text-[#8A93A7]">
             Cartografía:{" "}
             <a
@@ -895,18 +939,21 @@ export function IcgcMunicipalitiesMap({
         </div>
       </dialog>
 
-      <p className="mt-2 text-[11px] leading-relaxed text-[#8A93A7]">
-        Cartografía: {" "}
-        <a
-          href="https://www.icgc.cat/"
-          target="_blank"
-          rel="noreferrer"
-          className="underline hover:text-[#4F5BD5]"
-        >
-          ICGC
-        </a>
-        . Ubicaciones aproximadas según el organismo convocante.
-      </p>
+      <div className="mt-2 space-y-1">
+        <MapLegend mode={mode} showSelected={Boolean(selectedMarker)} />
+        <p className="text-[11px] leading-relaxed text-[#8A93A7]">
+          Cartografía: {" "}
+          <a
+            href="https://www.icgc.cat/"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:text-[#4F5BD5]"
+          >
+            ICGC
+          </a>
+          . Ubicaciones aproximadas según el organismo convocante.
+        </p>
+      </div>
     </div>
   );
 }
