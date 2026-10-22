@@ -1,12 +1,15 @@
 # TO DO
 
-- En el dasbhoard, quiero otro apartado donde se indique el numero de mis convocatorias por estado, y si hacemos click acceder a mis convocatorias filtrado por el estado que hacemos click
-
-- En plazos, cuando se hace click en el boton Mis convocatorias, tienen que salir solo las que estan filtradas por plazos
+- En el dashboard, quiero otro apartado donde se indique el numero de mis convocatorias por estado, y si hacemos click acceder a mis convocatorias filtrado por el estado que hacemos click
 
 - En para-mi, cuando se siga una convocatoria no tiene que salir esa convocatoria en el apartado para-mi
 
-- Cuando se eliminan preferencias, tengo que preguntar si quiero eliminar convocatorias con las preferencia eliminadas.
+- En plazos, cuando se hace click en el boton Mis convocatorias, tienen que salir solo las que estan filtradas por plazos
+
+- El mas importante, un boton en las bases para analizar por IA las bases y mostrar un resumen.
+
+    Hay que analizar lo mas importante para cargarlo en la base de datos.
+
 
 # HECHO
 
@@ -31,13 +34,14 @@
 
 # FASE 2
 
-- El mas importante, un boton en las bases para analizar por IA las bases y mostrar un resumen
-
 - Guardar las busquedas frecuentes
 
 - Decirle a la IA que filtros mas podriamos hacer diferente a la competencia
 
 - Verificar con la documentacion del ajuntament que cuadre con el CIDO
+
+- Cuando se eliminan preferencias, tengo que preguntar si quiero eliminar convocatorias con las preferencia eliminadas.
+
 
 
 

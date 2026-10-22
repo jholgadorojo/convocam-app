@@ -37,12 +37,24 @@ const CATALONIA_COORDINATE_LIMITS = {
 };
 
 const SELECTED_MUNICIPALITY_ZOOM = 11.5;
+// Zoom máximo al encuadrar los resultados: si solo hay uno o dos municipios
+// cercanos, el mapa no se acerca tanto como para perder el contexto.
+const RESULTS_MAX_ZOOM = 11;
+// Margen suficiente para que los círculos grandes (56 px) no queden cortados.
+const RESULTS_PADDING_PX = 48;
 const MAP_LOAD_TIMEOUT_MS = 15000;
 // Distancia maxima entre marcadores para agruparlos en pantalla.
 // Al cambiar el zoom, la agrupacion se recalcula automaticamente.
 const MARKER_GROUP_DISTANCE_PX = 56;
 const MARKER_VISIBILITY_MARGIN_PX = 90;
 const GROUP_ZOOM_INCREMENT = 2;
+const GROUP_TOOLTIP_MAX_MUNICIPALITIES = 12;
+// Tamaño del círculo en escala logarítmica: 1 → 28 px, 10 → 37 px,
+// 100 → 46 px, 1.000 o más → 55-56 px. Así Barcelona destaca sin tapar
+// a los municipios vecinos.
+const MARKER_MIN_SIZE_PX = 28;
+const MARKER_MAX_SIZE_PX = 56;
+const GROUP_MIN_SIZE_PX = 40;
 
 /** Devuelve el motivo real de un error sin perder los mensajes de MapLibre. */
 function errorMessage(error: unknown): string {
@@ -85,6 +97,24 @@ function hasValidCoordinates(marker: IcgcMunicipalityMarker): boolean {
     marker.longitude >= CATALONIA_COORDINATE_LIMITS.minLongitude &&
     marker.longitude <= CATALONIA_COORDINATE_LIMITS.maxLongitude
   );
+}
+
+type GeoBounds = { west: number; south: number; east: number; north: number };
+
+/** Rectángulo que contiene todos los marcadores válidos, o null si no hay. */
+function markersBounds(
+  markers: readonly IcgcMunicipalityMarker[],
+): GeoBounds | null {
+  const valid = markers.filter(hasValidCoordinates);
+  if (valid.length === 0) return null;
+  const longitudes = valid.map((marker) => marker.longitude);
+  const latitudes = valid.map((marker) => marker.latitude);
+  return {
+    west: Math.min(...longitudes),
+    south: Math.min(...latitudes),
+    east: Math.max(...longitudes),
+    north: Math.max(...latitudes),
+  };
 }
 
 /**
@@ -189,6 +219,25 @@ function markerCountLabel(count: number): string {
   return count > 999 ? "999+" : String(count);
 }
 
+/**
+ * MapLibre mueve con `transform` el elemento que recibe. El círculo va
+ * dentro de este contenedor para que su `scale` al pasar el ratón no
+ * multiplique esa traslación y haga saltar el marcador.
+ */
+function markerAnchor(content: HTMLElement): HTMLDivElement {
+  const anchor = document.createElement("div");
+  anchor.className = "convocam-map-marker-anchor";
+  anchor.appendChild(content);
+  return anchor;
+}
+
+function markerSize(count: number, minimumSize: number): number {
+  const scaled = MARKER_MIN_SIZE_PX + 9 * Math.log10(Math.max(1, count));
+  return Math.round(
+    Math.min(MARKER_MAX_SIZE_PX, Math.max(minimumSize, scaled)),
+  );
+}
+
 export function IcgcMunicipalitiesMap({
   markers,
   mode,
@@ -244,7 +293,7 @@ export function IcgcMunicipalitiesMap({
         const mapElement = document.createElement("div");
         // Mantiene el ajuste que evita que el mapa quede en blanco con
         // las reglas CSS de MapLibre y Tailwind 4.
-        mapElement.className = "h-full w-full";
+        mapElement.className = "convocam-map h-full w-full";
         inlineMapSlotRef.current.appendChild(mapElement);
         mapElementRef.current = mapElement;
 
@@ -413,36 +462,21 @@ export function IcgcMunicipalitiesMap({
             const description = markerDescription(marker, mode);
             const link = document.createElement("a");
             link.href = safeMarkerHref(marker);
-            link.title = description;
             link.setAttribute("aria-label", description);
             if (marker.selected) link.setAttribute("aria-current", "true");
+            link.className = "convocam-map-marker";
+            if (marker.selected) link.dataset.selected = "true";
 
-            const size = marker.count >= 100 ? 38 : 34;
+            const size = markerSize(marker.count, MARKER_MIN_SIZE_PX);
             link.style.width = `${size}px`;
             link.style.height = `${size}px`;
-            link.style.display = "flex";
-            link.style.alignItems = "center";
-            link.style.justifyContent = "center";
-            link.style.borderRadius = "9999px";
-            link.style.border = marker.selected
-              ? "3px solid #172554"
-              : "2px solid #FFFFFF";
-            link.style.backgroundColor = marker.selected ? "#25358F" : "#4F5BD5";
-            link.style.color = "#FFFFFF";
-            link.style.fontSize = marker.count >= 100 ? "12px" : "13px";
-            link.style.fontWeight = "700";
-            link.style.textDecoration = "none";
-            link.style.boxShadow = marker.selected
-              ? "0 0 0 5px rgba(79, 91, 213, 0.20), 0 2px 8px rgba(0,0,0,0.24)"
-              : "0 2px 8px rgba(0,0,0,0.24)";
-            link.style.cursor = "pointer";
-            link.style.outlineOffset = "3px";
+            link.style.fontSize = size >= 46 ? "13px" : "12px";
             link.textContent = markerCountLabel(marker.count);
 
             const popup = new maplibregl.Popup({
               closeButton: false,
               closeOnClick: false,
-              offset: 23,
+              offset: size / 2 + 6,
             }).setText(description);
 
             link.addEventListener("mouseenter", () => {
@@ -455,7 +489,7 @@ export function IcgcMunicipalitiesMap({
             link.addEventListener("blur", () => popup.remove());
 
             displayedMarkers.push(
-              new maplibregl.Marker({ element: link, anchor: "center" })
+              new maplibregl.Marker({ element: markerAnchor(link), anchor: "center" })
                 .setLngLat(coordinates)
                 .addTo(activeMap),
             );
@@ -493,54 +527,57 @@ export function IcgcMunicipalitiesMap({
 
           const button = document.createElement("button");
           button.type = "button";
-          button.title = `${description}. Pulsa para acercar el mapa.`;
           button.setAttribute(
             "aria-label",
             `${description}. Acercar o elegir municipio.`,
           );
-          button.style.position = "relative";
-          button.style.width = "46px";
-          button.style.height = "46px";
-          button.style.display = "flex";
-          button.style.alignItems = "center";
-          button.style.justifyContent = "center";
-          button.style.borderRadius = "9999px";
-          button.style.border = selected
-            ? "3px solid #172554"
-            : "3px solid #FFFFFF";
-          button.style.backgroundColor = selected ? "#25358F" : "#3847AD";
-          button.style.color = "#FFFFFF";
+          button.className = "convocam-map-marker convocam-map-marker--group";
+          if (selected) button.dataset.selected = "true";
+
+          const size = markerSize(total, GROUP_MIN_SIZE_PX);
+          button.style.width = `${size}px`;
+          button.style.height = `${size}px`;
           button.style.fontSize = "13px";
-          button.style.fontWeight = "700";
-          button.style.boxShadow = selected
-            ? "0 0 0 5px rgba(79,91,213,0.24), 0 3px 10px rgba(0,0,0,0.28)"
-            : "0 3px 10px rgba(0,0,0,0.24)";
-          button.style.cursor = "zoom-in";
-          button.style.outlineOffset = "3px";
           button.textContent = markerCountLabel(total);
 
           const municipalityBadge = document.createElement("span");
           municipalityBadge.textContent = `${grouped.length} mun.`;
           municipalityBadge.setAttribute("aria-hidden", "true");
-          municipalityBadge.style.position = "absolute";
-          municipalityBadge.style.top = "33px";
-          municipalityBadge.style.left = "26px";
-          municipalityBadge.style.whiteSpace = "nowrap";
-          municipalityBadge.style.padding = "2px 5px";
-          municipalityBadge.style.borderRadius = "9999px";
-          municipalityBadge.style.border = "1px solid white";
-          municipalityBadge.style.backgroundColor = "#E7ECFF";
-          municipalityBadge.style.color = "#25358F";
-          municipalityBadge.style.fontSize = "10px";
-          municipalityBadge.style.fontWeight = "700";
-          municipalityBadge.style.lineHeight = "1.3";
+          municipalityBadge.className = "convocam-map-group-badge";
           button.appendChild(municipalityBadge);
 
+          // Tooltip con un municipio por línea. Se limita la lista para que
+          // un grupo muy grande no tape el mapa; el resto se resume al final.
+          const summary = document.createElement("div");
+          const summaryHeading = document.createElement("strong");
+          summaryHeading.textContent = description;
+          summaryHeading.style.display = "block";
+          summaryHeading.style.marginBottom = "4px";
+          summary.appendChild(summaryHeading);
+          for (const point of grouped.slice(0, GROUP_TOOLTIP_MAX_MUNICIPALITIES)) {
+            const line = document.createElement("span");
+            line.textContent = `${point.marker.municipality} (${point.marker.count})`;
+            line.style.display = "block";
+            line.style.fontSize = "12px";
+            summary.appendChild(line);
+          }
+          const hiddenMunicipalities =
+            grouped.length - GROUP_TOOLTIP_MAX_MUNICIPALITIES;
+          if (hiddenMunicipalities > 0) {
+            const more = document.createElement("span");
+            more.textContent = `… y ${hiddenMunicipalities} municipios más`;
+            more.style.display = "block";
+            more.style.marginTop = "2px";
+            more.style.fontSize = "12px";
+            more.style.fontStyle = "italic";
+            summary.appendChild(more);
+          }
           const summaryPopup = new maplibregl.Popup({
             closeButton: false,
             closeOnClick: false,
-            offset: 30,
-          }).setText(description);
+            offset: size / 2 + 8,
+            maxWidth: "280px",
+          }).setDOMContent(summary);
 
           // Si varios municipios siguen superpuestos incluso al maximo zoom,
           // ofrecemos enlaces individuales para que ninguno quede inaccesible.
@@ -570,7 +607,7 @@ export function IcgcMunicipalitiesMap({
           const choicesPopup = new maplibregl.Popup({
             closeButton: true,
             closeOnClick: true,
-            offset: 32,
+            offset: size / 2 + 8,
             maxWidth: "320px",
           }).setDOMContent(choices);
 
@@ -605,7 +642,7 @@ export function IcgcMunicipalitiesMap({
           });
 
           displayedMarkers.push(
-            new maplibregl.Marker({ element: button, anchor: "center" })
+            new maplibregl.Marker({ element: markerAnchor(button), anchor: "center" })
               .setLngLat(coordinates)
               .addTo(activeMap),
           );
@@ -636,9 +673,15 @@ export function IcgcMunicipalitiesMap({
   );
   const selectedLatitude = selectedMarker?.latitude;
   const selectedLongitude = selectedMarker?.longitude;
+  const resultsBounds = markersBounds(markers);
+  const boundsWest = resultsBounds?.west;
+  const boundsSouth = resultsBounds?.south;
+  const boundsEast = resultsBounds?.east;
+  const boundsNorth = resultsBounds?.north;
 
-  // Cambiar el filtro de municipio centra la vista. Al quitar el filtro,
-  // recuperamos Catalunya completa. Un movimiento manual no toca la URL.
+  // Cambiar el filtro de municipio centra la vista. Sin municipio
+  // seleccionado, encuadramos los resultados; si no hay ninguno con
+  // coordenadas, Catalunya completa. Un movimiento manual no toca la URL.
   useEffect(() => {
     const map = mapRef.current;
     if (!isReady || !map) return;
@@ -649,6 +692,23 @@ export function IcgcMunicipalitiesMap({
         zoom: SELECTED_MUNICIPALITY_ZOOM,
         duration: 600,
       });
+    } else if (
+      boundsWest !== undefined &&
+      boundsSouth !== undefined &&
+      boundsEast !== undefined &&
+      boundsNorth !== undefined
+    ) {
+      map.fitBounds(
+        [
+          [boundsWest, boundsSouth],
+          [boundsEast, boundsNorth],
+        ],
+        {
+          padding: RESULTS_PADDING_PX,
+          maxZoom: RESULTS_MAX_ZOOM,
+          duration: 600,
+        },
+      );
     } else {
       map.fitBounds(CATALONIA_BOUNDS, {
         padding: 28,
@@ -656,7 +716,15 @@ export function IcgcMunicipalitiesMap({
         duration: 600,
       });
     }
-  }, [isReady, selectedLatitude, selectedLongitude]);
+  }, [
+    isReady,
+    selectedLatitude,
+    selectedLongitude,
+    boundsWest,
+    boundsSouth,
+    boundsEast,
+    boundsNorth,
+  ]);
 
   const resetMapView = useCallback(() => {
     mapRef.current?.fitBounds(CATALONIA_BOUNDS, {
