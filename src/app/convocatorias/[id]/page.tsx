@@ -370,7 +370,7 @@ export default async function SelectionProcessDetailPage({
 
         />
 
-        <main className="flex-1 px-6 py-8 lg:px-10 lg:pb-12">
+        <main className="flex-1 px-4 py-8 lg:px-6 lg:pb-12">
 
           <div className="grid w-full items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
 
