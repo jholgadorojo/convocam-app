@@ -237,6 +237,16 @@ function markerAnchor(content: HTMLElement): HTMLDivElement {
   return anchor;
 }
 
+type DisplayedMarker = { marker: MapLibreMarker; popups: MapLibrePopup[] };
+
+/** Identifica un marcador por sus municipios, para reutilizarlo entre zooms. */
+function groupKey(group: readonly ProjectedMunicipality[]): string {
+  return group
+    .map((point) => `${point.marker.province}|${point.marker.municipality}`)
+    .sort()
+    .join("\n");
+}
+
 function markerSize(count: number, minimumSize: number): number {
   const scaled = MARKER_MIN_SIZE_PX + 9 * Math.log10(Math.max(1, count));
   return Math.round(
@@ -451,19 +461,225 @@ export function IcgcMunicipalitiesMap({
     const activeMap: MapLibreMap = map;
     let disposed = false;
     let detachEvents: (() => void) | null = null;
-    let displayedMarkers: MapLibreMarker[] = [];
-    let displayedPopups: MapLibrePopup[] = [];
+    // Marcadores en pantalla por clave de grupo. Al hacer zoom solo se crean
+    // los grupos nuevos y se quitan los que desaparecen; el resto se conserva
+    // para que el mapa no parpadee ni se cierren los tooltips abiertos.
+    let displayed = new Map<string, DisplayedMarker>();
+
+    const removeDisplayed = (entry: DisplayedMarker) => {
+      for (const popup of entry.popups) popup.remove();
+      entry.marker.remove();
+    };
 
     const clearMarkers = () => {
-      for (const popup of displayedPopups) popup.remove();
-      for (const marker of displayedMarkers) marker.remove();
-      displayedMarkers = [];
-      displayedPopups = [];
+      for (const entry of displayed.values()) removeDisplayed(entry);
+      displayed = new Map();
     };
 
     async function initializeMarkers() {
       const maplibregl = await import("maplibre-gl");
       if (disposed) return;
+
+      const createMunicipalityMarker = (
+        marker: IcgcMunicipalityMarker,
+      ): DisplayedMarker => {
+        const coordinates: [number, number] = [
+          marker.longitude,
+          marker.latitude,
+        ];
+        const description = markerDescription(marker, mode);
+        const link = document.createElement("a");
+        link.href = safeMarkerHref(marker);
+        link.setAttribute("aria-label", description);
+        if (marker.selected) link.setAttribute("aria-current", "true");
+        link.className = "convocam-map-marker";
+        if (marker.selected) link.dataset.selected = "true";
+
+        const size = markerSize(marker.count, MARKER_MIN_SIZE_PX);
+        link.style.width = `${size}px`;
+        link.style.height = `${size}px`;
+        link.style.fontSize = size >= 46 ? "13px" : "12px";
+        link.textContent = markerCountLabel(marker.count);
+
+        const popup = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: size / 2 + 6,
+        }).setText(description);
+
+        link.addEventListener("mouseenter", () => {
+          popup.setLngLat(coordinates).addTo(activeMap);
+        });
+        link.addEventListener("mouseleave", () => popup.remove());
+        link.addEventListener("focus", () => {
+          popup.setLngLat(coordinates).addTo(activeMap);
+        });
+        link.addEventListener("blur", () => popup.remove());
+
+        return {
+          marker: new maplibregl.Marker({
+            element: markerAnchor(link),
+            anchor: "center",
+          })
+            .setLngLat(coordinates)
+            .addTo(activeMap),
+          popups: [popup],
+        };
+      };
+
+      // Varios municipios se encuentran demasiado cerca para mostrar
+      // varios circulos independientes. Mostramos el total de convocatorias,
+      // no solo el numero de municipios.
+      const createGroupMarker = (
+        group: readonly ProjectedMunicipality[],
+      ): DisplayedMarker => {
+        const grouped = [...group].sort(
+          (left, right) =>
+            Number(right.marker.selected) - Number(left.marker.selected) ||
+            right.marker.count - left.marker.count ||
+            left.marker.municipality.localeCompare(
+              right.marker.municipality,
+              "es",
+            ),
+        );
+        const total = grouped.reduce(
+          (sum, point) => sum + point.marker.count,
+          0,
+        );
+        const selected = grouped.some((point) => point.marker.selected);
+        // Centro geográfico: no depende del zoom, así el mismo grupo cae
+        // siempre en el mismo punto y se puede reutilizar.
+        const coordinates: [number, number] = [
+          grouped.reduce((sum, point) => sum + point.marker.longitude, 0) /
+            grouped.length,
+          grouped.reduce((sum, point) => sum + point.marker.latitude, 0) /
+            grouped.length,
+        ];
+        const noun = total === 1 ? "convocatoria" : "convocatorias";
+        const description =
+          `${grouped.length} municipios · ${total} ${noun} ` +
+          markerQualifier(mode);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.setAttribute(
+          "aria-label",
+          `${description}. Acercar o elegir municipio.`,
+        );
+        button.className = "convocam-map-marker convocam-map-marker--group";
+        if (selected) button.dataset.selected = "true";
+
+        const size = markerSize(total, GROUP_MIN_SIZE_PX);
+        button.style.width = `${size}px`;
+        button.style.height = `${size}px`;
+        button.style.fontSize = "13px";
+        button.textContent = markerCountLabel(total);
+
+        // Tooltip con un municipio por línea. Se limita la lista para que
+        // un grupo muy grande no tape el mapa; el resto se resume al final.
+        const summary = document.createElement("div");
+        const summaryHeading = document.createElement("strong");
+        summaryHeading.textContent = description;
+        summaryHeading.style.display = "block";
+        summaryHeading.style.marginBottom = "4px";
+        summary.appendChild(summaryHeading);
+        for (const point of grouped.slice(0, GROUP_TOOLTIP_MAX_MUNICIPALITIES)) {
+          const line = document.createElement("span");
+          line.textContent = `${point.marker.municipality} (${point.marker.count})`;
+          line.style.display = "block";
+          line.style.fontSize = "12px";
+          summary.appendChild(line);
+        }
+        const hiddenMunicipalities =
+          grouped.length - GROUP_TOOLTIP_MAX_MUNICIPALITIES;
+        if (hiddenMunicipalities > 0) {
+          const more = document.createElement("span");
+          more.textContent = `… y ${hiddenMunicipalities} municipios más`;
+          more.style.display = "block";
+          more.style.marginTop = "2px";
+          more.style.fontSize = "12px";
+          more.style.fontStyle = "italic";
+          summary.appendChild(more);
+        }
+        const summaryPopup = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: size / 2 + 8,
+          maxWidth: "280px",
+        }).setDOMContent(summary);
+
+        // Si varios municipios siguen superpuestos incluso al maximo zoom,
+        // ofrecemos enlaces individuales para que ninguno quede inaccesible.
+        const choices = document.createElement("div");
+        choices.style.minWidth = "200px";
+        choices.style.maxHeight = "250px";
+        choices.style.overflowY = "auto";
+        const heading = document.createElement("strong");
+        heading.textContent = "Seleccionar municipio";
+        heading.style.display = "block";
+        heading.style.marginBottom = "8px";
+        choices.appendChild(heading);
+        for (const point of grouped) {
+          const choice = document.createElement("a");
+          choice.href = safeMarkerHref(point.marker);
+          choice.textContent = markerDescription(point.marker, mode);
+          choice.style.display = "block";
+          choice.style.padding = "5px 0";
+          choice.style.fontSize = "12px";
+          choice.style.color = "#25358F";
+          choice.style.textDecoration = "underline";
+          if (point.marker.selected) {
+            choice.setAttribute("aria-current", "true");
+          }
+          choices.appendChild(choice);
+        }
+        const choicesPopup = new maplibregl.Popup({
+          closeButton: true,
+          closeOnClick: true,
+          offset: size / 2 + 8,
+          maxWidth: "320px",
+        }).setDOMContent(choices);
+
+        button.addEventListener("mouseenter", () => {
+          if (!choicesPopup.isOpen()) {
+            summaryPopup.setLngLat(coordinates).addTo(activeMap);
+          }
+        });
+        button.addEventListener("mouseleave", () => summaryPopup.remove());
+        button.addEventListener("focus", () => {
+          if (!choicesPopup.isOpen()) {
+            summaryPopup.setLngLat(coordinates).addTo(activeMap);
+          }
+        });
+        button.addEventListener("blur", () => summaryPopup.remove());
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          summaryPopup.remove();
+          const nextZoom = Math.min(
+            activeMap.getZoom() + GROUP_ZOOM_INCREMENT,
+            activeMap.getMaxZoom(),
+          );
+          if (nextZoom > activeMap.getZoom() + 0.1) {
+            activeMap.easeTo({
+              center: coordinates,
+              zoom: nextZoom,
+              duration: 500,
+            });
+          } else {
+            choicesPopup.setLngLat(coordinates).addTo(activeMap);
+          }
+        });
+
+        return {
+          marker: new maplibregl.Marker({
+            element: markerAnchor(button),
+            anchor: "center",
+          })
+            .setLngLat(coordinates)
+            .addTo(activeMap),
+          popups: [summaryPopup, choicesPopup],
+        };
+      };
 
       const redrawMarkers = () => {
         if (disposed) return;
@@ -497,198 +713,25 @@ export function IcgcMunicipalitiesMap({
         }
 
         const groups = groupNearbyMunicipalities(visiblePoints);
-        clearMarkers();
-
+        const next = new Map<string, DisplayedMarker>();
         for (const group of groups) {
-          if (group.length === 1) {
-            const { marker } = group[0];
-            const coordinates: [number, number] = [
-              marker.longitude,
-              marker.latitude,
-            ];
-            const description = markerDescription(marker, mode);
-            const link = document.createElement("a");
-            link.href = safeMarkerHref(marker);
-            link.setAttribute("aria-label", description);
-            if (marker.selected) link.setAttribute("aria-current", "true");
-            link.className = "convocam-map-marker";
-            if (marker.selected) link.dataset.selected = "true";
-
-            const size = markerSize(marker.count, MARKER_MIN_SIZE_PX);
-            link.style.width = `${size}px`;
-            link.style.height = `${size}px`;
-            link.style.fontSize = size >= 46 ? "13px" : "12px";
-            link.textContent = markerCountLabel(marker.count);
-
-            const popup = new maplibregl.Popup({
-              closeButton: false,
-              closeOnClick: false,
-              offset: size / 2 + 6,
-            }).setText(description);
-
-            link.addEventListener("mouseenter", () => {
-              popup.setLngLat(coordinates).addTo(activeMap);
-            });
-            link.addEventListener("mouseleave", () => popup.remove());
-            link.addEventListener("focus", () => {
-              popup.setLngLat(coordinates).addTo(activeMap);
-            });
-            link.addEventListener("blur", () => popup.remove());
-
-            displayedMarkers.push(
-              new maplibregl.Marker({ element: markerAnchor(link), anchor: "center" })
-                .setLngLat(coordinates)
-                .addTo(activeMap),
+          const key = groupKey(group);
+          const existing = displayed.get(key);
+          if (existing) {
+            next.set(key, existing);
+            displayed.delete(key);
+          } else {
+            next.set(
+              key,
+              group.length === 1
+                ? createMunicipalityMarker(group[0].marker)
+                : createGroupMarker(group),
             );
-            displayedPopups.push(popup);
-            continue;
           }
-
-          // Varios municipios se encuentran demasiado cerca para mostrar
-          // varios circulos independientes. Mostramos el total de convocatorias,
-          // no solo el numero de municipios.
-          const grouped = [...group].sort(
-            (left, right) =>
-              Number(right.marker.selected) - Number(left.marker.selected) ||
-              right.marker.count - left.marker.count ||
-              left.marker.municipality.localeCompare(
-                right.marker.municipality,
-                "es",
-              ),
-          );
-          const total = grouped.reduce(
-            (sum, point) => sum + point.marker.count,
-            0,
-          );
-          const selected = grouped.some((point) => point.marker.selected);
-          const centerX =
-            grouped.reduce((sum, point) => sum + point.x, 0) / grouped.length;
-          const centerY =
-            grouped.reduce((sum, point) => sum + point.y, 0) / grouped.length;
-          const center = activeMap.unproject([centerX, centerY]);
-          const coordinates: [number, number] = [center.lng, center.lat];
-          const noun = total === 1 ? "convocatoria" : "convocatorias";
-          const description =
-            `${grouped.length} municipios · ${total} ${noun} ` +
-            markerQualifier(mode);
-
-          const button = document.createElement("button");
-          button.type = "button";
-          button.setAttribute(
-            "aria-label",
-            `${description}. Acercar o elegir municipio.`,
-          );
-          button.className = "convocam-map-marker convocam-map-marker--group";
-          if (selected) button.dataset.selected = "true";
-
-          const size = markerSize(total, GROUP_MIN_SIZE_PX);
-          button.style.width = `${size}px`;
-          button.style.height = `${size}px`;
-          button.style.fontSize = "13px";
-          button.textContent = markerCountLabel(total);
-
-          // Tooltip con un municipio por línea. Se limita la lista para que
-          // un grupo muy grande no tape el mapa; el resto se resume al final.
-          const summary = document.createElement("div");
-          const summaryHeading = document.createElement("strong");
-          summaryHeading.textContent = description;
-          summaryHeading.style.display = "block";
-          summaryHeading.style.marginBottom = "4px";
-          summary.appendChild(summaryHeading);
-          for (const point of grouped.slice(0, GROUP_TOOLTIP_MAX_MUNICIPALITIES)) {
-            const line = document.createElement("span");
-            line.textContent = `${point.marker.municipality} (${point.marker.count})`;
-            line.style.display = "block";
-            line.style.fontSize = "12px";
-            summary.appendChild(line);
-          }
-          const hiddenMunicipalities =
-            grouped.length - GROUP_TOOLTIP_MAX_MUNICIPALITIES;
-          if (hiddenMunicipalities > 0) {
-            const more = document.createElement("span");
-            more.textContent = `… y ${hiddenMunicipalities} municipios más`;
-            more.style.display = "block";
-            more.style.marginTop = "2px";
-            more.style.fontSize = "12px";
-            more.style.fontStyle = "italic";
-            summary.appendChild(more);
-          }
-          const summaryPopup = new maplibregl.Popup({
-            closeButton: false,
-            closeOnClick: false,
-            offset: size / 2 + 8,
-            maxWidth: "280px",
-          }).setDOMContent(summary);
-
-          // Si varios municipios siguen superpuestos incluso al maximo zoom,
-          // ofrecemos enlaces individuales para que ninguno quede inaccesible.
-          const choices = document.createElement("div");
-          choices.style.minWidth = "200px";
-          choices.style.maxHeight = "250px";
-          choices.style.overflowY = "auto";
-          const heading = document.createElement("strong");
-          heading.textContent = "Seleccionar municipio";
-          heading.style.display = "block";
-          heading.style.marginBottom = "8px";
-          choices.appendChild(heading);
-          for (const point of grouped) {
-            const choice = document.createElement("a");
-            choice.href = safeMarkerHref(point.marker);
-            choice.textContent = markerDescription(point.marker, mode);
-            choice.style.display = "block";
-            choice.style.padding = "5px 0";
-            choice.style.fontSize = "12px";
-            choice.style.color = "#25358F";
-            choice.style.textDecoration = "underline";
-            if (point.marker.selected) {
-              choice.setAttribute("aria-current", "true");
-            }
-            choices.appendChild(choice);
-          }
-          const choicesPopup = new maplibregl.Popup({
-            closeButton: true,
-            closeOnClick: true,
-            offset: size / 2 + 8,
-            maxWidth: "320px",
-          }).setDOMContent(choices);
-
-          button.addEventListener("mouseenter", () => {
-            if (!choicesPopup.isOpen()) {
-              summaryPopup.setLngLat(coordinates).addTo(activeMap);
-            }
-          });
-          button.addEventListener("mouseleave", () => summaryPopup.remove());
-          button.addEventListener("focus", () => {
-            if (!choicesPopup.isOpen()) {
-              summaryPopup.setLngLat(coordinates).addTo(activeMap);
-            }
-          });
-          button.addEventListener("blur", () => summaryPopup.remove());
-          button.addEventListener("click", (event) => {
-            event.stopPropagation();
-            summaryPopup.remove();
-            const nextZoom = Math.min(
-              activeMap.getZoom() + GROUP_ZOOM_INCREMENT,
-              activeMap.getMaxZoom(),
-            );
-            if (nextZoom > activeMap.getZoom() + 0.1) {
-              activeMap.easeTo({
-                center: coordinates,
-                zoom: nextZoom,
-                duration: 500,
-              });
-            } else {
-              choicesPopup.setLngLat(coordinates).addTo(activeMap);
-            }
-          });
-
-          displayedMarkers.push(
-            new maplibregl.Marker({ element: markerAnchor(button), anchor: "center" })
-              .setLngLat(coordinates)
-              .addTo(activeMap),
-          );
-          displayedPopups.push(summaryPopup, choicesPopup);
         }
+        // Lo que queda en `displayed` ya no corresponde a ningún grupo visible.
+        for (const entry of displayed.values()) removeDisplayed(entry);
+        displayed = next;
       };
 
       redrawMarkers();
