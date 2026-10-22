@@ -6,6 +6,13 @@ const PREFIX = "TEST-CONVOCAM-SEARCH";
 const FIRST_USER_ID = `${PREFIX}-USER-1`;
 const SECOND_USER_ID = `${PREFIX}-USER-2`;
 const TEST_USER_IDS = [FIRST_USER_ID, SECOND_USER_ID];
+// Fechas relativas a hoy para que los tests no caduquen con el tiempo.
+function daysFromToday(days: number): Date {
+    const date = new Date();
+    date.setUTCHours(0, 0, 0, 0);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date;
+}
 describe("PrismaSelectionProcessQueryRepository", () => {
     const repository = new PrismaSelectionProcessQueryRepository(prisma);
     let institutionId: number;
@@ -114,7 +121,7 @@ describe("PrismaSelectionProcessQueryRepository", () => {
                 selectionSystem: "Concurs oposició",
                 personnelTypeId: 1,
                 personnelType: "Funcionari",
-                applicationEndDate: new Date("2026-11-01T00:00:00.000Z"),
+                applicationEndDate: daysFromToday(10),
                 reservedDisabilityPositions: 1,
                 reservedUnemployed: false,
                 reservedYoung: false,
@@ -148,7 +155,7 @@ describe("PrismaSelectionProcessQueryRepository", () => {
                 selectionSystem: "Concurs oposició",
                 personnelTypeId: 1,
                 personnelType: "Funcionari",
-                applicationEndDate: new Date("2026-12-01T00:00:00.000Z"),
+                applicationEndDate: daysFromToday(40),
                 reservedDisabilityPositions: 0,
                 reservedUnemployed: false,
                 reservedYoung: false,
@@ -176,7 +183,7 @@ describe("PrismaSelectionProcessQueryRepository", () => {
                 institutionId,
                 qualificationGroupId: 5,
                 qualificationGroup: "C2",
-                applicationEndDate: new Date("2027-01-01T00:00:00.000Z"),
+                applicationEndDate: daysFromToday(70),
                 reservedDisabilityPositions: 0,
                 reservedUnemployed: true,
                 reservedYoung: true,
@@ -364,6 +371,71 @@ describe("PrismaSelectionProcessQueryRepository", () => {
             `${PREFIX}-IDENTIFIER-1`,
             `${PREFIX}-IDENTIFIER-2`,
             `${PREFIX}-IDENTIFIER-3`,
+        ]);
+    });
+    it("ordena primero los plazos pendientes y deja los finalizados al final", async () => {
+        const deadlineInstitution = await prisma.institution.create({
+            data: {
+                cidoId: `${PREFIX}-INSTITUTION-DEADLINE`,
+                name: "Ajuntament Terminis",
+                shortName: "Terminis",
+                isActive: true,
+                municipality: "Municipi Terminis",
+                county: "Comarca Terminis",
+                province: "Lleida Convocam",
+            },
+        });
+        const deadlines: Array<[string, Date | null]> = [
+            ["CLOSED", daysFromToday(-10)],
+            ["FAR", daysFromToday(40)],
+            ["NO-DATE", null],
+            ["NEAR", daysFromToday(5)],
+        ];
+        for (const [suffix, applicationEndDate] of deadlines) {
+            await prisma.selectionProcess.create({
+                data: {
+                    cidoId: `${PREFIX}-SP-DEADLINE-${suffix}`,
+                    cidoIdentifier: `${PREFIX}-DEADLINE-${suffix}`,
+                    title: `Convocatòria ${suffix}`,
+                    isJobPool: false,
+                    scopeId: 1,
+                    scopeName: "Administració local",
+                    institutionName: deadlineInstitution.name,
+                    institutionId: deadlineInstitution.id,
+                    qualificationGroupId: 2,
+                    qualificationGroup: "A2",
+                    selectionSystemId: 1,
+                    selectionSystem: "Concurs oposició",
+                    personnelTypeId: 1,
+                    personnelType: "Funcionari",
+                    applicationEndDate,
+                    reservedDisabilityPositions: 0,
+                    reservedUnemployed: false,
+                    reservedYoung: false,
+                    reservedWomen: false,
+                    cidoUrl: `https://example.com/deadline-${suffix}`,
+                    statusId: 3,
+                    status: "Termini obert",
+                    sourceActive: true,
+                },
+            });
+        }
+        const filters = {
+            municipality: "Municipi Terminis",
+            sort: "deadline-asc" as const,
+        };
+        const result = await repository.findActive(1, 20, filters);
+        expect(result.totalItems).toBe(4);
+        expect(result.items.map((item) => item.cidoIdentifier)).toEqual([
+            `${PREFIX}-DEADLINE-NEAR`,
+            `${PREFIX}-DEADLINE-FAR`,
+            `${PREFIX}-DEADLINE-NO-DATE`,
+            `${PREFIX}-DEADLINE-CLOSED`,
+        ]);
+        // La paginación respeta el mismo orden al cruzar de un grupo a otro.
+        const secondPage = await repository.findActive(2, 3, filters);
+        expect(secondPage.items.map((item) => item.cidoIdentifier)).toEqual([
+            `${PREFIX}-DEADLINE-CLOSED`,
         ]);
     });
     /**

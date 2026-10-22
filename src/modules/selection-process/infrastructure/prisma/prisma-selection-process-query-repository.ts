@@ -14,6 +14,11 @@ type TextSearchMatch = {
   id: number;
   score: number;
 };
+type OrderedGroup = {
+  where: Prisma.SelectionProcessWhereInput;
+  count: number;
+  orderBy: Prisma.SelectionProcessOrderByWithRelationInput[];
+};
 type InstitutionTerritoryRow = {
   municipality: string | null;
   county: string | null;
@@ -74,6 +79,10 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
 // The existing SPEC-004 sort orders remain unchanged.
     if (sort === "deadline-priority") {
       return this.findDeadlinePriorityPage(page, pageSize, skip, where);
+    }
+    // Plazo: finaliza antes. Pendientes primero; las finalizadas, al final.
+    if (sort === "deadline-asc") {
+      return this.findDeadlineAscPage(page, pageSize, skip, where);
     }
     const orderBy = buildSelectionProcessOrderBy(sort);
     const [rows, totalItems,] = await Promise.all([
@@ -466,11 +475,7 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
       0,
       totalItems - openCount - futureCount - closedCount,
     );
-    const groups: Array<{
-      where: Prisma.SelectionProcessWhereInput;
-      count: number;
-      orderBy: Prisma.SelectionProcessOrderByWithRelationInput[];
-    }> = [
+    return this.findGroupedPage(page, pageSize, skip, totalItems, [
       {
         where: openWhere,
         count: openCount,
@@ -503,7 +508,64 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
           { id: "asc" },
         ],
       },
-    ];
+    ]);
+  }
+  /**
+   * Plazo: finaliza antes.
+   *
+   * 1. Plazo pendiente (fin hoy o después): el que termina antes, primero.
+   * 2. Sin fecha de fin.
+   * 3. Plazo finalizado: el cerrado más recientemente, primero.
+   */
+  private async findDeadlineAscPage(
+    page: number,
+    pageSize: number,
+    skip: number,
+    where: Prisma.SelectionProcessWhereInput,
+  ): Promise<SelectionProcessPage> {
+    const today = getCataloniaTodayUtc();
+    const pendingWhere: Prisma.SelectionProcessWhereInput = {
+      AND: [where, { applicationEndDate: { gte: today } }],
+    };
+    const unknownWhere: Prisma.SelectionProcessWhereInput = {
+      AND: [where, { applicationEndDate: null }],
+    };
+    const closedWhere: Prisma.SelectionProcessWhereInput = {
+      AND: [where, buildApplicationPeriodWhereInput("closed", today)],
+    };
+    const [totalItems, pendingCount, closedCount] = await Promise.all([
+      this.prisma.selectionProcess.count({ where }),
+      this.prisma.selectionProcess.count({ where: pendingWhere }),
+      this.prisma.selectionProcess.count({ where: closedWhere }),
+    ]);
+    // Los tres grupos son excluyentes y cubren todas las convocatorias.
+    const unknownCount = Math.max(0, totalItems - pendingCount - closedCount);
+    return this.findGroupedPage(page, pageSize, skip, totalItems, [
+      {
+        where: pendingWhere,
+        count: pendingCount,
+        orderBy: [{ applicationEndDate: "asc" }, { id: "asc" }],
+      },
+      {
+        where: unknownWhere,
+        count: unknownCount,
+        orderBy: [{ id: "asc" }],
+      },
+      {
+        where: closedWhere,
+        count: closedCount,
+        orderBy: [{ applicationEndDate: "desc" }, { id: "asc" }],
+      },
+    ]);
+  }
+  /** Pagina varios grupos excluyentes como si fueran una sola lista ordenada. */
+  private async findGroupedPage(
+    page: number,
+    pageSize: number,
+    skip: number,
+    totalItems: number,
+    groups: OrderedGroup[],
+  ): Promise<SelectionProcessPage> {
     const rows: SelectionProcessRow[] = [];
     let remainingSkip = skip;
     let remainingTake = pageSize;
