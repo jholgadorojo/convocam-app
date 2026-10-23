@@ -159,38 +159,38 @@ export default async function DashboardPage() {
 
     ? await Promise.all([
 
-        getPersonalDashboardDeadlinesUseCase.execute({
+      getPersonalDashboardDeadlinesUseCase.execute({
 
-          userId: session.user.id,
+        userId: session.user.id,
 
-        }),
+      }),
 
-        listSelectionProcessesForMeUseCase.execute({
+      listSelectionProcessesForMeUseCase.execute({
 
-          userId: session.user.id,
+        userId: session.user.id,
 
-          page: 1,
+        page: 1,
 
-          pageSize: 3,
+        pageSize: 3,
 
-          excludeFollowed: true,
+        excludeFollowed: true,
 
-        }),
+      }),
 
-        TEST_RECENT_PUBLICATIONS
+      TEST_RECENT_PUBLICATIONS
 
-          ? loadRecentPublicationsForTest(session.user.id)
+        ? loadRecentPublicationsForTest(session.user.id)
 
-          : getDashboardLatestPublicationsUseCase
+        : getDashboardLatestPublicationsUseCase
 
-              .execute({ userId: session.user.id })
+          .execute({ userId: session.user.id })
 
-              .then((result) => result.publications),
+          .then((result) => result.publications),
 
-        // Estados personales: mismo origen de datos que «Mis convocatorias».
-        listUserSelectionProcessesUseCase.execute(session.user.id),
+      // Estados personales: mismo origen de datos que «Mis convocatorias».
+      listUserSelectionProcessesUseCase.execute(session.user.id),
 
-      ])
+    ])
 
     : null;
 
@@ -248,11 +248,11 @@ export default async function DashboardPage() {
 
               ? {
 
-                  name: session.user.name,
+                name: session.user.name,
 
-                  email: session.user.email,
+                email: session.user.email,
 
-                }
+              }
 
               : undefined
 
@@ -263,14 +263,6 @@ export default async function DashboardPage() {
         <main className="flex-1 px-4 py-8 lg:px-6 lg:pb-12">
 
           <div className="flex flex-col gap-7">
-
-            {/* Primera información: estados personales, a todo el ancho. */}
-            {userSelectionProcesses !== null && (
-              <PersonalSelectionProcessStatusIndicators
-                layout="horizontal"
-                items={userSelectionProcesses}
-              />
-            )}
 
             {/* Cabecera */}
 
@@ -337,6 +329,15 @@ export default async function DashboardPage() {
                     </p>
 
                   </div>
+
+                  {/* Primera información: estados personales, a todo el ancho. */}
+                  {userSelectionProcesses !== null && (
+                    <PersonalSelectionProcessStatusIndicators
+                      layout="horizontal"
+                      items={userSelectionProcesses}
+                    />
+                  )}
+
 
                   <div className="grid gap-4 md:grid-cols-3">
 
@@ -1096,13 +1097,13 @@ function LatestOfficialPublicationsPanel({
 
               ? "Prueba temporal: hasta cinco documentos activos de los " +
 
-                "últimos dos meses de convocatorias que sigues, aunque " +
+              "últimos dos meses de convocatorias que sigues, aunque " +
 
-                "se publicaran antes de empezar a seguirlas."
+              "se publicaran antes de empezar a seguirlas."
 
               : "Los cinco documentos más recientes publicados desde " +
 
-                "el día en que empezaste a seguir cada convocatoria."}
+              "el día en que empezaste a seguir cada convocatoria."}
 
           </p>
 
@@ -1136,11 +1137,11 @@ function LatestOfficialPublicationsPanel({
 
               ? "No se han encontrado documentos activos publicados en los " +
 
-                "últimos dos meses para las convocatorias que sigues."
+              "últimos dos meses para las convocatorias que sigues."
 
               : "Aquí aparecerán los documentos activos publicados " +
 
-                "desde el día en que comenzaste a seguir cada convocatoria."}
+              "desde el día en que comenzaste a seguir cada convocatoria."}
 
           </p>
 

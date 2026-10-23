@@ -1,5 +1,7 @@
 # TO DO
 
+- En el Dashboard, quiero otro indicador que seran las convocatorias caducadas, ha pasado el plazo y no he cambio el estado de Me Interesa ni Preparando Solicitud.
+
 - El mas importante, un boton en las bases para analizar por IA las bases y mostrar un resumen.
   Hay que analizar lo mas importante para cargarlo en la base de datos.
 

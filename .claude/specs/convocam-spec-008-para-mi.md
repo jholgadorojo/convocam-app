@@ -2,9 +2,11 @@
 
 **Proyecto:** Convoca'm — Portal personal del opositor en Catalunya  
 **Estado:** FINALIZADA Y VALIDADA  
-**Fecha de cierre:** 18/10/2026  
+**Fecha de cierre funcional original:** 18/10/2026  
+**Actualización documental:** 23/10/2026 (evolución SPEC-010)  
+**Versión:** 1.1 consolidada  
 **Dependencias:** SPEC-003 (CIDO), SPEC-004 (buscador), SPEC-005 (detalle), SPEC-006 (seguimiento), SPEC-007 (perfil y preferencias)  
-**Siguiente especificación prevista:** SPEC-009 — Dashboard del opositor
+**Evolución posterior:** SPEC-009 (Dashboard) y SPEC-010 (mapas, recomendaciones no seguidas y estabilización)
 
 ---
 
@@ -16,6 +18,8 @@ La finalidad es que el opositor no tenga que repetir manualmente sus filtros y p
 
 La página se denomina **«Para mí»** y se encuentra en **`/para-mi`**.
 
+**Comportamiento vigente tras SPEC-010:** las recomendaciones solo incluyen procesos compatibles que el usuario **todavía no sigue**. Se muestran en un listado con mapa territorial compartido y el total se calcula sin convocatorias seguidas. La implementación de estos cambios se cierra en SPEC-010; se incorporan aquí para que SPEC-008 describa el resultado final.
+
 ## 2. Alcance y decisiones generales
 
 - Se reutilizan los datos de convocatorias e instituciones sincronizados desde CIDO y las preferencias existentes de SPEC-007.
@@ -25,6 +29,8 @@ La página se denomina **«Para mí»** y se encuentra en **`/para-mi`**.
 - No se incorpora una nueva fuente de convocatorias ni se almacenan documentos PDF.
 - No se añaden preferencias de jornada laboral: se mantiene la decisión de SPEC-007.
 - No se requiere una tabla específica para almacenar los resultados personalizados: se obtienen con consultas a los datos existentes.
+
+- La ampliación posterior de SPEC-010 incorpora un mapa de municipios y excluye los procesos que ya están en seguimiento; las reglas originales de compatibilidad no cambian.
 
 ## 3. Reglas funcionales
 
@@ -38,6 +44,8 @@ La consulta de «Para mí» parte de convocatorias activas en la fuente (`source
 | `3` | Plazo abierto |
 
 Estos estados oficiales se utilizan como **filtro de entrada**, pero no determinan el orden de los resultados. La situación real del plazo se calcula a partir de las fechas disponibles.
+
+**Exclusión adicional vigente (SPEC-010):** un proceso ya seguido por el usuario no es candidato visible en «Para mí». La exclusión se aplica en la consulta, no ocultando tarjetas después de paginar.
 
 ### 3.2. Preferencias territoriales
 
@@ -93,21 +101,36 @@ La ordenación y la paginación se efectúan en la capa de consulta de PostgreSQ
 - Si la página solicitada excede las disponibles, el caso de uso la ajusta a un rango válido.
 - Se muestran el total de coincidencias, el número de página y los controles anterior/siguiente cuando correspondan.
 
-### 3.6. Seguimiento personal
+- El total, las páginas y los elementos de cada página excluyen **antes de paginar** todas las convocatorias ya seguidas por el usuario.
+- Si, tras seguir una convocatoria, la página solicitada queda fuera de rango, el caso de uso ajusta la página al nuevo total válido.
+- El filtro por municipio (SPEC-010) restringe las tarjetas del listado sin cambiar las preferencias guardadas ni el conjunto global de marcadores compatibles.
 
-Desde una tarjeta de «Para mí»:
+### 3.6. Seguimiento personal (comportamiento vigente tras SPEC-010)
 
-- Si no se sigue la convocatoria, aparece **«Seguir convocatoria»**, que utiliza una acción de servidor autenticada.
-- Si ya se sigue, aparece el acceso **«Mi seguimiento»**, que lleva a `/mis-convocatorias`.
-- El estado seguido/no seguido procede del seguimiento personal existente en SPEC-006.
-- Tras seguir una convocatoria, se actualizan las vistas afectadas mediante la revalidación correspondiente.
-- Los detalles de la convocatoria conservan su funcionalidad de seguimiento y cambio de estado personal.
+Todas las tarjetas visibles en «Para mí» corresponden a convocatorias **no seguidas** por el usuario autenticado.
+
+- Cada tarjeta ofrece **«Seguir convocatoria»**, que reutiliza la acción de servidor autenticada y los casos de uso de SPEC-006.
+- Al seguirla, la convocatoria **desaparece de «Para mí»**; no permanece con otro color ni con un botón «Mi seguimiento».
+- El total de nuevas coincidencias, la paginación y los contadores de municipios del mapa se recalculan para excluirla.
+- El seguimiento se conserva y gestiona en **`/mis-convocatorias`**. No se elimina ni se cambia automáticamente su estado personal.
+- Desde el detalle de una convocatoria se mantienen las funciones de seguimiento y cambio de estado definidas por SPEC-005 y SPEC-006.
+
+**Aplicación técnica:** `ListSelectionProcessesForMe` recibe `excludeFollowed: true`. El filtro de consulta `excludeFollowedByUserId` se aplica sobre los seguimientos de ese usuario **antes de contar, ordenar, paginar y agrupar los puntos del mapa**. El Dashboard utiliza el mismo criterio desde SPEC-009.
 
 ### 3.7. Navegación y retorno al listado
 
 Al abrir una convocatoria desde «Para mí», el enlace al detalle transmite `returnTo` con la ruta y la página de origen. El botón de regreso del detalle vuelve a «Para mí» y recupera su paginación.
 
 La validación del destino de retorno acepta únicamente rutas internas conocidas, entre ellas `/convocatorias`, `/para-mi` y `/mis-convocatorias`, para evitar redirecciones arbitrarias.
+
+### 3.8. Filtro municipal y mapa (ampliación SPEC-010)
+
+- El listado acepta `municipality` y, cuando procede, `province` en la URL, además de `page`.
+- Clicar un marcador del mapa limita las tarjetas a ese municipio; **«Quitar filtro»** permite regresar al conjunto de oportunidades.
+- Los marcadores se calculan a partir de **todas las recomendaciones no seguidas compatibles**, no solo de las diez tarjetas de la página ni del municipio seleccionado.
+- Cada marcador representa un municipio con ubicación disponible e indica el número de convocatorias que lo cumplen.
+- Las convocatorias sin coordenadas representables pueden seguir apareciendo en el listado, sin inventar posiciones cartográficas.
+- La interfaz se adapta a escritorio y móvil, reutilizando el mapa implementado en SPEC-010 para otras pantallas.
 
 ## 4. Interfaz y experiencia de usuario
 
@@ -117,119 +140,144 @@ Ruta: **`/para-mi`**.
 
 Incluye:
 
-- Cabecera «Para mí» y descripción de su finalidad.
+- Cabecera «Para mí» y descripción de recomendaciones **compatibles todavía no seguidas**.
 - Botón **«Editar mis preferencias»** hacia `/mi-perfil`.
-- Número de convocatorias encontradas y paginación.
-- Tarjetas con estado oficial CIDO, tipo plaza/bolsa, título, municipio/comarca del organismo y situación/fechas del plazo.
-- Apartado **«¿Por qué aparece para mí?»**, que presenta los tipos de preferencias aplicados.
-- Acceso a la fuente oficial, al detalle y al seguimiento.
-- Nota informativa sobre la necesidad de consultar las bases oficiales.
+- Número total de nuevas convocatorias encontradas y paginación de 10 resultados.
+- **Listado a la izquierda (65 %) y mapa a la derecha (35 %)** en escritorio ancho; disposición apilada en pantallas más estrechas.
+- Tarjetas con estado oficial CIDO, tipo plaza/bolsa, título, municipio/comarca del organismo, situación y fechas del plazo.
+- Apartado **«¿Por qué aparece para mí?»** con los criterios de preferencias que intervienen en la coincidencia.
+- Acciones **Fuente oficial**, **Ver detalle** y **Seguir convocatoria**.
+- Mapa interactivo con marcadores municipales, contadores, zoom, vista ampliada y clic para filtrar el listado.
+- Nota informativa sobre la necesidad de revisar las bases oficiales de cada convocatoria.
 
-Las etiquetas «¿Por qué aparece para mí?» **describen los criterios de perfil utilizados para filtrar**, no una explicación granular o una puntuación calculada de cada coincidencia.
+Las etiquetas «¿Por qué aparece para mí?» **describen los tipos de criterios de perfil utilizados**; no constituyen una justificación individual exhaustiva ni una puntuación de cada convocatoria.
 
-### 4.2. Diseño de tarjetas — mejoras aprobadas
+### 4.2. Diseño final de tarjetas y mapa
 
-Se aprobaron y validaron las siguientes modificaciones:
+1. **Una tarjeta por fila** en la columna izquierda. La estructura flexible mantiene las acciones en la parte inferior y el contenido legible, sin altura fija ni recorte arbitrario de títulos.
+2. **Distribución 65 % / 35 %** para tarjetas y mapa en escritorio ancho; en tablet y móvil se apilan.
+3. **Tarjetas no seguidas** con fondo blanco: las que ya sigue el usuario no se muestran.
+4. **Sin badge, fondo diferenciado ni enlace «Mi seguimiento»** dentro de «Para mí», porque corresponderían a tarjetas seguidas que ahora se excluyen.
+5. **Mapa compartido** con «Mis convocatorias», aprovechando los marcadores y el filtro municipal; la cuenta de un marcador no está limitada por la paginación.
+6. El estado del municipio elegido se refleja en la URL y puede retirarse con «Quitar filtro».
 
-1. **Igual altura por fila** en la vista de dos columnas: el grid estira ambas tarjetas y su estructura flexible mantiene las acciones alineadas al pie.
-2. **Sin altura fija y sin recorte de títulos**: la altura se adapta al contenido de la tarjeta más alta de cada fila.
-3. **«Mi seguimiento» destacado**: enlace con icono de marcador, fondo azul suave y borde, en lugar de texto plano.
-4. **Diferenciación visual de convocatorias seguidas**: las tarjetas seguidas utilizan fondo `#F5F7FF` y borde `#D9DFF3`; las no seguidas mantienen el fondo blanco.
-5. **Eliminación del badge «En seguimiento»**: el fondo de la tarjeta indica visualmente el estado, sin duplicar información.
-6. **Diseño adaptable**: dos columnas desde el ancho configurado; una columna en pantallas más estrechas.
+**Trazabilidad:** la primera versión cerrada el 18/10/2026 utilizaba dos columnas de tarjetas, resaltaba el fondo de las seguidas y mostraba «Mi seguimiento». Las tres decisiones quedaron **sustituidas**, no vigentes, por el mapa 65/35 y la exclusión aprobados en SPEC-010 (23/10/2026).
 
 ### 4.3. Estados de la pantalla
 
-- **Sin preferencias configuradas:** mensaje explicativo y acceso para configurarlas.
-- **Sin coincidencias:** mensaje informativo y acceso para revisar las preferencias.
-- **Con coincidencias:** listado paginado de tarjetas.
-- **Usuario no autenticado:** redirección a inicio de sesión con retorno a `/para-mi`.
-- **Carga y error:** componentes específicos de carga y recuperación de errores de la ruta.
+- **Sin preferencias configuradas:** explicación y acceso a `/mi-perfil`.
+- **Sin oportunidades nuevas:** mensaje «No hay nuevas convocatorias para ti»; puede deberse a que no existen coincidencias o a que ya se siguen todas.
+- **Sin oportunidades en el municipio elegido:** mensaje específico y posibilidad de seleccionar otro marcador o quitar el filtro.
+- **Con oportunidades:** listado paginado de tarjetas no seguidas y mapa de los municipios compatibles representables.
+- **Usuario no autenticado:** redirección a `/login?returnTo=/para-mi`.
+- **Carga y error:** componentes de carga y recuperación de errores de la ruta.
 
 ## 5. Arquitectura técnica
 
-Se mantiene la estructura Clean Architecture acordada para Convoca'm. «Para mí» reutiliza las capas y modelos ya existentes.
+Se mantiene **Clean Architecture**: reglas de compatibilidad en aplicación, consultas en infraestructura Prisma/PostgreSQL y representación cartográfica en la capa de presentación. La actualización de SPEC-010 reutiliza contratos y componentes existentes.
 
 | Capa / responsabilidad | Implementación relevante |
 | --- | --- |
 | Aplicación: caso de uso | `src/modules/selection-process/application/list-selection-processes-for-me.ts` |
 | Aplicación: filtros de búsqueda | `src/modules/selection-process/application/selection-process-search-filters.ts` |
-| Infraestructura: consultas y ordenación | `src/modules/selection-process/infrastructure/prisma/prisma-selection-process-query-repository.ts` |
+| Aplicación: consulta agregada para mapa | `src/modules/selection-process/application/selection-process-municipality-map-point.ts` y contratos de consulta municipal |
+| Infraestructura: consultas, ordenación, exclusión y municipios | `src/modules/selection-process/infrastructure/prisma/prisma-selection-process-query-repository.ts` |
 | Composition Root | `src/composition/selection-process.ts` |
 | Presentación: página personalizada | `src/app/para-mi/page.tsx` |
 | Presentación: seguimiento desde la tarjeta | `src/app/para-mi/actions.ts` |
+| Presentación: mapa compartido | `src/modules/user-selection-process/presentation/followed-municipalities-map.tsx` |
+| Presentación: mapa ICGC/MapLibre | `src/modules/user-selection-process/presentation/icgc-municipalities-map.tsx` |
 | Presentación: carga y errores | `src/app/para-mi/loading.tsx` y `src/app/para-mi/error.tsx` |
 | Navegación principal | `src/components/layout/app-sidebar.tsx` |
 | Navegación desde el detalle | `src/app/convocatorias/[id]/page.tsx` |
 | Pruebas de caso de uso | `src/modules/selection-process/application/list-selection-processes-for-me.test.ts` |
 
-**Dependencias reutilizadas:** casos de uso de preferencias territoriales y profesionales de SPEC-007, repositorios de convocatorias de SPEC-003/004, sesión Better Auth y casos de uso de seguimiento de SPEC-006.
+**Dependencias reutilizadas:** casos de uso de preferencias territoriales y profesionales (SPEC-007), datos y filtros CIDO (SPEC-003/004), Better Auth y seguimiento personal (SPEC-006).
 
-### 5.1. Flujo simplificado
+### 5.1. Flujo simplificado vigente
 
 ```text
-Usuario autenticado → /para-mi
-                     ↓
-        ListSelectionProcessesForMe
-                     ↓
-   Leer preferencias territoriales/profesionales
-                     ↓
-   Construir filtros (estados 2/3 + AND/OR)
-                     ↓
-   Repositorio Prisma/PostgreSQL
-   Filtrar → ordenar por plazos → paginar
-                     ↓
-   Mostrar tarjetas y estado de seguimiento
-                     ↓
-   Seguir convocatoria / Ver detalle / Mi seguimiento
+Usuario autenticado -> /para-mi
+                  |
+                  v
+       ListSelectionProcessesForMe
+                  |
+                  v
+     Preferencias territoriales y profesionales
+                  |
+                  v
+     Estados CIDO 2/3 + AND/OR + excludeFollowed
+                  |
+                  v
+     Repositorio Prisma / PostgreSQL
+                  |
+           +------+------------------+
+           |                         |
+           v                         v
+   Resultados paginados       Municipios agregados
+   (10 por pagina)            (sin paginar)
+           |                         |
+           v                         v
+   Tarjetas y contador        Mapa + marcadores
+           +------------+------------+
+                        |
+                        v
+         Seguir / Ver detalle / Filtrar municipio
 ```
 
-### 5.2. Compatibilidad con otras SPEC
+**Coherencia de resultados:** ambos brazos parten de los mismos filtros base, incluida la exclusión del usuario; el filtro de municipio elegido se aplica a las tarjetas, pero no elimina los demás marcadores del mapa.
 
-- **SPEC-004:** se conservan las funcionalidades del buscador general. Las extensiones de filtros y la ordenación específica de «Para mí» se activan solo cuando se solicitan.
-- **SPEC-005:** se admite el retorno seguro desde el detalle al origen y página correspondientes.
-- **SPEC-006:** se reutiliza el seguimiento personal existente; además se igualó la altura de las tarjetas de «Mis convocatorias» como mejora transversal.
-- **SPEC-007:** se utilizan sus preferencias y se corrigió el buscador territorial para que busque por nombre de municipio y no mezcle comarca/provincia en la coincidencia de texto.
+### 5.2. Compatibilidad y evolución con otras SPEC
+
+- **SPEC-004:** se mantienen los filtros, las consultas y la accesibilidad pública del buscador general; «Para mí» sigue siendo una sección autenticada e independiente.
+- **SPEC-005:** el detalle acepta retorno seguro hacia la página y municipio de origen.
+- **SPEC-006:** el seguimiento de una convocatoria sigue siendo un registro personal existente; ahora la convocatoria seguida sale de las recomendaciones y aparece en «Mis convocatorias».
+- **SPEC-007:** se mantienen las preferencias y sus reglas de selección territorial/profesional.
+- **SPEC-009:** el Dashboard comparte `excludeFollowed: true` para sus «Oportunidades para mí» y el contador correspondiente.
+- **SPEC-010:** consolida el mapa 65/35, los marcadores no paginados, el filtro municipal y la exclusión de seguidas en toda la vista personalizada.
 
 ## 6. Correcciones y decisiones durante el desarrollo
 
 | Tema | Decisión o solución final |
 | --- | --- |
-| Orden incorrecto por estado CIDO | Sustituido por prioridad basada en las fechas de solicitud |
-| Filtros territoriales múltiples | Combinación OR dentro de provincias/comarcas/municipios; consulta anterior a paginación |
-| Filtros profesionales | AND entre categorías configuradas y OR entre sus opciones |
-| Regreso desde detalle | Conservación segura de `returnTo` y página de origen |
-| Tarjetas desalineadas | Altura uniforme por fila, acciones inferiores alineadas |
-| Enlace «Mi seguimiento» poco visible | Conversión en botón visual con icono |
-| Badge de seguimiento redundante | Sustituido por fondo/borde azul muy sutil |
-| Búsqueda de municipios de «Mi perfil» | Filtrado por nombre normalizado, evitando coincidencias masivas por provincia/comarca |
+| Orden incorrecto por estado CIDO | Sustituido por prioridad basada en fechas de solicitud, no por el estado oficial. |
+| Filtros territoriales múltiples | OR dentro de provincias/comarcas/municipios; consulta anterior a paginación. |
+| Filtros profesionales | AND entre categorías configuradas y OR entre alternativas. |
+| Regreso desde detalle | Conservación segura de `returnTo`, página y contexto municipal. |
+| Tarjetas desalineadas | Primera versión con altura uniforme por fila; el diseño final cambia a una tarjeta por fila junto al mapa. |
+| Enlace «Mi seguimiento» y fondo azul | **Decisión histórica sustituida**: en la versión final no se muestran convocatorias seguidas. |
+| Badge de seguimiento | No se necesita en «Para mí» porque solo hay oportunidades aún no seguidas. |
+| Inclusión del mapa | Reutilización del mapa municipal en distribución 65/35. |
+| Contador, paginación y marcadores | Comparten la exclusión `excludeFollowedByUserId` antes de paginar o agrupar. |
+| Filtro por marcador | Acota el listado a un municipio sin eliminar el resto de marcadores. |
+| Búsqueda de municipios de «Mi perfil» | Filtrado por nombre normalizado, evitando coincidencias masivas por provincia/comarca. |
+
+**Cronología:** SPEC-008 se cerró el 18/10/2026. Las adaptaciones cartográficas y la exclusión final del seguimiento se aprobaron y validaron en SPEC-010 hasta el 23/10/2026.
 
 ## 7. Validación y pruebas
 
-La validación se ha efectuado por bloques, con comprobaciones funcionales comunicadas por el usuario.
+La validación se ha efectuado por bloques; los resultados funcionales y técnicos citados fueron comunicados por el usuario desde su entorno local. No representan ejecuciones independientes realizadas al actualizar este documento.
 
 ### 7.1. Pruebas funcionales verificadas
 
-- [x] Listado de convocatorias de los estados CIDO previstos.
+- [x] Listado de estados oficiales CIDO 2 y 3.
 - [x] Ordenación por fechas: abiertas, futuras, desconocidas y finalizadas.
-- [x] Selección territorial y combinación de territorios.
-- [x] Preferencias profesionales de plazas/bolsas, materias y grupos de titulación.
-- [x] Combinación AND entre grupos y OR dentro de cada grupo.
+- [x] Preferencias territoriales y profesionales: OR dentro de grupos, AND entre grupos configurados.
 - [x] Seguimiento de convocatorias desde «Para mí».
-- [x] Navegación al detalle y regreso a «Para mí» en la página correspondiente.
-- [x] Estado sin preferencias configuradas.
-- [x] Estado sin coincidencias.
-- [x] Paginación y casos de página solicitada fuera de rango.
-- [x] Comportamiento para usuario no autenticado.
-- [x] Altura uniforme y acciones alineadas en las tarjetas de «Para mí».
-- [x] Botón «Mi seguimiento» destacado.
-- [x] Fondo diferenciado en las convocatorias seguidas.
-- [x] Altura uniforme de las tarjetas de «Mis convocatorias».
-- [x] Búsqueda de municipios de las preferencias territoriales corregida y validada.
+- [x] Navegación a detalle y regreso conservando página de origen.
+- [x] Paginación y corrección de páginas fuera de rango.
+- [x] Estados sin preferencias, sin coincidencias y acceso no autenticado.
+- [x] Diseño final de una tarjeta por fila, listado/mapa 65/35 y respuesta móvil.
+- [x] Marcadores y contadores municipales basados en todas las coincidencias, no solo en la página actual.
+- [x] Filtrado de tarjetas por marcador municipal y opción para quitar el filtro.
+- [x] **Exclusión de convocatorias ya seguidas**, con actualización de listado, contador, paginación y mapa.
+- [x] Verificación de que la convocatoria seguida permanece en «Mis convocatorias».
+- [x] Búsqueda de municipios de preferencias territoriales corregida.
+- [x] Pruebas de regresión VF-01 a VF-06 de SPEC-010, incluida la visualización móvil y los mapas privados.
 
 ### 7.2. Validación técnica final
 
-Comandos comunicados como **correctos por el usuario** en el PASO 6.16.7.1:
+El proyecto superó, según confirmación del usuario, las comprobaciones finales realizadas al cerrar SPEC-010:
 
 ```bash
 pnpm exec tsc --noEmit
@@ -237,38 +285,46 @@ pnpm exec vitest run
 pnpm build
 ```
 
-El caso de uso de «Para mí» cuenta con pruebas automatizadas en `list-selection-processes-for-me.test.ts` (10 casos durante el desarrollo).
+Asimismo se confirmó que los problemas de ESLint fueron resueltos. Durante VT-03 se corrigió el límite `Suspense` de `/login` antes de obtener un `pnpm build` satisfactorio.
 
-**Alcance de la afirmación de validación:** los comandos y pruebas de integración en la aplicación fueron ejecutados y confirmados por el usuario; este documento no representa una ejecución independiente posterior al cierre.
+El caso de uso original de «Para mí» dispone de pruebas automatizadas en `list-selection-processes-for-me.test.ts` (10 casos documentados durante su implementación).
+
+**Referencia de evidencia:** SPEC-010, apartados de matriz funcional VF-01 a VF-06 y validación técnica VT-01 a VT-03. La presente revisión es documental.
 
 ## 8. Limitaciones conocidas y fuera de alcance
 
 - Las coincidencias dependen de la información sincronizada desde CIDO y de las preferencias guardadas.
-- La ubicación del organismo no identifica necesariamente el lugar de trabajo.
-- «Para mí» no comprueba automáticamente si el usuario cumple todos los requisitos legales o académicos de una convocatoria.
-- Los motivos visibles de coincidencia representan criterios generales activos, no una explicación individual detallada de todos los datos de cada convocatoria.
-- No se amplía el ámbito geográfico fuera de Catalunya en esta SPEC.
-- No se implementan alertas periódicas, avisos automáticos ni nuevas funciones de dashboard.
+- La ubicación del organismo convocante no identifica necesariamente el lugar de trabajo.
+- Las convocatorias sin coordenadas representables pueden constar en el listado aunque no generen un marcador propio.
+- «Para mí» no comprueba automáticamente si el usuario cumple los requisitos legales o académicos de participación.
+- Los motivos de coincidencia representan **criterios generales activos**, no una explicación individual detallada o puntuación de adecuación.
+- No se amplía el ámbito geográfico fuera de Catalunya ni se incorpora análisis de bases mediante IA en esta SPEC.
+- No se implementan avisos, notificaciones periódicas ni nuevas funciones de alertas.
 - No se modifica el catálogo de preferencias de SPEC-007 ni se incorpora jornada laboral.
 
 ## 9. Criterios de aceptación y cierre
 
-La especificación se considera completada porque:
+La especificación y su evolución se consideran finalizadas porque:
 
-1. Existe una ruta personalizada y accesible desde el menú lateral.
-2. La página usa las preferencias territoriales y profesionales persistidas del usuario.
-3. La selección aplica las reglas acordadas y ordena resultados por los plazos de solicitud.
-4. La paginación es consistente y trabaja con los resultados filtrados y ordenados.
-5. Se pueden consultar fuentes oficiales, abrir detalles y seguir convocatorias.
-6. Los estados vacíos, errores y autenticación están contemplados.
-7. El diseño final de ambas pantallas de tarjetas ha sido revisado y validado.
-8. TypeScript, Vitest y la compilación de producción han sido reportados sin errores.
-9. El usuario confirma que no quedan nuevas mejoras o incidencias pendientes de esta SPEC.
+1. Existe una ruta personalizada y accesible desde el menú lateral, protegida mediante autenticación.
+2. La consulta aplica las preferencias territoriales y profesionales persistidas del usuario y los estados oficiales CIDO previstos.
+3. Los resultados se ordenan por plazos y se paginan correctamente.
+4. **Solo se recomiendan convocatorias que el usuario todavía no sigue.** El seguimiento se aplica antes del recuento, paginación y agrupación cartográfica.
+5. La interfaz combina una tarjeta por fila y mapa municipal compartido en distribución 65/35, con soporte responsive.
+6. La navegación, el filtro municipal, los estados vacíos y el acceso a fuentes oficiales están contemplados.
+7. Los cambios de SPEC-010 relativos a «Para mí» fueron probados y validados por el usuario.
+8. TypeScript, Vitest, ESLint y el build de producción quedaron validados a nivel del proyecto durante la estabilización.
 
-**Resultado final: SPEC-008 — FINALIZADA Y VALIDADA (18/10/2026).**
+**Resultado final: SPEC-008 FINALIZADA Y VALIDADA, con ampliaciones de SPEC-010 integradas documentalmente el 23/10/2026.**
 
 ---
 
-## 10. Próximo paso
+## 10. Evolución y documentación relacionada
 
-Iniciar, en una conversación o fase diferenciada, **SPEC-009 — Dashboard del opositor**. Primero se acordará su alcance y diseño funcional, sin comenzar por cambios de código ni alterar las especificaciones cerradas.
+La previsión original de continuar con SPEC-009 se ha completado. En la fase posterior, SPEC-010 aportó el mapa compartido, la nueva presentación de las recomendaciones y la exclusión de convocatorias ya seguidas.
+
+- **SPEC-009.md:** Dashboard personal y público, con contador de oportunidades no seguidas.
+- **SPEC-010.md:** fuente de trazabilidad para la evolución de «Para mí» y las validaciones finales.
+
+**No se requieren modificaciones de código por esta revisión documental.**
+
