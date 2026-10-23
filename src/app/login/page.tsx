@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 
 import { AuthSidePanel } from "@/components/auth/auth-side-panel";
@@ -23,7 +24,15 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <LoginForm />
+          <Suspense
+            fallback={
+              <p role="status" className="text-sm text-[#69738A]">
+                Cargando formulario de acceso...
+              </p>
+            }
+          >
+            <LoginForm />
+          </Suspense>
 
           <div className="my-7 h-px bg-[#EEF1F5]" />
 
