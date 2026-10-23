@@ -32,6 +32,7 @@ type MySelectionProcessesPageProps = {
     municipality?: string | string[];
     province?: string | string[];
     personalStatus?: string | string[];
+    upcomingDeadlines?: string | string[];
   }>;
 };
 export default async function MySelectionProcessesPage({
@@ -53,6 +54,30 @@ export default async function MySelectionProcessesPage({
   // Todas las vistas se calculan exclusivamente con las convocatorias
   // del usuario autenticado. Cada filtro condiciona las otras vistas.
   const params = await searchParams;
+  // Vista especial enlazada desde "Plazos próximos" del Dashboard.
+  // Los demás accesos conservan el comportamiento actual.
+  const showUpcomingDeadlines = params.upcomingDeadlines === "1";
+  const upcomingFromDate = getCataloniaTodayUtc();
+  const upcomingToDate = new Date(upcomingFromDate);
+  upcomingToDate.setUTCDate(upcomingToDate.getUTCDate() + 15);
+
+  const matchesUpcomingDeadline = (
+    item: (typeof userSelectionProcesses)[number],
+  ): boolean => {
+    if (!showUpcomingDeadlines) return true;
+    if (
+      item.personalStatus !== "INTERESTED" &&
+      item.personalStatus !== "PREPARING_APPLICATION"
+    ) return false;
+
+    const endDate = item.selectionProcess.applicationEndDate;
+    return (
+      endDate !== null &&
+      endDate.getTime() >= upcomingFromDate.getTime() &&
+      endDate.getTime() <= upcomingToDate.getTime()
+    );
+  };
+
   const selectedMunicipality =
     typeof params.municipality === "string"
       ? params.municipality.trim() || null
@@ -78,7 +103,8 @@ export default async function MySelectionProcessesPage({
     selectedStatuses,
   );
   const hasSelectedStatuses = selectedStatuses.length > 0;
-  const hasActiveFilters = selectedMunicipality !== null || hasSelectedStatuses;
+  const hasActiveFilters =
+    selectedMunicipality !== null || hasSelectedStatuses || showUpcomingDeadlines;
 
   // El municipio limita los contadores de los estados personales.
   // El filtro de estados no se aplica aqui para permitir seleccionar
@@ -101,22 +127,40 @@ export default async function MySelectionProcessesPage({
     matchesSelectedMunicipality,
   );
 
+  // Filtrado por plazo antes de construir el mapa, las tarjetas y el contador.
+  // El mapa debe utilizar todos los municipios con vencimientos próximos.
+  const itemsWithinDeadline = userSelectionProcesses.filter(
+    matchesUpcomingDeadline,
+  );
+
   // Los estados seleccionados limitan los municipios y sus contadores.
   // El municipio seleccionado no se aplica al mapa: asi se puede
   // cambiar a otro municipio sin quitar previamente ese filtro.
   const itemsForMap = hasSelectedStatuses
-    ? userSelectionProcesses.filter((item) =>
+    ? itemsWithinDeadline.filter((item) =>
         selectedStatusSet.has(item.personalStatus),
       )
-    : userSelectionProcesses;
+    : itemsWithinDeadline;
 
-  // En el listado se cruzan ambos criterios.
+  // En el listado se cruzan todos los criterios.
   const filteredSelectionProcesses = itemsForMap.filter(
     matchesSelectedMunicipality,
   );
 
+  // Cuando venimos del indicador de plazos, primero vencen los más urgentes.
+  if (showUpcomingDeadlines) {
+    filteredSelectionProcesses.sort(
+      (a, b) =>
+        (a.selectionProcess.applicationEndDate?.getTime() ?? Infinity) -
+        (b.selectionProcess.applicationEndDate?.getTime() ?? Infinity),
+    );
+  }
+
 // Volver desde el detalle conserva todos los filtros activos.
   const returnToParams = new URLSearchParams();
+  if (showUpcomingDeadlines) {
+    returnToParams.set("upcomingDeadlines", "1");
+  }
   if (selectedMunicipality) {
     returnToParams.set("municipality", selectedMunicipality);
     if (selectedProvince) {
@@ -132,6 +176,9 @@ export default async function MySelectionProcessesPage({
     : "/mis-convocatorias";
 // Quitar el municipio no elimina los estados personales seleccionados.
   const statusOnlyParams = new URLSearchParams();
+  if (showUpcomingDeadlines) {
+    statusOnlyParams.set("upcomingDeadlines", "1");
+  }
   for (const status of selectedStatuses) {
     statusOnlyParams.append("personalStatus", status);
   }
@@ -139,6 +186,14 @@ export default async function MySelectionProcessesPage({
   const statusOnlyHref = statusOnlyQuery
     ? `/mis-convocatorias?${statusOnlyQuery}`
     : "/mis-convocatorias";
+
+  const noDeadlineParams = new URLSearchParams(returnToParams);
+  noDeadlineParams.delete("upcomingDeadlines");
+  const noDeadlineQuery = noDeadlineParams.toString();
+  const noDeadlineHref = noDeadlineQuery
+    ? `/mis-convocatorias?${noDeadlineQuery}`
+    : "/mis-convocatorias";
+
   return (
     <div className="flex min-h-screen bg-[#F4F6F9]">
       <AppSidebar
@@ -215,9 +270,16 @@ export default async function MySelectionProcessesPage({
                               {selectedProvince ? ` · ${selectedProvince}` : ""}
                             </span>
                           )}
-                          {hasSelectedStatuses && (
+                          {showUpcomingDeadlines && (
                             <span>
                               {selectedMunicipality ? " · " : ""}
+                              Plazos próximos (hoy y 15 días siguientes)
+                              {" · "}Me interesa o Preparando solicitud
+                            </span>
+                          )}
+                          {hasSelectedStatuses && (
+                            <span>
+                              {selectedMunicipality || showUpcomingDeadlines ? " · " : ""}
                               {selectedStatuses.length}{" "}
                               {selectedStatuses.length === 1
                                 ? "estado seleccionado"
@@ -227,6 +289,14 @@ export default async function MySelectionProcessesPage({
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        {showUpcomingDeadlines && (
+                          <Link
+                            href={noDeadlineHref}
+                            className="rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-xs font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
+                          >
+                            Quitar filtro de plazos
+                          </Link>
+                        )}
                         {selectedMunicipality && (
                           <Link
                             href={statusOnlyHref}
@@ -248,7 +318,9 @@ export default async function MySelectionProcessesPage({
                   <div className="grid min-w-0 grid-cols-1 items-stretch gap-3">
                     {filteredSelectionProcesses.length === 0 ? (
                       <div className="rounded-xl border border-[#E3E7EE] bg-white p-6 text-sm text-[#4E5870]">
-                        No hay convocatorias que coincidan con los filtros seleccionados.
+                        {showUpcomingDeadlines
+                          ? "No tienes solicitudes que venzan en los próximos 15 días con estado «Me interesa» o «Preparando solicitud»."
+                          : "No hay convocatorias que coincidan con los filtros seleccionados."}
                       </div>
                     ) : (
                       filteredSelectionProcesses.map(
@@ -522,8 +594,12 @@ export default async function MySelectionProcessesPage({
                   </div>
                   <div>
                     <p className="mt-1 text-sm text-[#69738A]">
-                      {userSelectionProcesses.length}{" "}
-                      {userSelectionProcesses.length === 1
+                      {showUpcomingDeadlines
+                        ? filteredSelectionProcesses.length
+                        : userSelectionProcesses.length}{" "}
+                      {(showUpcomingDeadlines
+                        ? filteredSelectionProcesses.length
+                        : userSelectionProcesses.length) === 1
                         ? "convocatoria"
                         : "convocatorias"}
                     </p>

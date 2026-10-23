@@ -5,7 +5,6 @@ import {
   CalendarClock,
   ExternalLink,
   MapPin,
-  BookmarkCheck,
   SlidersHorizontal,
   Target,
 } from "lucide-react";
@@ -20,9 +19,6 @@ import {
   getUserProfessionalPreferencesUseCase,
   getUserTerritorialPreferencesUseCase,
 } from "@/composition/user-profile";
-import {
-  listUserSelectionProcessesUseCase,
-} from "@/composition/user-selection-process";
 import {
   getApplicationPeriodPresentation,
   getOfficialStatusPresentation,
@@ -60,23 +56,20 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
       : null;
   const userId = session.user.id;
 
-  const [result, territorialPreferences, professionalPreferences, followed] =
+  const [result, territorialPreferences, professionalPreferences] =
     await Promise.all([
       listSelectionProcessesForMeUseCase.execute({
         userId,
         page: requestedPage,
+        // Se excluyen en SQL: listado, total, paginacion y mapa comparten el filtro.
+        excludeFollowed: true,
         municipality: selectedMunicipality ?? undefined,
         province: selectedProvince ?? undefined,
         includeMunicipalityMapPoints: true,
       }),
       getUserTerritorialPreferencesUseCase.execute({ userId }),
       getUserProfessionalPreferencesUseCase.execute({ userId }),
-      listUserSelectionProcessesUseCase.execute(userId),
     ]);
-
-  const followedIds = new Set(
-    followed.map((item) => item.selectionProcess.id),
-  );
 
   const matchReasons: string[] = [];
 
@@ -131,7 +124,7 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                 </div>
                 <p className="mt-1.5 max-w-[720px] text-[15px] text-[#4E5870]">
                   Convocatorias que coinciden con las preferencias que has
-                  guardado en tu perfil.
+                  guardado en tu perfil y que todavía no sigues.
                 </p>
               </div>
 
@@ -164,12 +157,13 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
             ) : pageData && pageData.items.length === 0 && !selectedMunicipality ? (
               <section className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
                 <h2 className="text-lg font-semibold text-[#131A2C]">
-                  No hay convocatorias que coincidan
+                  No hay nuevas convocatorias para ti
                 </h2>
                 <p className="mx-auto mt-2 max-w-[550px] text-sm leading-relaxed text-[#69738A]">
-                  No hemos encontrado convocatorias en los estados oficiales
-                  «Pendiente de plazo» o «Plazo abierto» que cumplan todas las
-                  preferencias configuradas.
+                  No hay convocatorias pendientes de seguir que encajen con
+                  tus preferencias en los estados oficiales «Pendiente de plazo»
+                  o «Plazo abierto». Puede que ya las sigas todas o que no haya
+                  nuevas oportunidades compatibles.
                 </p>
                 <Link
                   href="/mi-perfil"
@@ -217,12 +211,12 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                   {pageData.items.length === 0 ? (
                     <div className="rounded-xl border border-[#E3E7EE] bg-white p-6 shadow-sm">
                       <h3 className="text-[17px] font-semibold text-[#131A2C]">
-                        No hay convocatorias en {selectedMunicipality}
+                        No hay nuevas convocatorias en {selectedMunicipality}
                       </h3>
                       <p className="mt-2 text-sm leading-relaxed text-[#69738A]">
-                        Ninguna convocatoria de este municipio coincide actualmente
-                        con las preferencias de tu perfil. Selecciona otro marcador
-                        del mapa o quita el filtro territorial.
+                        No quedan convocatorias pendientes de seguir en este
+                        municipio que encajen con tus preferencias. Puedes
+                        seleccionar otro marcador o quitar el filtro territorial.
                       </p>
                     </div>
                   ) : (
@@ -236,17 +230,12 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                           item.applicationStartDate,
                           item.applicationEndDate,
                         );
-                        const isFollowing = followedIds.has(item.id);
                         const detailHref = `/convocatorias/${item.id}?returnTo=${encodeURIComponent(returnTo)}`;
     
                         return (
                           <article
                             key={item.id}
-                            className={`flex h-full min-w-0 flex-col overflow-hidden rounded-xl border shadow-sm transition-shadow hover:shadow-md ${
-                              isFollowing
-                                ? "border-[#D9DFF3] bg-[#F5F7FF]"
-                                : "border-[#E3E7EE] bg-white"
-                            }`}
+                            className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm transition-shadow hover:shadow-md"
                           >
                             <div className="flex flex-1 flex-col p-4">
                               <div className="flex flex-wrap items-center gap-2">
@@ -314,15 +303,6 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                               </div>
     
                               <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-[#EEF1F5] pt-3">
-                                {isFollowing && (
-                                  <Link
-                                    href="/mis-convocatorias"
-                                    className="mr-auto inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#C9CEF5] bg-[#EEF0FC] px-3 py-2 text-sm font-semibold text-[#3B45B5] transition-colors hover:border-[#9FA8EC] hover:bg-[#E2E6FB]"
-                                  >
-                                    <BookmarkCheck size={16} aria-hidden="true" />
-                                    Mi seguimiento
-                                  </Link>
-                                )}
                                 <a
                                   href={item.cidoUrl}
                                   target="_blank"
@@ -333,27 +313,23 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
                                 </a>
                                 <Link
                                   href={detailHref}
-                                  className={isFollowing
-                                    ? "inline-flex items-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
-                                    : "inline-flex items-center rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"}
+                                  className="inline-flex items-center rounded-lg border border-[#D5DAE3] bg-white px-4 py-2 text-sm font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
                                 >
                                   Ver detalle
                                 </Link>
-                                {!isFollowing && (
-                                  <form action={followFromForMeAction}>
-                                    <input
-                                      type="hidden"
-                                      name="selectionProcessId"
-                                      value={item.id}
-                                    />
-                                    <button
-                                      type="submit"
-                                      className="inline-flex items-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
-                                    >
-                                      Seguir convocatoria
-                                    </button>
-                                  </form>
-                                )}
+                                <form action={followFromForMeAction}>
+                                  <input
+                                    type="hidden"
+                                    name="selectionProcessId"
+                                    value={item.id}
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="inline-flex items-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
+                                  >
+                                    Seguir convocatoria
+                                  </button>
+                                </form>
                               </div>
                             </div>
                           </article>

@@ -1,17 +1,14 @@
 # TO DO
 
-- En el dashboard, quiero otro apartado donde se indique el numero de mis convocatorias por estado, y si hacemos click acceder a mis convocatorias filtrado por el estado que hacemos click
-
-- En para-mi, cuando se siga una convocatoria no tiene que salir esa convocatoria en el apartado para-mi
-
-- En plazos, cuando se hace click en el boton Mis convocatorias, tienen que salir solo las que estan filtradas por plazos
-
 - El mas importante, un boton en las bases para analizar por IA las bases y mostrar un resumen.
-
-    Hay que analizar lo mas importante para cargarlo en la base de datos.
+  Hay que analizar lo mas importante para cargarlo en la base de datos.
 
 
 # HECHO
+
+- En para-mi, cuando se siga una convocatoria no tiene que salir esa convocatoria en el apartado para-mi
+
+- En el dashboard, quiero otro apartado donde se indique el numero de mis convocatorias por estado, y si hacemos click acceder a mis convocatorias filtrado por el estado que hacemos click
 
 - Me falta un filtro que sea a tantos kilometros de un municipio
 
