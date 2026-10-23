@@ -170,7 +170,6 @@ export function FollowedMunicipalitiesMapZoom({
   const focusY = focusPoint?.y;
   useEffect(() => {
     dragRef.current = null;
-    setIsDragging(false);
     wheelDeltaRef.current = 0;
     if (focusX === undefined || focusY === undefined) {
       updateView(() => INITIAL_VIEW);

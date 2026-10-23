@@ -8,7 +8,6 @@ import {
 
 import {
   PersonalSelectionProcessStatus as PrismaPersonalSelectionProcessStatus,
-  PrismaClient,
 } from "@/generated/prisma/client";
 
 import { PersonalSelectionProcessStatus } from "../../domain/personal-selection-process-status";

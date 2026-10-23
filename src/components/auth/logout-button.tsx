@@ -8,6 +8,9 @@ export function LogoutButton() {
   async function handleLogout() {
     await authClient.signOut();
 
+    // Recarga completa a propósito: descarta la caché del router y el estado
+    // del cliente de la sesión anterior.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign("/dashboard");
   }
 

@@ -624,7 +624,7 @@ export default async function DashboardPage() {
 
                     Crea una cuenta gratuita y tendrás tu espacio personal en
 
-                    Convoca'm.
+                    Convoca&apos;m.
 
                   </p>
 

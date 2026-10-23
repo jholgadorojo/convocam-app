@@ -22,8 +22,6 @@ import {
 
   MapPin,
 
-  Users,
-
 } from "lucide-react";
 
 import { auth } from "@/lib/auth";
