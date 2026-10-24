@@ -14,6 +14,8 @@ import {
 
   CalendarDays,
 
+  CalendarX,
+
   ExternalLink,
 
   FileText,
@@ -202,6 +204,21 @@ export default async function DashboardPage() {
 
   const userSelectionProcesses = personalResults?.[3] ?? null;
 
+  // Igual que en Mis convocatorias: estados INTERESTED/PREPARING_APPLICATION
+  // con fecha final anterior al dia actual en Catalunya.
+  const cataloniaToday = getCataloniaCalendarDate(new Date());
+  const expiredDeadlinesCount = userSelectionProcesses === null
+    ? null
+    : userSelectionProcesses.filter((item) => {
+      const endDate = item.selectionProcess.applicationEndDate;
+      return (
+        (item.personalStatus === "INTERESTED" ||
+          item.personalStatus === "PREPARING_APPLICATION") &&
+        endDate !== null &&
+        endDate.getTime() < cataloniaToday.getTime()
+      );
+    }).length;
+
   const forMeCount =
 
     forMeResult?.kind === "results"
@@ -338,8 +355,7 @@ export default async function DashboardPage() {
                     />
                   )}
 
-
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 
                     <PersonalStatCard
 
@@ -386,6 +402,30 @@ export default async function DashboardPage() {
                       href="/mis-convocatorias?upcomingDeadlines=1"
 
                       action="Ver mis convocatorias"
+
+                    />
+
+                    <PersonalStatCard
+
+                      icon={<CalendarX size={21} />}
+
+                      title="Caducadas"
+
+                      count={expiredDeadlinesCount}
+
+                      description={
+
+                        expiredDeadlinesCount === 0
+
+                          ? "No tienes convocatorias pendientes de solicitud con el plazo finalizado."
+
+                          : "Convocatorias cuyo plazo terminó y siguen en «Me interesa» o «Preparando solicitud»."
+
+                      }
+
+                      href="/mis-convocatorias?expiredDeadlines=1"
+
+                      action="Ver caducadas"
 
                     />
 
@@ -625,7 +665,7 @@ export default async function DashboardPage() {
 
                     Crea una cuenta gratuita y tendrás tu espacio personal en
 
-                    Convoca&apos;m.
+                    Convoca'm.
 
                   </p>
 
@@ -1645,8 +1685,10 @@ function PersonalStatCard({
 
       <h3 className="text-sm font-semibold text-[#4E5870]">{title}</h3>
 
-      <p className="mt-2 text-[36px] font-bold leading-tight tracking-tight text-[#131A2C]">
-
+      <p
+        className={`mt-2 text-[36px] font-bold leading-tight tracking-tight ${title === "Caducadas" ? "text-[#DC2626]" : "text-[#131A2C]"
+          }`}
+      >
         {count === null ? "—" : new Intl.NumberFormat("es-ES").format(count)}
 
       </p>

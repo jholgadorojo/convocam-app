@@ -52,6 +52,8 @@ type GroupedMunicipality = {
 type MapProjection = {
   project: (longitude: number, latitude: number) => { x: number; y: number };
 };
+type DeadlineFilter = "upcoming" | "expired" | "open";
+
 type SharedProps = {
   selectedMunicipality?: string | null;
   selectedProvince?: string | null;
@@ -63,6 +65,8 @@ type FollowedProps = SharedProps & {
   items: readonly UserSelectionProcessListItem[];
   mapPoints?: never;
   selectedStatuses?: readonly PersonalSelectionProcessStatus[];
+  /** Mantiene el filtro de plazo al seleccionar o deseleccionar municipios. */
+  deadlineFilter?: DeadlineFilter;
 };
 
 type ForMeProps = SharedProps & {
@@ -70,6 +74,7 @@ type ForMeProps = SharedProps & {
   mapPoints: readonly SelectionProcessMunicipalityMapPoint[];
   items?: never;
   selectedStatuses?: never;
+  deadlineFilter?: never;
 };
 
 type Props = FollowedProps | ForMeProps;
@@ -79,6 +84,8 @@ export async function FollowedMunicipalitiesMap(props: Props) {
   const selectedProvince = props.selectedProvince ?? null;
   const isForMe = props.mode === "for-me";
   const selectedStatuses = isForMe ? [] : (props.selectedStatuses ?? []);
+  const deadlineFilter =
+    props.mode === "for-me" ? undefined : props.deadlineFilter;
   const basePath = isForMe ? "/para-mi" : "/mis-convocatorias";
   const mapTitle = isForMe
     ? "Mapa de convocatorias para mí"
@@ -93,7 +100,7 @@ export async function FollowedMunicipalitiesMap(props: Props) {
     // Mantenemos exactamente los mismos municipios, contadores y enlaces
     // de filtrado que utilizaba el SVG. Solo cambia el motor visual.
     // En "Para mi", el enlace omite page para empezar en la pagina 1.
-    // En "Mis convocatorias" conserva los estados personales activos.
+    // En "Mis convocatorias" conserva estados personales y filtro temporal.
     const mapMarkers: IcgcMunicipalityMarker[] = markers.map((marker) => {
       const selected =
         selectedMunicipality !== null &&
@@ -111,12 +118,19 @@ export async function FollowedMunicipalitiesMap(props: Props) {
         count: marker.count,
         selected,
         href: selected
-          ? buildMunicipalityHref(null, null, selectedStatuses, basePath)
+          ? buildMunicipalityHref(
+              null,
+              null,
+              selectedStatuses,
+              basePath,
+              deadlineFilter,
+            )
           : buildMunicipalityHref(
               marker.municipality,
               marker.province,
               selectedStatuses,
               basePath,
+              deadlineFilter,
             ),
       };
     });
@@ -287,15 +301,22 @@ export async function FollowedMunicipalitiesMap(props: Props) {
                 (selectedProvince === null ||
                   normalizeLocation(selectedProvince) ===
                     normalizeLocation(marker.province));
-              // "Mis convocatorias" conserva los estados personales.
+              // "Mis convocatorias" conserva estados y filtro temporal.
               // "Para mi" filtra en /para-mi y vuelve a la pagina 1.
               const href = isSelected
-                ? buildMunicipalityHref(null, null, selectedStatuses, basePath)
+                ? buildMunicipalityHref(
+                    null,
+                    null,
+                    selectedStatuses,
+                    basePath,
+                    deadlineFilter,
+                  )
                 : buildMunicipalityHref(
                     marker.municipality,
                     marker.province,
                     selectedStatuses,
                     basePath,
+                    deadlineFilter,
                   );
               return (
                 <a
@@ -522,6 +543,7 @@ function buildMunicipalityHref(
   province: string | null,
   selectedStatuses: readonly PersonalSelectionProcessStatus[],
   basePath: "/mis-convocatorias" | "/para-mi" = "/mis-convocatorias",
+  deadlineFilter?: DeadlineFilter,
 ): string {
   const params = new URLSearchParams();
 
@@ -529,6 +551,17 @@ function buildMunicipalityHref(
     params.set("municipality", municipality.trim());
     if (province?.trim()) {
       params.set("province", province.trim());
+    }
+  }
+
+  // Estos filtros solo existen en "Mis convocatorias", nunca en "Para mi".
+  if (basePath === "/mis-convocatorias") {
+    if (deadlineFilter === "upcoming") {
+      params.set("upcomingDeadlines", "1");
+    } else if (deadlineFilter === "expired") {
+      params.set("expiredDeadlines", "1");
+    } else if (deadlineFilter === "open") {
+      params.set("openApplications", "1");
     }
   }
 

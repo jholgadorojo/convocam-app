@@ -33,6 +33,8 @@ type MySelectionProcessesPageProps = {
     province?: string | string[];
     personalStatus?: string | string[];
     upcomingDeadlines?: string | string[];
+    expiredDeadlines?: string | string[];
+    openApplications?: string | string[];
   }>;
 };
 export default async function MySelectionProcessesPage({
@@ -54,25 +56,70 @@ export default async function MySelectionProcessesPage({
   // Todas las vistas se calculan exclusivamente con las convocatorias
   // del usuario autenticado. Cada filtro condiciona las otras vistas.
   const params = await searchParams;
-  // Vista especial enlazada desde "Plazos próximos" del Dashboard.
-  // Los demás accesos conservan el comportamiento actual.
-  const showUpcomingDeadlines = params.upcomingDeadlines === "1";
+  // Filtros temporales: "Plazos próximos", "Caducadas" y "En plazo".
+  // Si la URL incluye varios, aplicamos uno solo para evitar ambigüedad.
+  const showExpiredDeadlines = params.expiredDeadlines === "1";
+  const showUpcomingDeadlines =
+    params.upcomingDeadlines === "1" && !showExpiredDeadlines;
+  const showOpenApplications =
+    params.openApplications === "1" &&
+    !showExpiredDeadlines &&
+    !showUpcomingDeadlines;
   const upcomingFromDate = getCataloniaTodayUtc();
   const upcomingToDate = new Date(upcomingFromDate);
   upcomingToDate.setUTCDate(upcomingToDate.getUTCDate() + 15);
 
-  const matchesUpcomingDeadline = (
+  // Resumen del mapa: siempre refleja todos los seguimientos del usuario,
+  // independientemente de los filtros aplicados al listado.
+  const allFollowedCount = userSelectionProcesses.length;
+  const openApplicationsCount = userSelectionProcesses.filter((item) =>
+    getApplicationPeriodPresentation(
+      item.selectionProcess.applicationStartDate,
+      item.selectionProcess.applicationEndDate,
+    ).state === "open",
+  ).length;
+  const expiredApplicationsCount = userSelectionProcesses.filter((item) => {
+    const endDate = item.selectionProcess.applicationEndDate;
+    return (
+      (item.personalStatus === "INTERESTED" ||
+        item.personalStatus === "PREPARING_APPLICATION") &&
+      endDate !== null &&
+      endDate.getTime() < upcomingFromDate.getTime()
+    );
+  }).length;
+
+  const matchesDeadlineFilter = (
     item: (typeof userSelectionProcesses)[number],
   ): boolean => {
-    if (!showUpcomingDeadlines) return true;
+    if (
+      !showUpcomingDeadlines &&
+      !showExpiredDeadlines &&
+      !showOpenApplications
+    ) return true;
+
+    // "En plazo": solicitudes abiertas hoy, con cualquier estado personal.
+    if (showOpenApplications) {
+      return getApplicationPeriodPresentation(
+        item.selectionProcess.applicationStartDate,
+        item.selectionProcess.applicationEndDate,
+      ).state === "open";
+    }
+
     if (
       item.personalStatus !== "INTERESTED" &&
       item.personalStatus !== "PREPARING_APPLICATION"
     ) return false;
 
     const endDate = item.selectionProcess.applicationEndDate;
+    if (endDate === null) return false;
+
+    // "Caducadas": vencieron antes del inicio del día actual en Catalunya.
+    if (showExpiredDeadlines) {
+      return endDate.getTime() < upcomingFromDate.getTime();
+    }
+
+    // "Plazos próximos": desde hoy hasta dentro de 15 días (ambos incluidos).
     return (
-      endDate !== null &&
       endDate.getTime() >= upcomingFromDate.getTime() &&
       endDate.getTime() <= upcomingToDate.getTime()
     );
@@ -104,7 +151,11 @@ export default async function MySelectionProcessesPage({
   );
   const hasSelectedStatuses = selectedStatuses.length > 0;
   const hasActiveFilters =
-    selectedMunicipality !== null || hasSelectedStatuses || showUpcomingDeadlines;
+    selectedMunicipality !== null ||
+    hasSelectedStatuses ||
+    showUpcomingDeadlines ||
+    showExpiredDeadlines ||
+    showOpenApplications;
 
   // El municipio limita los contadores de los estados personales.
   // El filtro de estados no se aplica aqui para permitir seleccionar
@@ -128,9 +179,9 @@ export default async function MySelectionProcessesPage({
   );
 
   // Filtrado por plazo antes de construir el mapa, las tarjetas y el contador.
-  // El mapa debe utilizar todos los municipios con vencimientos próximos.
+  // El mapa incluye exclusivamente municipios del conjunto temporal elegido.
   const itemsWithinDeadline = userSelectionProcesses.filter(
-    matchesUpcomingDeadline,
+    matchesDeadlineFilter,
   );
 
   // Los estados seleccionados limitan los municipios y sus contadores.
@@ -147,19 +198,26 @@ export default async function MySelectionProcessesPage({
     matchesSelectedMunicipality,
   );
 
-  // Cuando venimos del indicador de plazos, primero vencen los más urgentes.
-  if (showUpcomingDeadlines) {
-    filteredSelectionProcesses.sort(
-      (a, b) =>
-        (a.selectionProcess.applicationEndDate?.getTime() ?? Infinity) -
-        (b.selectionProcess.applicationEndDate?.getTime() ?? Infinity),
-    );
+  // Plazos próximos: primero los más urgentes.
+  // Caducadas: primero los vencimientos más recientes.
+  if (showUpcomingDeadlines || showExpiredDeadlines) {
+    filteredSelectionProcesses.sort((a, b) => {
+      const aTime = a.selectionProcess.applicationEndDate?.getTime() ?? 0;
+      const bTime = b.selectionProcess.applicationEndDate?.getTime() ?? 0;
+      return showExpiredDeadlines ? bTime - aTime : aTime - bTime;
+    });
   }
 
 // Volver desde el detalle conserva todos los filtros activos.
   const returnToParams = new URLSearchParams();
   if (showUpcomingDeadlines) {
     returnToParams.set("upcomingDeadlines", "1");
+  }
+  if (showExpiredDeadlines) {
+    returnToParams.set("expiredDeadlines", "1");
+  }
+  if (showOpenApplications) {
+    returnToParams.set("openApplications", "1");
   }
   if (selectedMunicipality) {
     returnToParams.set("municipality", selectedMunicipality);
@@ -179,6 +237,12 @@ export default async function MySelectionProcessesPage({
   if (showUpcomingDeadlines) {
     statusOnlyParams.set("upcomingDeadlines", "1");
   }
+  if (showExpiredDeadlines) {
+    statusOnlyParams.set("expiredDeadlines", "1");
+  }
+  if (showOpenApplications) {
+    statusOnlyParams.set("openApplications", "1");
+  }
   for (const status of selectedStatuses) {
     statusOnlyParams.append("personalStatus", status);
   }
@@ -189,6 +253,8 @@ export default async function MySelectionProcessesPage({
 
   const noDeadlineParams = new URLSearchParams(returnToParams);
   noDeadlineParams.delete("upcomingDeadlines");
+  noDeadlineParams.delete("expiredDeadlines");
+  noDeadlineParams.delete("openApplications");
   const noDeadlineQuery = noDeadlineParams.toString();
   const noDeadlineHref = noDeadlineQuery
     ? `/mis-convocatorias?${noDeadlineQuery}`
@@ -277,9 +343,22 @@ export default async function MySelectionProcessesPage({
                               {" · "}Me interesa o Preparando solicitud
                             </span>
                           )}
+                          {showExpiredDeadlines && (
+                            <span>
+                              {selectedMunicipality ? " · " : ""}
+                              Caducadas (plazo finalizado antes de hoy)
+                              {" · "}Me interesa o Preparando solicitud
+                            </span>
+                          )}
+                          {showOpenApplications && (
+                            <span>
+                              {selectedMunicipality ? " · " : ""}
+                              En plazo (solicitudes abiertas hoy)
+                            </span>
+                          )}
                           {hasSelectedStatuses && (
                             <span>
-                              {selectedMunicipality || showUpcomingDeadlines ? " · " : ""}
+                              {selectedMunicipality || showUpcomingDeadlines || showExpiredDeadlines || showOpenApplications ? " · " : ""}
                               {selectedStatuses.length}{" "}
                               {selectedStatuses.length === 1
                                 ? "estado seleccionado"
@@ -289,12 +368,16 @@ export default async function MySelectionProcessesPage({
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        {showUpcomingDeadlines && (
+                        {(showUpcomingDeadlines || showExpiredDeadlines || showOpenApplications) && (
                           <Link
                             href={noDeadlineHref}
                             className="rounded-lg border border-[#D5DAE3] bg-white px-3 py-2 text-xs font-semibold text-[#3B45B5] hover:bg-[#F4F6F9]"
                           >
-                            Quitar filtro de plazos
+                            {showExpiredDeadlines
+                              ? "Quitar filtro de caducadas"
+                              : showOpenApplications
+                                ? "Quitar filtro de plazo abierto"
+                                : "Quitar filtro de plazos"}
                           </Link>
                         )}
                         {selectedMunicipality && (
@@ -318,9 +401,13 @@ export default async function MySelectionProcessesPage({
                   <div className="grid min-w-0 grid-cols-1 items-stretch gap-3">
                     {filteredSelectionProcesses.length === 0 ? (
                       <div className="rounded-xl border border-[#E3E7EE] bg-white p-6 text-sm text-[#4E5870]">
-                        {showUpcomingDeadlines
-                          ? "No tienes solicitudes que venzan en los próximos 15 días con estado «Me interesa» o «Preparando solicitud»."
-                          : "No hay convocatorias que coincidan con los filtros seleccionados."}
+                        {showExpiredDeadlines
+                          ? "No tienes convocatorias con el plazo de solicitud caducado y estado «Me interesa» o «Preparando solicitud»."
+                          : showUpcomingDeadlines
+                            ? "No tienes solicitudes que venzan en los próximos 15 días con estado «Me interesa» o «Preparando solicitud»."
+                            : showOpenApplications
+                              ? "No tienes convocatorias con el plazo de solicitud abierto hoy que coincidan con los filtros seleccionados."
+                              : "No hay convocatorias que coincidan con los filtros seleccionados."}
                       </div>
                     ) : (
                       filteredSelectionProcesses.map(
@@ -594,12 +681,8 @@ export default async function MySelectionProcessesPage({
                   </div>
                   <div>
                     <p className="mt-1 text-sm text-[#69738A]">
-                      {showUpcomingDeadlines
-                        ? filteredSelectionProcesses.length
-                        : userSelectionProcesses.length}{" "}
-                      {(showUpcomingDeadlines
-                        ? filteredSelectionProcesses.length
-                        : userSelectionProcesses.length) === 1
+                      {filteredSelectionProcesses.length}{" "}
+                      {filteredSelectionProcesses.length === 1
                         ? "convocatoria"
                         : "convocatorias"}
                     </p>
@@ -611,7 +694,82 @@ export default async function MySelectionProcessesPage({
                     selectedMunicipality={selectedMunicipality}
                     selectedProvince={selectedProvince}
                     selectedStatuses={selectedStatuses}
+                    deadlineFilter={
+                      showExpiredDeadlines
+                        ? "expired"
+                        : showUpcomingDeadlines
+                          ? "upcoming"
+                          : showOpenApplications
+                            ? "open"
+                            : undefined
+                    }
                   />
+                  {/* Indicadores globales, debajo del mapa. */}
+                  <section
+                    aria-labelledby="followed-summary-heading"
+                    className="rounded-xl border border-[#E3E7EE] bg-white p-4 shadow-sm"
+                  >
+                    <h2
+                      id="followed-summary-heading"
+                      className="text-sm font-semibold text-[#131A2C]"
+                    >
+                      Resumen de mis convocatorias
+                    </h2>
+                    <nav aria-label="Filtrar mis convocatorias por plazo" className="mt-3 grid grid-cols-3 gap-2">
+                      <Link
+                        href="/mis-convocatorias"
+                        aria-current={!hasActiveFilters ? "page" : undefined}
+                        className={`flex min-w-0 flex-col items-center justify-center rounded-lg border px-2 py-3 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4F5BD5] ${
+                          !hasActiveFilters
+                            ? "border-[#9FA8EC] bg-[#EEF0FC] ring-1 ring-[#9FA8EC]"
+                            : "border-transparent bg-[#F4F6F9] hover:bg-[#E9EDF3]"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold text-[#4E5870]">
+                          Todas
+                        </span>
+                        <span className="mt-1 text-2xl font-bold tabular-nums text-[#131A2C]">
+                          {allFollowedCount}
+                        </span>
+                      </Link>
+                      <Link
+                        href="/mis-convocatorias?openApplications=1"
+                        aria-current={showOpenApplications ? "page" : undefined}
+                        className={`flex min-w-0 flex-col items-center justify-center rounded-lg border px-2 py-3 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803D] ${
+                          showOpenApplications
+                            ? "border-[#86EFAC] bg-[#DCFCE7] ring-1 ring-[#86EFAC]"
+                            : "border-transparent bg-[#F0FDF4] hover:bg-[#DCFCE7]"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold text-[#4E5870]">
+                          En plazo
+                        </span>
+                        <span className="mt-1 text-2xl font-bold tabular-nums text-[#15803D]">
+                          {openApplicationsCount}
+                        </span>
+                      </Link>
+                      <Link
+                        href="/mis-convocatorias?expiredDeadlines=1"
+                        aria-current={showExpiredDeadlines ? "page" : undefined}
+                        className={`flex min-w-0 flex-col items-center justify-center rounded-lg border px-2 py-3 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#DC2626] ${
+                          showExpiredDeadlines
+                            ? "border-[#FCA5A5] bg-[#FEE2E2] ring-1 ring-[#FCA5A5]"
+                            : "border-transparent bg-[#FEF2F2] hover:bg-[#FEE2E2]"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold text-[#4E5870]">
+                          Caducadas
+                        </span>
+                        <span className="mt-1 text-2xl font-bold tabular-nums text-[#DC2626]">
+                          {expiredApplicationsCount}
+                        </span>
+                      </Link>
+                    </nav>
+                    <p className="mt-3 text-xs leading-relaxed text-[#69738A]">
+                      En plazo: solicitudes abiertas hoy. Caducadas: plazo
+                      vencido en «Me interesa» o «Preparando solicitud».
+                    </p>
+                  </section>
                 </aside>
               </section>
             )}
