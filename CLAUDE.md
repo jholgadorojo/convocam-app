@@ -27,7 +27,8 @@ pnpm exec tsx prisma/import-idescat-territories.ts   # carga provincias/comarcas
 ```
 
 - La config de Prisma está en `prisma7.config.ts` (nombre no estándar) y carga `.env` con `dotenv`. El cliente se genera en `src/generated/prisma` (no editar a mano); hay que regenerarlo tras cambiar `prisma/schema.prisma`.
-- Variables en `.env`: `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`.
+- Variables en `.env`: `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `CIDO_INTERNAL_API_TOKEN`.
+- El `postinstall` ejecuta `scripts/sync-maplibre-assets.mjs`, que copia el worker y el módulo compartido de `maplibre-gl` a `public/maplibre/` (los usa el mapa de `user-selection-process/presentation/icgc-municipalities-map.tsx`). Si el mapa falla, volver a ejecutar `pnpm install` o `node scripts/sync-maplibre-assets.mjs`.
 - `vitest.config.mts` define el alias `@` → `./src`. Los tests de integración importan `dotenv/config` para leer `DATABASE_URL`, crean su propio `user` en `beforeEach` y lo borran en `afterEach`.
 
 ## Arquitectura
@@ -44,7 +45,7 @@ La estructura varía entre módulos: `user-profile` agrupa `application/` en `us
 
 Dentro de un módulo se importa con rutas relativas; entre capas globales se usa `@/`.
 
-Los tests unitarios se colocan junto al código (`*.test.ts` en `src/`). Los de integración contra PostgreSQL real van en `tests/integration/<módulo>/`.
+Los tests unitarios se colocan junto al código (`*.test.ts` en `src/`, incluidos los route handlers de `src/app/api/`). Los de integración contra PostgreSQL real van en `tests/integration/<módulo>/`.
 
 ### Sincronización con CIDO (`selection-process`)
 
@@ -56,7 +57,7 @@ Importa convocatorias de la API pública CIDO de la Diputació de Barcelona (`ht
 - `SyncSelectionProcesses.execute({ limit, offset })`: para cada convocatoria de la página hace upsert de institución → convocatoria → materias (y reemplaza la tabla puente `SelectionProcessSubjectArea`) → documentos. Las filas sincronizadas llevan campos de seguimiento `sourceActive`, `sourceSyncedAt`, `sourceLastSeenAt`, `sourceHash`; los documentos que desaparecen de CIDO se marcan `sourceActive: false` en vez de borrarse.
 - Sincronización completa: `RunSelectionProcessSync` = `SyncAllSelectionProcesses` (recorre todas las páginas, `pageSize` 500, y devuelve `syncStartedAt`) + `ReconcileMissingSelectionProcesses` (las convocatorias activas no vistas desde `syncStartedAt` se reconsultan por `cidoId` en CIDO; si ya no existen se marcan `sourceActive: false`).
 - Consultas de lectura (buscador, filtros, «para mí», detalle) en `PrismaSelectionProcessQueryRepository` / `PrismaSelectionProcessDetailRepository`. La búsqueda tolerante usa SQL crudo (`Prisma.sql`) con las extensiones `unaccent` y `pg_trgm` creadas en una migración.
-- Endpoints de depuración en `src/app/api/debug/cido/`: `GET /api/debug/cido` (vista previa de convocatorias mapeadas), `GET /api/debug/cido/institution?cidoId=...`, `POST /api/debug/cido/sync` (sincroniza con `limit: 5, offset: 0`) y `POST /api/debug/cido/sync-all` (sincronización completa + reconciliación).
+- Endpoint interno `POST /api/internal/cido/sync-all` (sincronización completa + reconciliación), protegido en todos los entornos con `Authorization: Bearer $CIDO_INTERNAL_API_TOKEN` (validado en `src/shared/infrastructure/security/cido-internal-api-token.ts`: entre 32 y 512 caracteres sin espacios, comparación en tiempo constante). Si la variable no está definida o no es válida, responde siempre `401`.
 
 ### Dashboard (`dashboard`)
 
