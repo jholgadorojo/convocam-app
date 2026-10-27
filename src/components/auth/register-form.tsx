@@ -7,6 +7,7 @@ import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getPasswordPolicyError } from "@/shared/infrastructure/security/password-policy";
 
 export function RegisterForm() {
     const [name, setName] = useState("");
@@ -34,15 +35,10 @@ export function RegisterForm() {
             return;
         }
 
-        const passwordIsValid =
-            password.length >= 8 &&
-            /[A-Za-z]/.test(password) &&
-            /\d/.test(password);
+        const passwordError = getPasswordPolicyError(password);
 
-        if (!passwordIsValid) {
-            setGeneralError(
-                "La contraseña debe tener al menos 8 caracteres, una letra y un número.",
-            );
+        if (passwordError) {
+            setGeneralError(passwordError);
             return;
         }
 
