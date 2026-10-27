@@ -157,6 +157,7 @@ export default async function HomePage() {
                 <input
                   type="search"
                   name="q"
+                  maxLength={100}
                   aria-label="Buscar convocatorias"
                   placeholder="Administrativo, auxiliar, informática, ayuntamiento..."
                   className="h-14 w-full rounded-xl border border-transparent bg-white pl-12 pr-4 text-[15px] outline-none focus:border-[#4F5BD5]"

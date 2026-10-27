@@ -5,6 +5,7 @@ import type { SelectionProcessMunicipalityMapPoint } from "../../application/sel
 import type { SelectionProcessPage } from "../../application/selection-process-page";
 import type { SelectionProcessQueryRepository } from "../../application/selection-process-query-repository";
 import type { SelectionProcessApplicationPeriodFilter, SelectionProcessSearchFilters, SelectionProcessSort, SelectionProcessTerritorialIds } from "../../application/selection-process-search-filters";
+import { parseSearchTerms } from "./search-terms";
 type SelectionProcessRow = Prisma.SelectionProcessGetPayload<{
   include: {
     institution: true;
@@ -903,11 +904,7 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
     };
   }
   private async findTextMatches(text: string): Promise<TextSearchMatch[]> {
-    const terms = text
-      .trim()
-      .split(/\s+/)
-      .map((term) => term.trim())
-      .filter(Boolean);
+    const terms = parseSearchTerms(text);
     if (terms.length ===
       0) {
       return [];

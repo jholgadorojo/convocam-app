@@ -36,6 +36,7 @@ export function AppHeader({
           <input
             type="search"
             name="q"
+            maxLength={100}
             placeholder="Búsqueda rápida de convocatorias"
             className="min-w-0 flex-1 bg-transparent text-[13.5px] text-[#131A2C] outline-none placeholder:text-[#7C859B]"
           />

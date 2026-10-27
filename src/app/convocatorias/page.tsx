@@ -368,7 +368,7 @@ export default async function ConvocatoriasPage({ searchParams, }: Convocatorias
 
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7C859B]"/>
 
-                <input key={`search-${filterFormKey}`} form={FILTER_FORM_ID} type="search" name="q" defaultValue={query} placeholder="Busca por puesto, organismo, municipio..." className="h-[52px] w-full rounded-lg border border-[#D5DAE3] bg-white pl-12 pr-4 text-[15px] outline-none focus:border-[#4F5BD5]"/>
+                <input key={`search-${filterFormKey}`} form={FILTER_FORM_ID} type="search" name="q" maxLength={100} defaultValue={query} placeholder="Busca por puesto, organismo, municipio..." className="h-[52px] w-full rounded-lg border border-[#D5DAE3] bg-white pl-12 pr-4 text-[15px] outline-none focus:border-[#4F5BD5]"/>
 
               </div>
 
