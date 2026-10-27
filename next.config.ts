@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { getDevAllowedHosts } from "./src/shared/infrastructure/config/dev-allowed-hosts";
+
 // Cabeceras de seguridad aplicadas a todas las respuestas.
 // No se define una CSP completa: solo frame-ancestors para impedir
 // que la aplicación se cargue dentro de un iframe (clickjacking).
@@ -15,8 +17,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Permite abrir el servidor de desarrollo desde 127.0.0.1 o la IP de la red local.
-  allowedDevOrigins: ["127.0.0.1", "192.168.0.173", "192.168.3.182", "192.168.2.2", "192.168.2.61"],
+  // Permite abrir el servidor de desarrollo desde 127.0.0.1 o la IP de la red local
+  // (variable DEV_ALLOWED_HOSTS en .env).
+  allowedDevOrigins: getDevAllowedHosts(),
 
   // No anunciar "X-Powered-By: Next.js".
   poweredByHeader: false,

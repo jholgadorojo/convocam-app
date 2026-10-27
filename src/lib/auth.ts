@@ -7,6 +7,7 @@ import {
   MAX_FIRST_NAME_LENGTH,
 } from "@/modules/user-profile/domain/user-profile";
 
+import { getDevAllowedHosts } from "@/shared/infrastructure/config/dev-allowed-hosts";
 import { prisma } from "@/shared/infrastructure/database/prisma";
 import {
   getPasswordPolicyError,
@@ -92,5 +93,12 @@ export const auth = betterAuth({
   },
 
 
-  trustedOrigins: ["http://127.0.0.1:3000", "http://192.168.0.173:3000", "http://192.168.3.182:3000"],
+  // BETTER_AUTH_URL ya es de confianza. En desarrollo se añaden
+  // los hosts de DEV_ALLOWED_HOSTS (127.0.0.1, IP de la red local...).
+  trustedOrigins:
+    process.env.NODE_ENV === "production"
+      ? []
+      : getDevAllowedHosts().map(
+          (host) => `http://${host}:${process.env.PORT ?? "3000"}`,
+        ),
 });

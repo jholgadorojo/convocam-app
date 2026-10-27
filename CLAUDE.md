@@ -27,7 +27,7 @@ pnpm exec tsx prisma/import-idescat-territories.ts   # carga provincias/comarcas
 ```
 
 - La config de Prisma está en `prisma7.config.ts` (nombre no estándar) y carga `.env` con `dotenv`. El cliente se genera en `src/generated/prisma` (no editar a mano); hay que regenerarlo tras cambiar `prisma/schema.prisma`.
-- Variables en `.env`: `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `CIDO_INTERNAL_API_TOKEN`.
+- Variables en `.env`: `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `CIDO_INTERNAL_API_TOKEN` y, opcional, `DEV_ALLOWED_HOSTS`.
 - El `postinstall` ejecuta `scripts/sync-maplibre-assets.mjs`, que copia el worker y el módulo compartido de `maplibre-gl` a `public/maplibre/` (los usa el mapa de `user-selection-process/presentation/icgc-municipalities-map.tsx`). Si el mapa falla, volver a ejecutar `pnpm install` o `node scripts/sync-maplibre-assets.mjs`.
 - `vitest.config.mts` define el alias `@` → `./src`. Los tests de integración importan `dotenv/config` para leer `DATABASE_URL`, crean su propio `user` en `beforeEach` y lo borran en `afterEach`.
 
@@ -71,7 +71,7 @@ Páginas en `src/app/` con rutas en español (`convocatorias`, `convocatorias/[i
 
 - `src/lib/auth.ts`: servidor better-auth con `prismaAdapter` y email+contraseña. Sus tablas (`user`, `session`, `account`, `verification`) están en `schema.prisma`. `UserProfile` (`user_profiles`) es 1:1 con `user` mediante `userId` único y `onDelete: Cascade`.
 - `src/app/api/auth/[...all]/route.ts` expone el handler. `src/lib/auth-client.ts` es el cliente React (`authClient.signUp.email`, etc.) usado desde componentes `"use client"` como `src/components/auth/register-form.tsx`.
-- Acceso en desarrollo desde orígenes distintos de `localhost:3000` (p. ej. `127.0.0.1` o la IP de la LAN): hay que añadirlos **tanto** en `allowedDevOrigins` de `next.config.ts` (si no, Next.js bloquea el JS de desarrollo y el formulario no llega a hidratarse) **como** en `trustedOrigins` de `src/lib/auth.ts` (si no, better-auth responde `403 Invalid origin`).
+- Acceso en desarrollo desde orígenes distintos de `localhost:3000` (p. ej. `127.0.0.1` o la IP de la LAN): añadir el host a `DEV_ALLOWED_HOSTS` en `.env` (separados por comas) y reiniciar `pnpm dev`. Lo leen `src/shared/infrastructure/config/dev-allowed-hosts.ts`, `allowedDevOrigins` de `next.config.ts` (si falta, Next.js bloquea el JS de desarrollo y el formulario no llega a hidratarse) y `trustedOrigins` de `src/lib/auth.ts` (si falta, better-auth responde `403 Invalid origin`; en producción no se añade ninguno).
 
 ### UI
 
