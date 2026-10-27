@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getSafeReturnTo } from "@/shared/infrastructure/security/safe-return-to";
 
 export function LoginForm() {
     const [email, setEmail] = useState("");
@@ -44,14 +45,9 @@ export function LoginForm() {
         }
 
         if (data) {
-            const requestedReturnTo =
-                searchParams.get("returnTo");
-
-            const returnTo =
-                requestedReturnTo?.startsWith("/") &&
-                    !requestedReturnTo.startsWith("//")
-                    ? requestedReturnTo
-                    : "/dashboard";
+            const returnTo = getSafeReturnTo(
+                searchParams.get("returnTo"),
+            );
 
             router.replace(returnTo);
             router.refresh();
