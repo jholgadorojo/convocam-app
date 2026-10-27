@@ -58,14 +58,6 @@ export async function changePersonalStatusFromMySelectionProcessesAction(
   const personalStatus =
     formData.get("personalStatus");
 
-    console.log(
-  "[Mis convocatorias] cambio de estado:",
-  {
-    selectionProcessId,
-    personalStatus,
-  },
-);
-
   if (selectionProcessId === null) {
     throw new Error(
       "El identificador de la convocatoria no es válido.",

@@ -1,7 +1,6 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
-import Link from "next/link";
 import { CircleAlert, Eye, EyeOff } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -86,12 +85,14 @@ export function LoginForm() {
                         Contraseña
                     </Label>
 
-                    <Link
-                        href="/forgot-password"
+                    {/* Recuperación de contraseña pendiente: requiere envío de emails. */}
+                    <button
+                        type="button"
+                        title="Funcionalidad disponible próximamente"
                         className="text-[13.5px] font-semibold text-[#3B45B5] hover:underline"
                     >
                         He olvidado la contraseña
-                    </Link>
+                    </button>
                 </div>
 
                 <div className="relative">

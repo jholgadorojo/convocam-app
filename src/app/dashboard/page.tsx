@@ -15,7 +15,6 @@ import {
   Target,
 } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/shared/infrastructure/database/prisma";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import {
@@ -47,18 +46,7 @@ import { decodeHtmlEntities } from "@/shared/presentation/decode-html-entities";
  * - Sin buscador duplicado (ya existe en el menu lateral).
  * - El seguimiento se inicia desde el detalle, no desde el dashboard.
  * - Los enlaces de detalle son botones destacados.
- * - Modo temporal para probar publicaciones de los ultimos dos meses.
  */
-/**
- * SOLO PARA PRUEBAS.
- *
- * true: consulta hasta cinco documentos activos de los ultimos dos meses,
- *       aunque sean anteriores al inicio del seguimiento.
- * false: restaura el criterio definitivo de SPEC-009 mediante el caso de uso.
- *
- * No cambiar otras tablas, repositorios ni especificaciones por esta prueba.
- */
-const TEST_RECENT_PUBLICATIONS = true;
 const secondaryDetailButtonClasses =
   "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg " +
   "border border-[#C9CEF5] bg-[#EEF0FC] px-3.5 py-2 text-sm " +
@@ -91,11 +79,9 @@ export default async function DashboardPage() {
         pageSize: 3,
         excludeFollowed: true,
       }),
-      TEST_RECENT_PUBLICATIONS
-        ? loadRecentPublicationsForTest(session.user.id)
-        : getDashboardLatestPublicationsUseCase
-          .execute({ userId: session.user.id })
-          .then((result) => result.publications),
+      getDashboardLatestPublicationsUseCase
+        .execute({ userId: session.user.id })
+        .then((result) => result.publications),
 // Estados personales: mismo origen de datos que «Mis convocatorias».
       listUserSelectionProcessesUseCase.execute(session.user.id),
     ])
@@ -578,18 +564,9 @@ function LatestOfficialPublicationsPanel({
             </h2>
           </div>
           <p className="mt-1 text-sm text-[#69738A]">
-            {TEST_RECENT_PUBLICATIONS
-              ? "Prueba temporal: hasta cinco documentos activos de los " +
-              "últimos dos meses de convocatorias que sigues, aunque " +
-              "se publicaran antes de empezar a seguirlas."
-              : "Los cinco documentos más recientes publicados desde " +
-              "el día en que empezaste a seguir cada convocatoria."}
+            Los cinco documentos más recientes publicados desde el día en
+            que empezaste a seguir cada convocatoria.
           </p>
-          {TEST_RECENT_PUBLICATIONS && (
-            <span className="mt-2 inline-flex rounded-md bg-[#FFF2DF] px-2.5 py-1 text-xs font-semibold text-[#955000]">
-              Prueba temporal: últimos dos meses
-            </span>
-          )}
         </div>
       </div>
       {items.length === 0 ? (
@@ -598,11 +575,8 @@ function LatestOfficialPublicationsPanel({
             No hay publicaciones oficiales para mostrar.
           </p>
           <p className="mt-1 text-sm text-[#69738A]">
-            {TEST_RECENT_PUBLICATIONS
-              ? "No se han encontrado documentos activos publicados en los " +
-              "últimos dos meses para las convocatorias que sigues."
-              : "Aquí aparecerán los documentos activos publicados " +
-              "desde el día en que comenzaste a seguir cada convocatoria."}
+            Aquí aparecerán los documentos activos publicados desde el día
+            en que comenzaste a seguir cada convocatoria.
           </p>
         </div>
       ) : (
@@ -695,73 +669,6 @@ function LatestOfficialPublicationsPanel({
     </section>
   );
 }
-/**
- * PRUEBA TEMPORAL DE PUBLICACIONES (SOLO EN ESTA PAGINA).
- *
- * Para comprobar la interfaz con datos reales, se consultan documentos
- * activos de los dos meses previos del calendario de Catalunya.
- *
- * IMPORTANTE: durante esta prueba NO se aplica la fecha followedAt.
- * La consulta sigue limitada a convocatorias que sigue el usuario.
- * La ruta definitiva permanece disponible al desactivar el indicador
- * TEST_RECENT_PUBLICATIONS y vuelve a usar Clean Architecture.
- */
-async function loadRecentPublicationsForTest(
-  userId: string,
-): Promise<DashboardLatestPublicationItem[]> {
-  const today = getCataloniaCalendarDate(new Date());
-  const fromDate = subtractUtcCalendarMonths(today, 2);
-  const documents = await prisma.selectionProcessDocument.findMany({
-    where: {
-      sourceActive: true,
-      publicationDate: {
-        gte: fromDate,
-        lte: today,
-      },
-      selectionProcess: {
-        is: {
-          userSelectionProcesses: {
-            some: { userId },
-          },
-        },
-      },
-    },
-    orderBy: [
-      { publicationDate: "desc" },
-      { id: "desc" },
-    ],
-    take: 5,
-    select: {
-      id: true,
-      selectionProcessId: true,
-      publicationDate: true,
-      summary: true,
-      phase: true,
-      documentUrl: true,
-      selectionProcess: {
-        select: {
-          title: true,
-          institution: {
-            select: {
-              municipality: true,
-            },
-          },
-        },
-      },
-    },
-  });
-  return documents.map((document) => ({
-    documentId: document.id,
-    selectionProcessId: document.selectionProcessId,
-    selectionProcessTitle: document.selectionProcess.title,
-    municipality:
-      document.selectionProcess.institution?.municipality ?? null,
-    publicationDate: document.publicationDate,
-    summary: document.summary,
-    phase: document.phase,
-    documentUrl: document.documentUrl,
-  }));
-}
 /** Devuelve la fecha local de Catalunya como DATE a medianoche UTC. */
 function getCataloniaCalendarDate(instant: Date): Date {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -774,17 +681,6 @@ function getCataloniaCalendarDate(instant: Date): Date {
   const month = Number(parts.find((part) => part.type === "month")?.value);
   const day = Number(parts.find((part) => part.type === "day")?.value);
   return new Date(Date.UTC(year, month - 1, day));
-}
-/** Restar meses naturales sin desbordar el ultimo dia del mes. */
-function subtractUtcCalendarMonths(date: Date, months: number): Date {
-  const result = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - months, 1),
-  );
-  const lastDay = new Date(
-    Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0),
-  ).getUTCDate();
-  result.setUTCDate(Math.min(date.getUTCDate(), lastDay));
-  return result;
 }
 function dashboardDetailHref(selectionProcessId: number): string {
   return `/convocatorias/${selectionProcessId}?returnTo=${encodeURIComponent("/dashboard")}`;
