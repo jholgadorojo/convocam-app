@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getPasswordPolicyError } from "@/shared/infrastructure/security/password-policy";
+import { MAX_FIRST_NAME_LENGTH } from "@/modules/user-profile/domain/user-profile";
 
 export function RegisterForm() {
     const [name, setName] = useState("");
@@ -90,6 +91,7 @@ export function RegisterForm() {
                     placeholder="José"
                     className="h-11 rounded-lg border-[#D5DAE3] px-3 text-sm"
                     required
+                    maxLength={MAX_FIRST_NAME_LENGTH}
                 />
             </div>
 

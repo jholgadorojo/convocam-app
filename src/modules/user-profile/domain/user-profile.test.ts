@@ -43,6 +43,49 @@ describe("UserProfile", () => {
       }),
     ).toThrow("El identificador del perfil no es válido");
   });
+
+  it("rechaza un nombre de más de 100 caracteres", () => {
+    expect(() =>
+      UserProfile.create({
+        userId: "user-123",
+        firstName: "A".repeat(101),
+        lastName: "Holgado",
+      }),
+    ).toThrow("El nombre no puede superar los 100 caracteres");
+  });
+
+  it("rechaza unos apellidos de más de 150 caracteres", () => {
+    const profile = UserProfile.create({
+      userId: "user-123",
+      firstName: "Jose",
+      lastName: "Holgado",
+    });
+
+    expect(() =>
+      profile.changePersonalData("Jose", "B".repeat(151)),
+    ).toThrow("Los apellidos no pueden superar los 150 caracteres");
+    expect(profile.lastName).toBe("Holgado");
+  });
+
+  it("acepta nombre y apellidos en el límite permitido", () => {
+    const profile = UserProfile.create({
+      userId: "user-123",
+      firstName: "A".repeat(100),
+      lastName: "B".repeat(150),
+    });
+
+    expect(profile.firstName).toHaveLength(100);
+    expect(profile.lastName).toHaveLength(150);
+  });
+
+  it("rechaza un nombre de registro de más de 100 caracteres", () => {
+    expect(() =>
+      UserProfile.createForRegistration({
+        userId: "user-123",
+        name: "A".repeat(101),
+      }),
+    ).toThrow("El nombre no puede superar los 100 caracteres");
+  });
 });
 describe("UserProfile - residencia", () => {
   const createProfile = () =>

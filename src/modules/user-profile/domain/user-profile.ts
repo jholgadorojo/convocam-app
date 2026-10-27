@@ -1,3 +1,11 @@
+export const MAX_FIRST_NAME_LENGTH = 100;
+export const MAX_LAST_NAME_LENGTH = 150;
+
+export const FIRST_NAME_TOO_LONG_MESSAGE =
+  `El nombre no puede superar los ${MAX_FIRST_NAME_LENGTH} caracteres`;
+export const LAST_NAME_TOO_LONG_MESSAGE =
+  `Los apellidos no pueden superar los ${MAX_LAST_NAME_LENGTH} caracteres`;
+
 export type UserProfileProps = {
   id?: number;
   userId: string;
@@ -23,6 +31,11 @@ export class UserProfile {
     if (!props.lastName.trim()) {
       throw new Error("Los apellidos son obligatorios");
     }
+
+    UserProfile.validateNameLengths(
+      props.firstName.trim(),
+      props.lastName.trim(),
+    );
 
     return new UserProfile({
       userId: props.userId,
@@ -75,6 +88,11 @@ export class UserProfile {
       throw new Error("Los apellidos son obligatorios");
     }
 
+    UserProfile.validateNameLengths(
+      normalizedFirstName,
+      normalizedLastName,
+    );
+
     this.props.firstName = normalizedFirstName;
     this.props.lastName = normalizedLastName;
   }
@@ -105,12 +123,29 @@ export class UserProfile {
       throw new Error("El nombre es obligatorio");
     }
 
+    UserProfile.validateNameLengths(firstName, "");
+
     return new UserProfile({
       userId,
       firstName,
       lastName: "",
       residenceMunicipalityId: null,
     });
+  }
+
+  // Solo se aplica al crear o modificar, no en restore,
+  // para no impedir cargar datos guardados anteriormente.
+  private static validateNameLengths(
+    firstName: string,
+    lastName: string,
+  ): void {
+    if (firstName.length > MAX_FIRST_NAME_LENGTH) {
+      throw new Error(FIRST_NAME_TOO_LONG_MESSAGE);
+    }
+
+    if (lastName.length > MAX_LAST_NAME_LENGTH) {
+      throw new Error(LAST_NAME_TOO_LONG_MESSAGE);
+    }
   }
 
 }

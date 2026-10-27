@@ -10,6 +10,11 @@ import {
 import { Pencil } from "lucide-react";
 
 import {
+  MAX_FIRST_NAME_LENGTH,
+  MAX_LAST_NAME_LENGTH,
+} from "@/modules/user-profile/domain/user-profile";
+
+import {
   savePersonalDataAction,
   type SavePersonalDataState,
 } from "./actions";
@@ -211,6 +216,7 @@ export function PersonalDataForm({
                 type="text"
                 autoComplete="given-name"
                 required
+                maxLength={MAX_FIRST_NAME_LENGTH}
                 value={draftFirstName}
                 onChange={(event) =>
                   setDraftFirstName(event.target.value)
@@ -235,6 +241,7 @@ export function PersonalDataForm({
                 type="text"
                 autoComplete="family-name"
                 required
+                maxLength={MAX_LAST_NAME_LENGTH}
                 value={draftLastName}
                 onChange={(event) =>
                   setDraftLastName(event.target.value)

@@ -12,6 +12,7 @@ import { Pencil, Trash2 } from "lucide-react";
 
 import {
   ACADEMIC_QUALIFICATION_TYPES,
+  MAX_QUALIFICATION_NAME_LENGTH,
   type AcademicQualificationType,
 } from "@/modules/user-profile/domain/user-academic-qualification";
 
@@ -293,6 +294,7 @@ function QualificationItem({
                 id={`qualification-name-${current.id}`}
                 name="name"
                 type="text"
+                maxLength={MAX_QUALIFICATION_NAME_LENGTH}
                 value={draftName}
                 onChange={(event) =>
                   setDraftName(event.target.value)

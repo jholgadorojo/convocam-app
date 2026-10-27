@@ -75,6 +75,34 @@ describe("UserAcademicQualification", () => {
     );
   });
 
+  it("rechaza una denominación de más de 200 caracteres", () => {
+    expect(() =>
+      UserAcademicQualification.create({
+        userProfileId: 1,
+        qualificationType: "BACCALAUREATE",
+        name: "A".repeat(201),
+      }),
+    ).toThrow(
+      "La denominación de la titulación no puede superar los 200 caracteres",
+    );
+  });
+
+  it("rechaza modificar la denominación con más de 200 caracteres", () => {
+    const qualification =
+      UserAcademicQualification.create({
+        userProfileId: 1,
+        qualificationType: "ESO",
+        name: "Educación Secundaria",
+      });
+
+    expect(() =>
+      qualification.changeDetails("ESO", "A".repeat(201)),
+    ).toThrow(
+      "La denominación de la titulación no puede superar los 200 caracteres",
+    );
+    expect(qualification.name).toBe("Educación Secundaria");
+  });
+
   it("recupera una titulación existente", () => {
     const qualification =
       UserAcademicQualification.restore({

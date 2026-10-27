@@ -25,6 +25,8 @@ export const ACADEMIC_QUALIFICATION_TYPES = [
 export type AcademicQualificationType =
     (typeof ACADEMIC_QUALIFICATION_TYPES)[number];
 
+export const MAX_QUALIFICATION_NAME_LENGTH = 200;
+
 // ============================================================
 // PROPIEDADES
 // ============================================================
@@ -56,6 +58,7 @@ export class UserAcademicQualification {
         this.validateQualificationType(input.qualificationType);
 
         const name = this.validateName(input.name);
+        this.validateNameLength(name);
 
         return new UserAcademicQualification({
             userProfileId: input.userProfileId,
@@ -107,6 +110,7 @@ export class UserAcademicQualification {
 
         const validatedName =
             UserAcademicQualification.validateName(name);
+        UserAcademicQualification.validateNameLength(validatedName);
 
         this.props.qualificationType = qualificationType;
         this.props.name = validatedName;
@@ -152,6 +156,16 @@ export class UserAcademicQualification {
         }
 
         return normalizedName;
+    }
+
+    // Solo se aplica al crear o modificar, no en restore,
+    // para no impedir cargar datos guardados anteriormente.
+    private static validateNameLength(name: string): void {
+        if (name.length > MAX_QUALIFICATION_NAME_LENGTH) {
+            throw new Error(
+                `La denominación de la titulación no puede superar los ${MAX_QUALIFICATION_NAME_LENGTH} caracteres`,
+            );
+        }
     }
 
     // ==========================================================

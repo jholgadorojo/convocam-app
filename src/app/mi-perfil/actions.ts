@@ -16,8 +16,18 @@ import {
   deleteUserAcademicQualificationUseCase,
 } from "@/composition/user-profile";
 
-import { ACADEMIC_QUALIFICATION_TYPES } from "@/modules/user-profile/domain/user-academic-qualification";
+import {
+  ACADEMIC_QUALIFICATION_TYPES,
+  MAX_QUALIFICATION_NAME_LENGTH,
+} from "@/modules/user-profile/domain/user-academic-qualification";
+import {
+  FIRST_NAME_TOO_LONG_MESSAGE,
+  LAST_NAME_TOO_LONG_MESSAGE,
+} from "@/modules/user-profile/domain/user-profile";
 import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
+
+const QUALIFICATION_NAME_TOO_LONG_MESSAGE =
+  `La denominación de la titulación no puede superar los ${MAX_QUALIFICATION_NAME_LENGTH} caracteres.`;
 // ============================================================
 // ESTADO DEL FORMULARIO
 // ============================================================
@@ -79,7 +89,9 @@ export async function savePersonalDataAction(
     if (error instanceof Error) {
       if (
         error.message === "El nombre es obligatorio" ||
-        error.message === "Los apellidos son obligatorios"
+        error.message === "Los apellidos son obligatorios" ||
+        error.message === FIRST_NAME_TOO_LONG_MESSAGE ||
+        error.message === LAST_NAME_TOO_LONG_MESSAGE
       ) {
         return {
           status: "error",
@@ -292,6 +304,13 @@ export async function addAcademicQualificationAction(
     };
   }
 
+  if (rawName.trim().length > MAX_QUALIFICATION_NAME_LENGTH) {
+    return {
+      status: "error",
+      message: QUALIFICATION_NAME_TOO_LONG_MESSAGE,
+    };
+  }
+
   // 4. Ejecutar caso de uso
   try {
     // Garantiza que existe UserProfile,
@@ -403,6 +422,13 @@ export async function updateAcademicQualificationAction(
       status: "error",
       message:
         "La denominación de la titulación es obligatoria.",
+    };
+  }
+
+  if (rawName.trim().length > MAX_QUALIFICATION_NAME_LENGTH) {
+    return {
+      status: "error",
+      message: QUALIFICATION_NAME_TOO_LONG_MESSAGE,
     };
   }
 

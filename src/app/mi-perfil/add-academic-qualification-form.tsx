@@ -10,7 +10,10 @@ import {
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 
-import { ACADEMIC_QUALIFICATION_TYPES } from "@/modules/user-profile/domain/user-academic-qualification";
+import {
+  ACADEMIC_QUALIFICATION_TYPES,
+  MAX_QUALIFICATION_NAME_LENGTH,
+} from "@/modules/user-profile/domain/user-academic-qualification";
 
 import { ACADEMIC_QUALIFICATION_LABELS } from "@/modules/user-profile/presentation/academic-qualification-labels";
 
@@ -176,6 +179,7 @@ export function AddAcademicQualificationForm() {
                 name="name"
                 type="text"
                 required
+                maxLength={MAX_QUALIFICATION_NAME_LENGTH}
                 disabled={isPending}
                 placeholder="Ej. Ingeniería Informática"
                 className="mt-2 h-11 w-full rounded-lg border border-[#D5DAE3] bg-white px-3.5 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5] focus:ring-2 focus:ring-[#4F5BD5]/15 disabled:opacity-60"
