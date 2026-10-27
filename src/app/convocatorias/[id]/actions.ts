@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import {
   changeSelectionProcessPersonalStatusUseCase,
@@ -11,6 +11,7 @@ import {
 } from "@/composition/user-selection-process";import { auth } from "@/lib/auth";
 
 import { PersonalSelectionProcessStatus } from "@/modules/user-selection-process/domain/personal-selection-process-status";
+import { SELECTION_PROCESS_NOT_FOUND_ERROR } from "@/modules/user-selection-process/domain/user-selection-process-repository";
 import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 
 export async function followSelectionProcessAction(
@@ -39,13 +40,24 @@ export async function followSelectionProcessAction(
     );
   }
 
-  await followSelectionProcessUseCase.execute({
-    userId: session.user.id,
-    selectionProcessId,
-  });
+  try {
+    await followSelectionProcessUseCase.execute({
+      userId: session.user.id,
+      selectionProcessId,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === SELECTION_PROCESS_NOT_FOUND_ERROR
+    ) {
+      notFound();
+    }
 
-  revalidatePath(
-    `/mis-convocatorias/${selectionProcessId}`,
+    throw error;
+  }
+
+  revalidateFollowedSelectionProcessPaths(
+    selectionProcessId,
   );
 }
 export async function unfollowSelectionProcessAction(
@@ -79,8 +91,8 @@ export async function unfollowSelectionProcessAction(
     selectionProcessId,
   });
 
-  revalidatePath(
-    `/mis-convocatorias/${selectionProcessId}`,
+  revalidateFollowedSelectionProcessPaths(
+    selectionProcessId,
   );
 }
 export async function changePersonalStatusAction(
@@ -132,7 +144,19 @@ export async function changePersonalStatusAction(
       personalStatus as PersonalSelectionProcessStatus,
   });
 
-  revalidatePath(
-    `/mis-convocatorias/${selectionProcessId}`,
+  revalidateFollowedSelectionProcessPaths(
+    selectionProcessId,
   );
+}
+/**
+ * Pantallas que muestran el seguimiento o el estado
+ * personal de una convocatoria.
+ */
+function revalidateFollowedSelectionProcessPaths(
+  selectionProcessId: number,
+): void {
+  revalidatePath(`/convocatorias/${selectionProcessId}`);
+  revalidatePath("/mis-convocatorias");
+  revalidatePath("/para-mi");
+  revalidatePath("/dashboard");
 }

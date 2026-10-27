@@ -129,6 +129,51 @@ describe("FollowSelectionProcess", () => {
       1,
     );
   });
+
+  it("devuelve el seguimiento creado por una petición simultánea (doble clic)", async () => {
+    const repository =
+      new ConcurrentFollowRepository();
+
+    const useCase =
+      new FollowSelectionProcess(
+        repository,
+      );
+
+    const result =
+      await useCase.execute({
+        userId: "user-123",
+        selectionProcessId: 456,
+      });
+
+    expect(result.selectionProcessId).toBe(
+      456,
+    );
+
+    expect(repository.items).toHaveLength(
+      1,
+    );
+  });
+
+  it("propaga el error si el guardado falla por otro motivo", async () => {
+    const repository =
+      new InMemoryUserSelectionProcessRepository();
+
+    repository.save = async () => {
+      throw new Error("La convocatoria no existe");
+    };
+
+    const useCase =
+      new FollowSelectionProcess(
+        repository,
+      );
+
+    await expect(
+      useCase.execute({
+        userId: "user-123",
+        selectionProcessId: 999,
+      }),
+    ).rejects.toThrow("La convocatoria no existe");
+  });
 });
 
 class InMemoryUserSelectionProcessRepository
@@ -218,5 +263,20 @@ class InMemoryUserSelectionProcessRepository
             selectionProcessId
         ),
     );
+  }
+}
+/**
+ * Simula el doble clic: otra petición crea el seguimiento
+ * justo después de la búsqueda inicial, así que el guardado
+ * falla por la restricción única.
+ */
+class ConcurrentFollowRepository extends InMemoryUserSelectionProcessRepository {
+  async save(
+    userSelectionProcess:
+      UserSelectionProcess,
+  ): Promise<UserSelectionProcess> {
+    await super.save(userSelectionProcess);
+
+    throw new Error("Unique constraint failed");
   }
 }

@@ -3,13 +3,14 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 
 import {
   followSelectionProcessUseCase,
 } from "@/composition/user-selection-process";
+import { SELECTION_PROCESS_NOT_FOUND_ERROR } from "@/modules/user-selection-process/domain/user-selection-process-repository";
 import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 
 /**
@@ -68,10 +69,21 @@ export async function followFromDashboardAction(
    * El userId no procede del formulario,
    * sino de la sesión autenticada.
    */
-  await followSelectionProcessUseCase.execute({
-    userId: session.user.id,
-    selectionProcessId,
-  });
+  try {
+    await followSelectionProcessUseCase.execute({
+      userId: session.user.id,
+      selectionProcessId,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === SELECTION_PROCESS_NOT_FOUND_ERROR
+    ) {
+      notFound();
+    }
+
+    throw error;
+  }
 
   /**
    * 4. Actualizar las páginas relacionadas.

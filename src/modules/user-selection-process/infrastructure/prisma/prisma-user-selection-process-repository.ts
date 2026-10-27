@@ -1,6 +1,9 @@
-import type { PrismaClient } from "@/generated/prisma/client";
+import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 
-import type { UserSelectionProcessRepository } from "../../domain/user-selection-process-repository";
+import {
+  SELECTION_PROCESS_NOT_FOUND_ERROR,
+  type UserSelectionProcessRepository,
+} from "../../domain/user-selection-process-repository";
 import type { UserSelectionProcess } from "../../domain/user-selection-process";
 
 import { UserSelectionProcessMapper } from "./user-selection-process-mapper";
@@ -68,16 +71,30 @@ export class PrismaUserSelectionProcessRepository
       userSelectionProcess.id ===
       undefined
     ) {
-      const row =
-        await this.prisma.userSelectionProcess.create(
-          {
-            data: persistence,
-          },
-        );
+      try {
+        const row =
+          await this.prisma.userSelectionProcess.create(
+            {
+              data: persistence,
+            },
+          );
 
-      return UserSelectionProcessMapper.toDomain(
-        row,
-      );
+        return UserSelectionProcessMapper.toDomain(
+          row,
+        );
+      } catch (error) {
+        // P2003: falla la clave foránea, la convocatoria no existe.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2003"
+        ) {
+          throw new Error(
+            SELECTION_PROCESS_NOT_FOUND_ERROR,
+          );
+        }
+
+        throw error;
+      }
     }
 
     const row =
@@ -104,13 +121,13 @@ export class PrismaUserSelectionProcessRepository
     userId: string,
     selectionProcessId: number,
   ): Promise<void> {
-    await this.prisma.userSelectionProcess.delete(
+    // deleteMany no falla si el seguimiento ya no existe
+    // (p. ej. doble clic en «Dejar de seguir»).
+    await this.prisma.userSelectionProcess.deleteMany(
       {
         where: {
-          userId_selectionProcessId: {
-            userId,
-            selectionProcessId,
-          },
+          userId,
+          selectionProcessId,
         },
       },
     );

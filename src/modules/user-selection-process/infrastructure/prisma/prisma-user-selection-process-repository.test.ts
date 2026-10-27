@@ -10,6 +10,7 @@ import { prisma } from "@/shared/infrastructure/database/prisma";
 
 import { PersonalSelectionProcessStatus } from "../../domain/personal-selection-process-status";
 import { UserSelectionProcess } from "../../domain/user-selection-process";
+import { SELECTION_PROCESS_NOT_FOUND_ERROR } from "../../domain/user-selection-process-repository";
 import { PrismaUserSelectionProcessRepository } from "./prisma-user-selection-process-repository";
 
 const TEST_USER_ID =
@@ -326,6 +327,47 @@ describe(
         ).rejects.toMatchObject({
           code: "P2002",
         });
+      },
+    );
+
+    it(
+      "lanza un error de dominio si la convocatoria no existe",
+      async () => {
+        const entity =
+          UserSelectionProcess.create({
+            userId: TEST_USER_ID,
+            selectionProcessId: 2147483000,
+          });
+
+        await expect(
+          repository.save(entity),
+        ).rejects.toThrow(
+          SELECTION_PROCESS_NOT_FOUND_ERROR,
+        );
+      },
+    );
+
+    it(
+      "no falla al eliminar un seguimiento que ya no existe",
+      async () => {
+        await repository.save(
+          UserSelectionProcess.create({
+            userId: TEST_USER_ID,
+            selectionProcessId,
+          }),
+        );
+
+        await repository.deleteByUserAndSelectionProcess(
+          TEST_USER_ID,
+          selectionProcessId,
+        );
+
+        await expect(
+          repository.deleteByUserAndSelectionProcess(
+            TEST_USER_ID,
+            selectionProcessId,
+          ),
+        ).resolves.toBeUndefined();
       },
     );
   },
