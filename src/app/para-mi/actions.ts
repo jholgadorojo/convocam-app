@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import {
   followSelectionProcessUseCase,
 } from "@/composition/user-selection-process";
+import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 
 /**
  * SPEC-008 — Para mí
@@ -20,14 +21,11 @@ import {
 export async function followFromForMeAction(
   formData: FormData,
 ): Promise<void> {
-  const selectionProcessId = Number(
+  const selectionProcessId = parsePositiveId(
     formData.get("selectionProcessId"),
   );
 
-  if (
-    !Number.isInteger(selectionProcessId) ||
-    selectionProcessId <= 0
-  ) {
+  if (selectionProcessId === null) {
     throw new Error(
       "El identificador de la convocatoria no es válido.",
     );

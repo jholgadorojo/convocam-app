@@ -17,6 +17,7 @@ import {
 } from "@/composition/user-profile";
 
 import { ACADEMIC_QUALIFICATION_TYPES } from "@/modules/user-profile/domain/user-academic-qualification";
+import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 // ============================================================
 // ESTADO DEL FORMULARIO
 // ============================================================
@@ -158,16 +159,9 @@ export async function saveResidenceAction(
   let municipalityId: number | null = null;
 
   if (value !== "") {
-    if (!/^[1-9]\d*$/.test(value)) {
-      return {
-        status: "error",
-        message: "El municipio de residencia no es válido.",
-      };
-    }
+    municipalityId = parsePositiveId(value);
 
-    municipalityId = Number(value);
-
-    if (!Number.isSafeInteger(municipalityId)) {
+    if (municipalityId === null) {
       return {
         status: "error",
         message: "El municipio de residencia no es válido.",
@@ -350,16 +344,7 @@ export type AcademicQualificationMutationState = {
 function parseQualificationId(
   value: FormDataEntryValue | null,
 ): number | null {
-  if (
-    typeof value !== "string" ||
-    !/^[1-9]\d*$/.test(value)
-  ) {
-    return null;
-  }
-
-  const id = Number(value);
-
-  return Number.isSafeInteger(id) ? id : null;
+  return parsePositiveId(value);
 }
 
 /* ============================================================

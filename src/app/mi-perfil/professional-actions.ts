@@ -19,6 +19,8 @@ import type {
   ProfessionalPreferenceSelection,
 } from "@/modules/user-profile/domain/user-professional-preference";
 
+import { isPositiveId } from "@/shared/presentation/parse-positive-id";
+
 // ============================================================
 // RESULTADO DE LAS ACCIONES
 // ============================================================
@@ -66,12 +68,7 @@ function isValidSelection(
 
   const validSubjectAreas =
     Array.isArray(value.subjectAreaIds) &&
-    value.subjectAreaIds.every(
-      (id: unknown) =>
-        typeof id === "number" &&
-        Number.isSafeInteger(id) &&
-        id > 0,
-    );
+    value.subjectAreaIds.every(isPositiveId);
 
   const validQualificationGroups =
     Array.isArray(value.qualificationGroups) &&

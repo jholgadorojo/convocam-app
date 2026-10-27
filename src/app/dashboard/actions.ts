@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import {
   followSelectionProcessUseCase,
 } from "@/composition/user-selection-process";
+import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 
 /**
  * ============================================================
@@ -38,14 +39,11 @@ export async function followFromDashboardAction(
   /**
    * 1. Validar la convocatoria.
    */
-  const selectionProcessId = Number(
+  const selectionProcessId = parsePositiveId(
     formData.get("selectionProcessId"),
   );
 
-  if (
-    !Number.isSafeInteger(selectionProcessId) ||
-    selectionProcessId <= 0
-  ) {
+  if (selectionProcessId === null) {
     throw new Error(
       "selectionProcessId must be a positive integer",
     );

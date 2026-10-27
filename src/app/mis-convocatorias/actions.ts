@@ -11,18 +11,16 @@ import {
 } from "@/composition/user-selection-process";
 
 import { PersonalSelectionProcessStatus } from "@/modules/user-selection-process/domain/personal-selection-process-status";
+import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 
 export async function unfollowFromMySelectionProcessesAction(
   formData: FormData,
 ): Promise<void> {
-  const selectionProcessId = Number(
+  const selectionProcessId = parsePositiveId(
     formData.get("selectionProcessId"),
   );
 
-  if (
-    !Number.isInteger(selectionProcessId) ||
-    selectionProcessId <= 0
-  ) {
+  if (selectionProcessId === null) {
     throw new Error(
       "El identificador de la convocatoria no es válido.",
     );
@@ -53,7 +51,7 @@ export async function unfollowFromMySelectionProcessesAction(
 export async function changePersonalStatusFromMySelectionProcessesAction(
   formData: FormData,
 ): Promise<void> {
-  const selectionProcessId = Number(
+  const selectionProcessId = parsePositiveId(
     formData.get("selectionProcessId"),
   );
 
@@ -68,10 +66,7 @@ export async function changePersonalStatusFromMySelectionProcessesAction(
   },
 );
 
-  if (
-    !Number.isInteger(selectionProcessId) ||
-    selectionProcessId <= 0
-  ) {
+  if (selectionProcessId === null) {
     throw new Error(
       "El identificador de la convocatoria no es válido.",
     );

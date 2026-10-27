@@ -22,6 +22,7 @@ import {
 } from "@/modules/selection-process/presentation/selection-process-status";
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
 import { decodeHtmlEntities } from "@/shared/presentation/decode-html-entities";
+import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 import { PersonalSelectionProcessStatusPicker } from "@/modules/user-selection-process/presentation/personal-selection-process-status-picker";
 import { UnfollowSelectionProcessForm } from "@/modules/user-selection-process/presentation/unfollow-selection-process-form";
 import {
@@ -72,11 +73,8 @@ export default async function SelectionProcessDetailPage({
   const { id: idParam } =
     await params;
   const parsedId =
-    Number(idParam);
-  if (
-    !Number.isInteger(parsedId) ||
-    parsedId <= 0
-  ) {
+    parsePositiveId(idParam);
+  if (parsedId === null) {
     notFound();
   }
   const selectionProcess =

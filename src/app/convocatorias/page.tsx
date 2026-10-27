@@ -23,6 +23,7 @@ import {
   type SelectionProcessResultsView,
 } from "@/modules/selection-process/presentation/selection-process-results-view-toggle";
 import { IcgcMunicipalitiesMap } from "@/modules/user-selection-process/presentation/icgc-municipalities-map";
+import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 
 const FILTER_FORM_ID = "convocatorias-filter-form";
 
@@ -1170,15 +1171,7 @@ function cleanString(value: string | undefined): string | undefined {
 }
 
 function parsePositiveInteger(value: string | undefined): number | undefined {
-    if (!value) {
-        return undefined;
-    }
-    const number = Number(value);
-    if (!Number.isInteger(number) ||
-        number < 1) {
-        return undefined;
-    }
-    return number;
+    return parsePositiveId(value) ?? undefined;
 }
 
 function parseRadiusKm(value: string | undefined): number | undefined {
