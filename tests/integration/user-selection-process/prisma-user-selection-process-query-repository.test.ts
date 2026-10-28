@@ -10,9 +10,9 @@ import {
   PersonalSelectionProcessStatus as PrismaPersonalSelectionProcessStatus,
 } from "@/generated/prisma/client";
 
-import { PersonalSelectionProcessStatus } from "../../domain/personal-selection-process-status";
+import { PersonalSelectionProcessStatus } from "@/modules/user-selection-process/domain/personal-selection-process-status";
 
-import { PrismaUserSelectionProcessQueryRepository } from "./prisma-user-selection-process-query-repository";
+import { PrismaUserSelectionProcessQueryRepository } from "@/modules/user-selection-process/infrastructure/prisma/prisma-user-selection-process-query-repository";
 
 import { prisma } from "@/shared/infrastructure/database/prisma";
 

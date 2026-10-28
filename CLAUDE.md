@@ -15,7 +15,7 @@ pnpm build / pnpm lint
 pnpm exec tsc --noEmit            # comprobación de tipos
 
 pnpm test:run                     # tests unitarios (solo src/, sin BD)
-pnpm test:integration             # tests de integración (tests/integration, requiere la BD levantada)
+pnpm test:integration             # tests de integración (tests/integration, requiere la BD convocam_test levantada)
 pnpm test:all                     # todos
 pnpm exec vitest run src/modules/user-profile/domain/user-profile.test.ts   # un archivo
 pnpm exec vitest run -t "crea correctamente"                                # por nombre de test
@@ -29,7 +29,9 @@ pnpm exec tsx prisma/import-idescat-territories.ts   # carga provincias/comarcas
 - La config de Prisma está en `prisma7.config.ts` (nombre no estándar) y carga `.env` con `dotenv`. El cliente se genera en `src/generated/prisma` (no editar a mano); hay que regenerarlo tras cambiar `prisma/schema.prisma`.
 - Variables en `.env`: `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `CIDO_INTERNAL_API_TOKEN` y, opcional, `DEV_ALLOWED_HOSTS`.
 - El `postinstall` ejecuta `scripts/sync-maplibre-assets.mjs`, que copia el worker y el módulo compartido de `maplibre-gl` a `public/maplibre/` (los usa el mapa de `user-selection-process/presentation/icgc-municipalities-map.tsx`). Si el mapa falla, volver a ejecutar `pnpm install` o `node scripts/sync-maplibre-assets.mjs`.
-- `vitest.config.mts` define el alias `@` → `./src`. Los tests de integración importan `dotenv/config` para leer `DATABASE_URL`, crean su propio `user` en `beforeEach` y lo borran en `afterEach`.
+- Los tests usan una BD aparte, `convocam_test`, en el mismo PostgreSQL. `.env.test` (no versionado) solo define su `DATABASE_URL`. `vitest.config.mts` carga `.env.test` con prioridad sobre `.env` y pasa esas variables a todos los tests, así que ningún test toca la BD de desarrollo `convocam`. También define el alias `@` → `./src`.
+- Prisma CLI (`prisma7.config.ts`) solo lee `.env`. Para migrar `convocam_test` hay que exportar antes sus variables (`set -a; source .env.test; set +a`), ya que `dotenv` no sobrescribe las que ya existen.
+- Los tests que usan PostgreSQL van en `tests/integration/<módulo>/` (`user-profile`, `user-selection-process`, `selection-process`, `dashboard`) e importan con `@/`. Crean sus propios datos de prueba y los borran al terminar. La mayoría comprueba al empezar que la BD conectada es `convocam_test`.
 
 ## Arquitectura
 

@@ -7,10 +7,10 @@ import { PersonalSelectionProcessStatus } from
   "@/modules/user-selection-process/domain/personal-selection-process-status";
 
 import type { DashboardUpcomingDeadlinesQuery } from
-  "../../application/dashboard-query-repository";
+  "@/modules/dashboard/application/dashboard-query-repository";
 
 import { PrismaDashboardQueryRepository } from
-  "./prisma-dashboard-query-repository";
+  "@/modules/dashboard/infrastructure/prisma/prisma-dashboard-query-repository";
 
 /**
  * SPEC-009 - Tests de integracion con PostgreSQL.

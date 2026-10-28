@@ -8,10 +8,10 @@ import {
 
 import { prisma } from "@/shared/infrastructure/database/prisma";
 
-import { PersonalSelectionProcessStatus } from "../../domain/personal-selection-process-status";
-import { UserSelectionProcess } from "../../domain/user-selection-process";
-import { SelectionProcessNotFoundError } from "../../domain/selection-process-not-found-error";
-import { PrismaUserSelectionProcessRepository } from "./prisma-user-selection-process-repository";
+import { PersonalSelectionProcessStatus } from "@/modules/user-selection-process/domain/personal-selection-process-status";
+import { UserSelectionProcess } from "@/modules/user-selection-process/domain/user-selection-process";
+import { SelectionProcessNotFoundError } from "@/modules/user-selection-process/domain/selection-process-not-found-error";
+import { PrismaUserSelectionProcessRepository } from "@/modules/user-selection-process/infrastructure/prisma/prisma-user-selection-process-repository";
 
 const TEST_USER_ID =
   "user-selection-process-test-user";

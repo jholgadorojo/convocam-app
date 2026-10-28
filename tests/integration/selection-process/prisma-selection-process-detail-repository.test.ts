@@ -8,7 +8,7 @@ import {
 
 import { prisma } from "@/shared/infrastructure/database/prisma";
 
-import { PrismaSelectionProcessDetailRepository } from "./prisma-selection-process-detail-repository";
+import { PrismaSelectionProcessDetailRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-detail-repository";
 
 const TEST_PREFIX =
   "TEST-CONVOCAM-DETAIL";

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, } from "vitest";
 import { prisma } from "@/shared/infrastructure/database/prisma";
-import { PrismaSelectionProcessQueryRepository } from "./prisma-selection-process-query-repository";
+import { PrismaSelectionProcessQueryRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-query-repository";
 const PREFIX = "TEST-CONVOCAM-SEARCH";
 // Solo se utilizan usuarios de prueba, nunca cuentas reales.
 const FIRST_USER_ID = `${PREFIX}-USER-1`;
