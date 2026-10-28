@@ -48,7 +48,7 @@ describe("Seguridad de sincronización CIDO", () => {
 
     syncExecute.mockReset();
     syncExecute.mockResolvedValue({
-      created: 1,
+      completed: true,
     });
   });
 
@@ -120,6 +120,25 @@ describe("Seguridad de sincronización CIDO", () => {
 
     expect(body.message).toBe(
       "Sincronización completa finalizada",
+    );
+  });
+
+  it("responde 409 si ya hay una sincronización en curso", async () => {
+    syncExecute.mockResolvedValue({
+      completed: false,
+      reason: "ALREADY_RUNNING",
+    });
+
+    const response = await POST(
+      createRequest(`Bearer ${TEST_TOKEN}`),
+    );
+
+    expect(response.status).toBe(409);
+
+    const body = await response.json();
+
+    expect(body.error).toBe(
+      "Ya hay una sincronización de CIDO en curso",
     );
   });
 });

@@ -13,6 +13,7 @@ import { PrismaSelectionProcessDocumentRepository } from "@/modules/selection-pr
 import { PrismaSelectionProcessRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-repository";
 import { PrismaSelectionProcessSubjectAreaRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-subject-area-repository";
 import { PrismaSubjectAreaRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-subject-area-repository";
+import { PrismaSelectionProcessSyncRunRepository } from "@/modules/selection-process/infrastructure/prisma/prisma-selection-process-sync-run-repository";
 
 import { ReconcileMissingSelectionProcesses } from "@/modules/selection-process/application/reconcile-missing-selection-processes";
 import { RunSelectionProcessSync } from "@/modules/selection-process/application/run-selection-process-sync";
@@ -99,10 +100,16 @@ const reconcileMissingSelectionProcessesUseCase =
     selectionProcessRepository,
   );
 
+const selectionProcessSyncRunRepository =
+  new PrismaSelectionProcessSyncRunRepository(
+    prisma,
+  );
+
 export const runSelectionProcessSyncUseCase =
   new RunSelectionProcessSync(
     syncAllSelectionProcessesUseCase,
     reconcileMissingSelectionProcessesUseCase,
+    selectionProcessSyncRunRepository,
   );
 
 /**

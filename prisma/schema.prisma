@@ -50,6 +50,12 @@ enum PreferredSelectionProcessType {
   BOTH
 }
 
+enum SelectionProcessSyncRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 model User {
   id                     String                 @id
   name                   String
@@ -294,6 +300,26 @@ model SelectionProcessDocument {
   @@index([publicationDate])
   @@index([phaseId])
   @@map("selection_process_documents")
+}
+
+model SelectionProcessSyncRun {
+  id     Int                           @id @default(autoincrement())
+  status SelectionProcessSyncRunStatus @default(RUNNING)
+
+  // true mientras la sincronización está en marcha y null al terminar.
+  // Al ser único, solo puede haber una en marcha a la vez
+  // (PostgreSQL admite varios NULL en una columna única).
+  runningLock Boolean? @unique @default(true)
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  // Contadores y fallos (SyncSelectionProcessFailure) de la ejecución.
+  result Json?
+  error  String?
+
+  @@index([startedAt])
+  @@map("selection_process_sync_runs")
 }
 
 model SubjectArea {

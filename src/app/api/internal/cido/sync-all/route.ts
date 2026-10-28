@@ -30,6 +30,17 @@ export async function POST(request: Request) {
     const result =
       await runSelectionProcessSyncUseCase.execute();
 
+    if (!result.completed) {
+      return NextResponse.json(
+        {
+          error: "Ya hay una sincronización de CIDO en curso",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
+
     return NextResponse.json({
       message: "Sincronización completa finalizada",
       ...result,
