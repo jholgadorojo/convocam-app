@@ -134,19 +134,21 @@ export class SyncSelectionProcesses {
         documentCidoIds.add(
           document.cidoId,
         );
-        await this.documentRepository
-          .markMissingAsInactive(
-            selectionProcessId,
-            documents.map(
-              (document) => document.cidoId,
-            ),
-          );
 
         await this.documentRepository.upsert(
           document,
           selectionProcessId,
         );
       }
+
+      // 6. Documentos que ya no están en CIDO
+      await this.documentRepository
+        .markMissingAsInactive(
+          selectionProcessId,
+          documents.map(
+            (document) => document.cidoId,
+          ),
+        );
     }
 
     return {

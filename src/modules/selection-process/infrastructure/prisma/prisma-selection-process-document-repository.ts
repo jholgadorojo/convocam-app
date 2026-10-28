@@ -46,27 +46,28 @@ export class PrismaSelectionProcessDocumentRepository
 
     return document.id;
   }
-  async markMissingAsInactive(
-  selectionProcessId: number,
-  activeCidoIds: string[],
-): Promise<void> {
-  await this.prisma.selectionProcessDocument.updateMany({
-    where: {
-      selectionProcessId,
-      sourceActive: true,
 
-      ...(activeCidoIds.length > 0
-        ? {
+  async markMissingAsInactive(
+    selectionProcessId: number,
+    activeCidoIds: string[],
+  ): Promise<void> {
+    await this.prisma.selectionProcessDocument.updateMany({
+      where: {
+        selectionProcessId,
+        sourceActive: true,
+
+        ...(activeCidoIds.length > 0
+          ? {
             cidoId: {
               notIn: activeCidoIds,
             },
           }
-        : {}),
-    },
+          : {}),
+      },
 
-    data: {
-      sourceActive: false,
-    },
-  });
-}
+      data: {
+        sourceActive: false,
+      },
+    });
+  }
 }

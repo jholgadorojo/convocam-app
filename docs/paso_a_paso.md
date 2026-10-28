@@ -77,6 +77,9 @@ source .env.test
 set +a
 pnpm test:integration
 
+### Todas las pruebas con cambio de base de datos
+pnpm test:all
+
 ### Compilación de producción
 pnpm build
 
