@@ -23,6 +23,7 @@ import { PERSONAL_SELECTION_PROCESS_STATUS_OPTIONS } from "@/modules/user-select
 import { PersonalSelectionProcessStatusPicker } from "@/modules/user-selection-process/presentation/personal-selection-process-status-picker";
 import { UnfollowSelectionProcessForm } from "@/modules/user-selection-process/presentation/unfollow-selection-process-form";
 import { FollowedMunicipalitiesMap } from "@/modules/user-selection-process/presentation/followed-municipalities-map";
+import { getCataloniaCalendarDate } from "@/shared/utils/catalonia-calendar-date";
 import {
   changePersonalStatusFromMySelectionProcessesAction,
   unfollowFromMySelectionProcessesAction,
@@ -65,7 +66,7 @@ export default async function MySelectionProcessesPage({
     params.openApplications === "1" &&
     !showExpiredDeadlines &&
     !showUpcomingDeadlines;
-  const upcomingFromDate = getCataloniaTodayUtc();
+  const upcomingFromDate = getCataloniaCalendarDate();
   const upcomingToDate = new Date(upcomingFromDate);
   upcomingToDate.setUTCDate(upcomingToDate.getUTCDate() + 15);
 
@@ -818,7 +819,7 @@ function buildApplicationSummary(
   applicationEndDate: Date | null,
 ): string {
   const today =
-    getCataloniaTodayUtc();
+    getCataloniaCalendarDate();
   if (
     period.state === "open" &&
     applicationEndDate
@@ -871,48 +872,6 @@ function differenceInDays(
         from.getTime()
       ) /
       millisecondsPerDay,
-    ),
-  );
-}
-function getCataloniaTodayUtc(): Date {
-  const parts =
-    new Intl.DateTimeFormat(
-      "en-CA",
-      {
-        timeZone: "Europe/Madrid",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      },
-    ).formatToParts(
-      new Date(),
-    );
-  const year =
-    Number(
-      parts.find(
-        (part) =>
-          part.type === "year",
-      )?.value,
-    );
-  const month =
-    Number(
-      parts.find(
-        (part) =>
-          part.type === "month",
-      )?.value,
-    );
-  const day =
-    Number(
-      parts.find(
-        (part) =>
-          part.type === "day",
-      )?.value,
-    );
-  return new Date(
-    Date.UTC(
-      year,
-      month - 1,
-      day,
     ),
   );
 }

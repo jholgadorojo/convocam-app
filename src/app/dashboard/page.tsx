@@ -40,6 +40,7 @@ import { getOfficialStatusPresentation } from
 import { formatSelectionProcessTitle } from
   "@/modules/selection-process/presentation/selection-process-title";
 import { decodeHtmlEntities } from "@/shared/presentation/decode-html-entities";
+import { getCataloniaCalendarDate } from "@/shared/utils/catalonia-calendar-date";
 /**
  * SPEC-009 - Ajustes previos a la validacion funcional.
  *
@@ -668,19 +669,6 @@ function LatestOfficialPublicationsPanel({
       )}
     </section>
   );
-}
-/** Devuelve la fecha local de Catalunya como DATE a medianoche UTC. */
-function getCataloniaCalendarDate(instant: Date): Date {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Madrid",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(instant);
-  const year = Number(parts.find((part) => part.type === "year")?.value);
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  const day = Number(parts.find((part) => part.type === "day")?.value);
-  return new Date(Date.UTC(year, month - 1, day));
 }
 function dashboardDetailHref(selectionProcessId: number): string {
   return `/convocatorias/${selectionProcessId}?returnTo=${encodeURIComponent("/dashboard")}`;

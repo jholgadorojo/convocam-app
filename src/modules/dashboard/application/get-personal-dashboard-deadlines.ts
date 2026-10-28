@@ -1,6 +1,8 @@
 
 import { PersonalSelectionProcessStatus } from
   "@/modules/user-selection-process/domain/personal-selection-process-status";
+import { getCataloniaCalendarDate } from
+  "@/shared/utils/catalonia-calendar-date";
 
 import type {
   DashboardQueryRepository,
@@ -103,7 +105,7 @@ export class GetPersonalDashboardDeadlines {
      * Esto es compatible con los campos
      * DATE de PostgreSQL.
      */
-    const today = getCataloniaTodayUtc(
+    const today = getCataloniaCalendarDate(
       this.clock(),
     );
 
@@ -201,58 +203,4 @@ export class GetPersonalDashboardDeadlines {
       upcomingDeadlines,
     };
   }
-}
-
-/**
- * Obtiene la fecha del calendario actual
- * de Catalunya.
- *
- * Por ejemplo:
- *
- * Si en Catalunya es 18/10/2026,
- * devuelve 2026-10-18T00:00:00.000Z.
- *
- * No representa la medianoche física
- * de Catalunya, sino una fecha de calendario
- * codificada como UTC para trabajar
- * con los campos DATE de PostgreSQL.
- */
-function getCataloniaTodayUtc(
-  now: Date,
-): Date {
-  const parts = new Intl.DateTimeFormat(
-    "en-CA",
-    {
-      timeZone: "Europe/Madrid",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    },
-  ).formatToParts(now);
-
-  const year = Number(
-    parts.find(
-      (part) => part.type === "year",
-    )?.value,
-  );
-
-  const month = Number(
-    parts.find(
-      (part) => part.type === "month",
-    )?.value,
-  );
-
-  const day = Number(
-    parts.find(
-      (part) => part.type === "day",
-    )?.value,
-  );
-
-  return new Date(
-    Date.UTC(
-      year,
-      month - 1,
-      day,
-    ),
-  );
 }

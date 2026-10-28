@@ -6,6 +6,7 @@ import type { SelectionProcessPage } from "../../application/selection-process-p
 import type { SelectionProcessQueryRepository } from "../../application/selection-process-query-repository";
 import type { SelectionProcessApplicationPeriodFilter, SelectionProcessSearchFilters, SelectionProcessSort, SelectionProcessTerritorialIds } from "../../application/selection-process-search-filters";
 import { parseSearchTerms } from "./search-terms";
+import { getCataloniaCalendarDate } from "@/shared/utils/catalonia-calendar-date";
 type SelectionProcessRow = Prisma.SelectionProcessGetPayload<{
   include: {
     institution: true;
@@ -389,7 +390,7 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
     if (filters.applicationPeriod) {
       conditions.push(buildApplicationPeriodWhereInput(
         filters.applicationPeriod,
-        getCataloniaTodayUtc(),
+        getCataloniaCalendarDate(),
       ));
     }
     if (filters.applicationEndDateFrom) {
@@ -452,7 +453,7 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
     skip: number,
     where: Prisma.SelectionProcessWhereInput,
   ): Promise<SelectionProcessPage> {
-    const today = getCataloniaTodayUtc();
+    const today = getCataloniaCalendarDate();
     const openWhere: Prisma.SelectionProcessWhereInput = {
       AND: [where, buildApplicationPeriodWhereInput("open", today)],
     };
@@ -524,7 +525,7 @@ export class PrismaSelectionProcessQueryRepository implements SelectionProcessQu
     skip: number,
     where: Prisma.SelectionProcessWhereInput,
   ): Promise<SelectionProcessPage> {
-    const today = getCataloniaTodayUtc();
+    const today = getCataloniaCalendarDate();
     const pendingWhere: Prisma.SelectionProcessWhereInput = {
       AND: [where, { applicationEndDate: { gte: today } }],
     };
@@ -1433,18 +1434,6 @@ function buildApplicationPeriodWhereInput(period: SelectionProcessApplicationPer
         ],
       };
   }
-}
-function getCataloniaTodayUtc(): Date {
-  const dateParts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Madrid",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const year = Number(dateParts.find((part) => part.type === "year")?.value);
-  const month = Number(dateParts.find((part) => part.type === "month")?.value);
-  const day = Number(dateParts.find((part) => part.type === "day")?.value);
-  return new Date(Date.UTC(year, month - 1, day));
 }
 function resolveSelectionProcessSort(sort: SelectionProcessSort | undefined, hasTextSearch: boolean): SelectionProcessSort {
   if (sort === undefined) {

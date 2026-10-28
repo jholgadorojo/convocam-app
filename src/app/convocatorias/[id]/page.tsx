@@ -25,6 +25,7 @@ import { decodeHtmlEntities } from "@/shared/presentation/decode-html-entities";
 import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 import { PersonalSelectionProcessStatusPicker } from "@/modules/user-selection-process/presentation/personal-selection-process-status-picker";
 import { UnfollowSelectionProcessForm } from "@/modules/user-selection-process/presentation/unfollow-selection-process-form";
+import { getCataloniaCalendarDate } from "@/shared/utils/catalonia-calendar-date";
 import {
   changePersonalStatusAction,
   followSelectionProcessAction,
@@ -1322,7 +1323,7 @@ function buildTimeline(
         second.date.getTime(),
     );
   const today =
-    getCataloniaTodayUtc();
+    getCataloniaCalendarDate();
   let hasCurrent = false;
   const items: TimelineItem[] =
     sorted.map(
@@ -1488,7 +1489,7 @@ function getDateState(
   date: Date,
 ): string {
   const today =
-    getCataloniaTodayUtc();
+    getCataloniaCalendarDate();
   const comparison =
     compareDateOnly(
       date,
@@ -1664,7 +1665,7 @@ function calculateApplicationProgress(
     return null;
   }
   const today =
-    getCataloniaTodayUtc();
+    getCataloniaCalendarDate();
   if (
     today.getTime() <=
     start.getTime()
@@ -1840,61 +1841,6 @@ function toDateOnlyUtc(
       date.getUTCFullYear(),
       date.getUTCMonth(),
       date.getUTCDate(),
-    ),
-  );
-}
-function getCataloniaTodayUtc(): Date {
-  const parts =
-    new Intl.DateTimeFormat(
-      "en-CA",
-      {
-        timeZone:
-          "Europe/Madrid",
-        year:
-          "numeric",
-        month:
-          "2-digit",
-        day:
-          "2-digit",
-      },
-    ).formatToParts(
-      new Date(),
-    );
-  const year =
-    Number(
-      parts.find(
-        (
-          part,
-        ) =>
-          part.type ===
-          "year",
-      )?.value,
-    );
-  const month =
-    Number(
-      parts.find(
-        (
-          part,
-        ) =>
-          part.type ===
-          "month",
-      )?.value,
-    );
-  const day =
-    Number(
-      parts.find(
-        (
-          part,
-        ) =>
-          part.type ===
-          "day",
-      )?.value,
-    );
-  return new Date(
-    Date.UTC(
-      year,
-      month - 1,
-      day,
     ),
   );
 }
