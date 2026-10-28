@@ -19,6 +19,11 @@ import type {
   ProfessionalPreferenceSelection,
 } from "@/modules/user-profile/domain/user-professional-preference";
 
+import {
+  UserProfileNotFoundError,
+  UserProfileValidationError,
+} from "@/modules/user-profile/domain/user-profile-errors";
+
 import { isPositiveId } from "@/shared/presentation/parse-positive-id";
 
 // ============================================================
@@ -170,23 +175,8 @@ export async function saveProfessionalPreferencesAction(
     // internos de PostgreSQL o Prisma.
 
     if (
-      error instanceof Error &&
-      (
-        error.message.includes(
-          "no está disponible en CIDO",
-        ) ||
-        error.message.includes(
-          "no son válidas",
-        ) ||
-        error.message.includes(
-          "no es válido",
-        ) ||
-        error.message.includes(
-          "no puede estar vacío",
-        ) ||
-        error.message ===
-          "No se ha encontrado el perfil del opositor"
-      )
+      error instanceof UserProfileValidationError ||
+      error instanceof UserProfileNotFoundError
     ) {
       return {
         success: false,

@@ -79,3 +79,6 @@ pnpm test:integration
 
 ### Compilación de producción
 pnpm build
+
+### Borrar cache navegador
+ rm -rf .next/dev

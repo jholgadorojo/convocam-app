@@ -1,9 +1,7 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 
-import {
-  SELECTION_PROCESS_NOT_FOUND_ERROR,
-  type UserSelectionProcessRepository,
-} from "../../domain/user-selection-process-repository";
+import type { UserSelectionProcessRepository } from "../../domain/user-selection-process-repository";
+import { SelectionProcessNotFoundError } from "../../domain/selection-process-not-found-error";
 import type { UserSelectionProcess } from "../../domain/user-selection-process";
 
 import { UserSelectionProcessMapper } from "./user-selection-process-mapper";
@@ -88,9 +86,7 @@ export class PrismaUserSelectionProcessRepository
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === "P2003"
         ) {
-          throw new Error(
-            SELECTION_PROCESS_NOT_FOUND_ERROR,
-          );
+          throw new SelectionProcessNotFoundError();
         }
 
         throw error;

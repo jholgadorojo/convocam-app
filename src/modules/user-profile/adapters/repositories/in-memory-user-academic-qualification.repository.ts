@@ -2,6 +2,7 @@
 import type { UserAcademicQualificationRepository } from "../../application/repositories/user-academic-qualification.repository";
 
 import { UserAcademicQualification } from "../../domain/user-academic-qualification";
+import { AcademicQualificationNotFoundError } from "../../domain/user-profile-errors";
 
 export class InMemoryUserAcademicQualificationRepository
     implements UserAcademicQualificationRepository {
@@ -71,7 +72,7 @@ export class InMemoryUserAcademicQualificationRepository
         );
 
         if (index === -1) {
-            throw new Error("La titulación académica no existe");
+            throw new AcademicQualificationNotFoundError();
         }
 
         // No permitir cambiar la titulación de perfil.

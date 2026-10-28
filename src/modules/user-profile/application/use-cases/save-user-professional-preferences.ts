@@ -1,5 +1,9 @@
 
 import { UserProfessionalPreference } from "../../domain/user-professional-preference";
+import {
+  UserProfileNotFoundError,
+  UserProfileValidationError,
+} from "../../domain/user-profile-errors";
 
 import type {
   SaveUserProfessionalPreferencesDto,
@@ -36,7 +40,7 @@ export class SaveUserProfessionalPreferences {
       typeof input.userId !== "string" ||
       input.userId.trim().length === 0
     ) {
-      throw new Error(
+      throw new UserProfileValidationError(
         "El identificador del usuario no es válido",
       );
     }
@@ -51,7 +55,7 @@ export class SaveUserProfessionalPreferences {
       );
 
     if (!profile || profile.id === undefined) {
-      throw new Error(
+      throw new UserProfileNotFoundError(
         "No se ha encontrado el perfil del opositor",
       );
     }
@@ -93,13 +97,13 @@ export class SaveUserProfessionalPreferences {
     ]);
 
     if (!validSubjectAreas) {
-      throw new Error(
+      throw new UserProfileValidationError(
         "Alguna de las materias seleccionadas no está disponible en CIDO",
       );
     }
 
     if (!validQualificationGroups) {
-      throw new Error(
+      throw new UserProfileValidationError(
         "Alguno de los grupos de titulación seleccionados no está disponible en CIDO",
       );
     }

@@ -8,6 +8,11 @@ import {
   type AcademicQualificationType,
 } from "../../domain/user-academic-qualification";
 
+import {
+  AcademicQualificationNotFoundError,
+  UserProfileNotFoundError,
+} from "../../domain/user-profile-errors";
+
 import { InMemoryUserProfileRepository } from "../../adapters/repositories/in-memory-user-profile.repository";
 
 import { InMemoryUserAcademicQualificationRepository } from "../../adapters/repositories/in-memory-user-academic-qualification.repository";
@@ -143,7 +148,7 @@ describe("UpdateUserAcademicQualification", () => {
         name: "Educación Secundaria",
       }),
     ).rejects.toThrow(
-      "El usuario no tiene un perfil",
+      UserProfileNotFoundError,
     );
   });
 
@@ -162,7 +167,7 @@ describe("UpdateUserAcademicQualification", () => {
         name: "Educación Secundaria",
       }),
     ).rejects.toThrow(
-      "La titulación académica no existe",
+      AcademicQualificationNotFoundError,
     );
   });
 
@@ -190,7 +195,7 @@ describe("UpdateUserAcademicQualification", () => {
         name: "Modificación no autorizada",
       }),
     ).rejects.toThrow(
-      "La titulación académica no existe",
+      AcademicQualificationNotFoundError,
     );
 
     const original =

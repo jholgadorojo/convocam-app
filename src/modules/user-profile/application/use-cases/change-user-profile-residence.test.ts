@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { UserProfile } from "../../domain/user-profile";
+import { UserProfileNotFoundError } from "../../domain/user-profile-errors";
 import { InMemoryUserProfileRepository } from "../../adapters/repositories/in-memory-user-profile.repository";
 import { MunicipalityQueryRepository } from "../repositories/municipality-query.repository";
 import { ChangeUserProfileResidence } from "./change-user-profile-residence";
@@ -139,6 +140,6 @@ describe("ChangeUserProfileResidence", () => {
         userId: "user-1",
         residenceMunicipalityId: 125,
       }),
-    ).rejects.toThrow("El usuario no tiene un perfil");
+    ).rejects.toThrow(UserProfileNotFoundError);
   });
 });

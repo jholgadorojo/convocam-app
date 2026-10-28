@@ -5,6 +5,11 @@ import { UserProfile } from "../../domain/user-profile";
 
 import { UserAcademicQualification } from "../../domain/user-academic-qualification";
 
+import {
+  AcademicQualificationNotFoundError,
+  UserProfileNotFoundError,
+} from "../../domain/user-profile-errors";
+
 import { InMemoryUserProfileRepository } from "../../adapters/repositories/in-memory-user-profile.repository";
 
 import { InMemoryUserAcademicQualificationRepository } from "../../adapters/repositories/in-memory-user-academic-qualification.repository";
@@ -121,7 +126,7 @@ describe("DeleteUserAcademicQualification", () => {
         qualificationId: saved.id!,
       }),
     ).rejects.toThrow(
-      "La titulación académica no existe",
+      AcademicQualificationNotFoundError,
     );
 
     const original =
@@ -184,7 +189,7 @@ describe("DeleteUserAcademicQualification", () => {
         qualificationId: 99999,
       }),
     ).rejects.toThrow(
-      "La titulación académica no existe",
+      AcademicQualificationNotFoundError,
     );
   });
 
@@ -201,7 +206,7 @@ describe("DeleteUserAcademicQualification", () => {
         qualificationId: 1,
       }),
     ).rejects.toThrow(
-      "El usuario no tiene un perfil",
+      UserProfileNotFoundError,
     );
   });
 
@@ -266,7 +271,7 @@ describe("DeleteUserAcademicQualification", () => {
         qualificationId: saved.id!,
       }),
     ).rejects.toThrow(
-      "La titulación académica no existe",
+      AcademicQualificationNotFoundError,
     );
   });
 });

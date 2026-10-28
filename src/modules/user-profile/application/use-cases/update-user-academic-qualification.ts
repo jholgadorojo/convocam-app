@@ -8,6 +8,11 @@ import type { UserProfileRepository } from "../repositories/user-profile.reposit
 
 import type { UserAcademicQualificationRepository } from "../repositories/user-academic-qualification.repository";
 
+import {
+  AcademicQualificationNotFoundError,
+  UserProfileNotFoundError,
+} from "../../domain/user-profile-errors";
+
 // ============================================================
 // CASO DE USO: MODIFICAR TITULACIÓN ACADÉMICA
 // ============================================================
@@ -31,7 +36,7 @@ export class UpdateUserAcademicQualification {
       );
 
     if (!profile || profile.id === undefined) {
-      throw new Error("El usuario no tiene un perfil");
+      throw new UserProfileNotFoundError();
     }
 
     // --------------------------------------------------------
@@ -59,9 +64,7 @@ export class UpdateUserAcademicQualification {
         );
 
     if (!qualification) {
-      throw new Error(
-        "La titulación académica no existe",
-      );
+      throw new AcademicQualificationNotFoundError();
     }
 
     // --------------------------------------------------------

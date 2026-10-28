@@ -1,3 +1,5 @@
+import { UserProfileValidationError } from "./user-profile-errors";
+
 export const MAX_FIRST_NAME_LENGTH = 100;
 export const MAX_LAST_NAME_LENGTH = 150;
 
@@ -25,11 +27,11 @@ export class UserProfile {
     }
 
     if (!props.firstName.trim()) {
-      throw new Error("El nombre es obligatorio");
+      throw new UserProfileValidationError("El nombre es obligatorio");
     }
 
     if (!props.lastName.trim()) {
-      throw new Error("Los apellidos son obligatorios");
+      throw new UserProfileValidationError("Los apellidos son obligatorios");
     }
 
     UserProfile.validateNameLengths(
@@ -81,11 +83,11 @@ export class UserProfile {
     const normalizedLastName = lastName.trim();
 
     if (!normalizedFirstName) {
-      throw new Error("El nombre es obligatorio");
+      throw new UserProfileValidationError("El nombre es obligatorio");
     }
 
     if (!normalizedLastName) {
-      throw new Error("Los apellidos son obligatorios");
+      throw new UserProfileValidationError("Los apellidos son obligatorios");
     }
 
     UserProfile.validateNameLengths(
@@ -102,7 +104,9 @@ export class UserProfile {
       municipalityId !== null &&
       (!Number.isInteger(municipalityId) || municipalityId <= 0)
     ) {
-      throw new Error("El municipio de residencia no es válido");
+      throw new UserProfileValidationError(
+        "El municipio de residencia no es válido",
+      );
     }
 
     this.props.residenceMunicipalityId = municipalityId;
@@ -120,7 +124,7 @@ export class UserProfile {
     }
 
     if (!firstName) {
-      throw new Error("El nombre es obligatorio");
+      throw new UserProfileValidationError("El nombre es obligatorio");
     }
 
     UserProfile.validateNameLengths(firstName, "");
@@ -140,11 +144,11 @@ export class UserProfile {
     lastName: string,
   ): void {
     if (firstName.length > MAX_FIRST_NAME_LENGTH) {
-      throw new Error(FIRST_NAME_TOO_LONG_MESSAGE);
+      throw new UserProfileValidationError(FIRST_NAME_TOO_LONG_MESSAGE);
     }
 
     if (lastName.length > MAX_LAST_NAME_LENGTH) {
-      throw new Error(LAST_NAME_TOO_LONG_MESSAGE);
+      throw new UserProfileValidationError(LAST_NAME_TOO_LONG_MESSAGE);
     }
   }
 

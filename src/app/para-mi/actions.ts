@@ -10,7 +10,7 @@ import { auth } from "@/lib/auth";
 import {
   followSelectionProcessUseCase,
 } from "@/composition/user-selection-process";
-import { SELECTION_PROCESS_NOT_FOUND_ERROR } from "@/modules/user-selection-process/domain/user-selection-process-repository";
+import { SelectionProcessNotFoundError } from "@/modules/user-selection-process/domain/selection-process-not-found-error";
 import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 
 /**
@@ -49,10 +49,7 @@ export async function followFromForMeAction(
       selectionProcessId,
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === SELECTION_PROCESS_NOT_FOUND_ERROR
-    ) {
+    if (error instanceof SelectionProcessNotFoundError) {
       notFound();
     }
 

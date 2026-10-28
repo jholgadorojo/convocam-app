@@ -1,5 +1,9 @@
 import { UserProfileRepository } from "../repositories/user-profile.repository";
 import { MunicipalityQueryRepository } from "../repositories/municipality-query.repository";
+import {
+  UserProfileNotFoundError,
+  UserProfileValidationError,
+} from "../../domain/user-profile-errors";
 
 export type ChangeUserProfileResidenceInput = {
   userId: string;
@@ -19,14 +23,16 @@ export class ChangeUserProfileResidence {
       await this.userProfileRepository.findByUserId(input.userId);
 
     if (!profile) {
-      throw new Error("El usuario no tiene un perfil");
+      throw new UserProfileNotFoundError();
     }
 
     const municipalityId = input.residenceMunicipalityId;
 
     if (municipalityId !== null) {
       if (!Number.isInteger(municipalityId) || municipalityId <= 0) {
-        throw new Error("El municipio de residencia no es válido");
+        throw new UserProfileValidationError(
+          "El municipio de residencia no es válido",
+        );
       }
 
       const exists =
@@ -35,7 +41,9 @@ export class ChangeUserProfileResidence {
         );
 
       if (!exists) {
-        throw new Error("El municipio de residencia no existe");
+        throw new UserProfileValidationError(
+          "El municipio de residencia no existe",
+        );
       }
     }
 

@@ -1,4 +1,6 @@
 
+import { UserProfileValidationError } from "./user-profile-errors";
+
 export const PREFERRED_SELECTION_PROCESS_TYPES = [
   "POSITIONS",
   "JOB_POOLS",
@@ -72,7 +74,7 @@ export class UserProfessionalPreference {
       !Number.isSafeInteger(props.id) ||
       props.id <= 0
     ) {
-      throw new Error(
+      throw new UserProfileValidationError(
         "El identificador de las preferencias profesionales no es válido",
       );
     }
@@ -128,7 +130,7 @@ export class UserProfessionalPreference {
       !Number.isSafeInteger(userProfileId) ||
       userProfileId <= 0
     ) {
-      throw new Error(
+      throw new UserProfileValidationError(
         "El identificador del perfil no es válido",
       );
     }
@@ -150,7 +152,7 @@ export class UserProfessionalPreference {
         (value) => value === type,
       )
     ) {
-      throw new Error(
+      throw new UserProfileValidationError(
         "El tipo de convocatoria no es válido",
       );
     }
@@ -164,7 +166,7 @@ export class UserProfessionalPreference {
     ids: number[],
   ): number[] {
     if (!Array.isArray(ids)) {
-      throw new Error(
+      throw new UserProfileValidationError(
         "La selección de materias no es válida",
       );
     }
@@ -174,7 +176,7 @@ export class UserProfessionalPreference {
         !Number.isSafeInteger(id) ||
         id <= 0
       ) {
-        throw new Error(
+        throw new UserProfileValidationError(
           "El identificador de la materia no es válido",
         );
       }
@@ -191,7 +193,7 @@ export class UserProfessionalPreference {
     groups: string[],
   ): string[] {
     if (!Array.isArray(groups)) {
-      throw new Error(
+      throw new UserProfileValidationError(
         "La selección de grupos de titulación no es válida",
       );
     }
@@ -200,7 +202,7 @@ export class UserProfessionalPreference {
 
     for (const group of groups) {
       if (typeof group !== "string") {
-        throw new Error(
+        throw new UserProfileValidationError(
           "El grupo de titulación no es válido",
         );
       }
@@ -208,7 +210,7 @@ export class UserProfessionalPreference {
       const cleanGroup = group.trim();
 
       if (cleanGroup.length === 0) {
-        throw new Error(
+        throw new UserProfileValidationError(
           "El grupo de titulación no puede estar vacío",
         );
       }
@@ -230,7 +232,7 @@ export class UserProfessionalPreference {
       !selection ||
       typeof selection !== "object"
     ) {
-      throw new Error(
+      throw new UserProfileValidationError(
         "Las preferencias profesionales no son válidas",
       );
     }

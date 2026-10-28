@@ -21,9 +21,10 @@ import {
   MAX_QUALIFICATION_NAME_LENGTH,
 } from "@/modules/user-profile/domain/user-academic-qualification";
 import {
-  FIRST_NAME_TOO_LONG_MESSAGE,
-  LAST_NAME_TOO_LONG_MESSAGE,
-} from "@/modules/user-profile/domain/user-profile";
+  AcademicQualificationNotFoundError,
+  UserProfileNotFoundError,
+  UserProfileValidationError,
+} from "@/modules/user-profile/domain/user-profile-errors";
 import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 
 const QUALIFICATION_NAME_TOO_LONG_MESSAGE =
@@ -86,18 +87,11 @@ export async function savePersonalDataAction(
     });
   } catch (error) {
     // Errores de validación del dominio
-    if (error instanceof Error) {
-      if (
-        error.message === "El nombre es obligatorio" ||
-        error.message === "Los apellidos son obligatorios" ||
-        error.message === FIRST_NAME_TOO_LONG_MESSAGE ||
-        error.message === LAST_NAME_TOO_LONG_MESSAGE
-      ) {
-        return {
-          status: "error",
-          message: error.message,
-        };
-      }
+    if (error instanceof UserProfileValidationError) {
+      return {
+        status: "error",
+        message: error.message,
+      };
     }
 
     // Errores inesperados
@@ -194,29 +188,19 @@ export async function saveResidenceAction(
       residenceMunicipalityId: municipalityId,
     });
   } catch (error) {
-    if (error instanceof Error) {
-      if (
-        error.message ===
-        "El municipio de residencia no existe" ||
-        error.message ===
-        "El municipio de residencia no es válido"
-      ) {
-        return {
-          status: "error",
-          message: error.message,
-        };
-      }
+    if (error instanceof UserProfileValidationError) {
+      return {
+        status: "error",
+        message: error.message,
+      };
+    }
 
-      if (
-        error.message ===
-        "El usuario no tiene un perfil"
-      ) {
-        return {
-          status: "error",
-          message:
-            "Todavía no tienes un perfil personal creado.",
-        };
-      }
+    if (error instanceof UserProfileNotFoundError) {
+      return {
+        status: "error",
+        message:
+          "Todavía no tienes un perfil personal creado.",
+      };
     }
 
     console.error(
@@ -440,10 +424,7 @@ export async function updateAcademicQualificationAction(
       name: rawName,
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "La titulación académica no existe"
-    ) {
+    if (error instanceof AcademicQualificationNotFoundError) {
       return {
         status: "error",
         message:
@@ -503,10 +484,7 @@ export async function deleteAcademicQualificationAction(
       qualificationId,
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "La titulación académica no existe"
-    ) {
+    if (error instanceof AcademicQualificationNotFoundError) {
       return {
         status: "error",
         message:

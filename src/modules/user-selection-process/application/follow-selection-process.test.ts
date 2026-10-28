@@ -5,6 +5,7 @@ import {
 } from "vitest";
 
 import { PersonalSelectionProcessStatus } from "../domain/personal-selection-process-status";
+import { SelectionProcessNotFoundError } from "../domain/selection-process-not-found-error";
 import { UserSelectionProcess } from "../domain/user-selection-process";
 import type { UserSelectionProcessRepository } from "../domain/user-selection-process-repository";
 
@@ -159,7 +160,7 @@ describe("FollowSelectionProcess", () => {
       new InMemoryUserSelectionProcessRepository();
 
     repository.save = async () => {
-      throw new Error("La convocatoria no existe");
+      throw new SelectionProcessNotFoundError();
     };
 
     const useCase =
@@ -172,7 +173,7 @@ describe("FollowSelectionProcess", () => {
         userId: "user-123",
         selectionProcessId: 999,
       }),
-    ).rejects.toThrow("La convocatoria no existe");
+    ).rejects.toThrow(SelectionProcessNotFoundError);
   });
 });
 

@@ -10,7 +10,7 @@ import { prisma } from "@/shared/infrastructure/database/prisma";
 
 import { PersonalSelectionProcessStatus } from "../../domain/personal-selection-process-status";
 import { UserSelectionProcess } from "../../domain/user-selection-process";
-import { SELECTION_PROCESS_NOT_FOUND_ERROR } from "../../domain/user-selection-process-repository";
+import { SelectionProcessNotFoundError } from "../../domain/selection-process-not-found-error";
 import { PrismaUserSelectionProcessRepository } from "./prisma-user-selection-process-repository";
 
 const TEST_USER_ID =
@@ -342,7 +342,7 @@ describe(
         await expect(
           repository.save(entity),
         ).rejects.toThrow(
-          SELECTION_PROCESS_NOT_FOUND_ERROR,
+          SelectionProcessNotFoundError,
         );
       },
     );
