@@ -74,15 +74,6 @@ pnpm exec tsc --noEmit
 ### Validación ESLint
 pnpm lint
 
-### Pruebas unitarias con Vitest
-pnpm test:run
-
-### Pruebas de integración
-set -a
-source .env.test
-set +a
-pnpm test:integration
-
 ### Todas las pruebas con cambio de base de datos
 pnpm test:all
 
