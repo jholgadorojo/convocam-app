@@ -24,6 +24,7 @@ pnpm exec prisma migrate dev --config prisma7.config.ts --name <nombre>
 pnpm exec prisma generate --config prisma7.config.ts
 pnpm exec prisma studio --config prisma7.config.ts
 pnpm exec tsx prisma/import-idescat-territories.ts   # carga provincias/comarcas/municipios desde prisma/data/idescat-territories.csv
+pnpm sync:cido                    # sincronización completa con CIDO sin servidor web (mismo bloqueo que el endpoint)
 ```
 
 - La config de Prisma está en `prisma7.config.ts` (nombre no estándar) y carga `.env` con `dotenv`. El cliente se genera en `src/generated/prisma` (no editar a mano); hay que regenerarlo tras cambiar `prisma/schema.prisma`.
@@ -60,7 +61,7 @@ Importa convocatorias de la API pública CIDO de la Diputació de Barcelona (`ht
 - Sincronización completa: `RunSelectionProcessSync` = `SyncAllSelectionProcesses` (recorre todas las páginas, `pageSize` 500, y devuelve `syncStartedAt`) + `ReconcileMissingSelectionProcesses` (las convocatorias activas no vistas desde `syncStartedAt` se reconsultan por `cidoId` en CIDO; si ya no existen se marcan `sourceActive: false`). Si falla una convocatoria, se anota en `failures` (`cidoId` y mensaje) y se sigue con las demás; solo aborta si falla la lectura de una página.
 - Cada ejecución queda registrada en `selection_process_sync_runs` (`SelectionProcessSyncRun`: estado `RUNNING`/`COMPLETED`/`FAILED`, `result` en JSON o `error`). La columna única `runningLock` (`true` en marcha, `null` al terminar) impide que haya dos sincronizaciones a la vez. Las que llevan más de 2 horas en marcha se dan por interrumpidas al empezar la siguiente.
 - Consultas de lectura (buscador, filtros, «para mí», detalle) en `PrismaSelectionProcessQueryRepository` / `PrismaSelectionProcessDetailRepository`. La búsqueda tolerante usa SQL crudo (`Prisma.sql`) con las extensiones `unaccent` y `pg_trgm` creadas en una migración.
-- Endpoint interno `POST /api/internal/cido/sync-all` (sincronización completa + reconciliación), protegido en todos los entornos con `Authorization: Bearer $CIDO_INTERNAL_API_TOKEN` (validado en `src/shared/infrastructure/security/cido-internal-api-token.ts`: entre 32 y 512 caracteres sin espacios, comparación en tiempo constante). Si la variable no está definida o no es válida, responde siempre `401`. Responde `409` si ya hay una sincronización en curso.
+- Endpoint interno `POST /api/internal/cido/sync-all` (sincronización completa + reconciliación), protegido en todos los entornos con `Authorization: Bearer $CIDO_INTERNAL_API_TOKEN` (validado en `src/shared/infrastructure/security/cido-internal-api-token.ts`: entre 32 y 512 caracteres sin espacios, comparación en tiempo constante). Si la variable no está definida o no es válida, responde siempre `401`. Responde `409` si ya hay una sincronización en curso. También se puede lanzar con `pnpm sync:cido` (`scripts/sync-cido.ts`). Sale con 0 si termina, 1 si falla y 2 si ya hay otra en curso.
 
 ### Dashboard (`dashboard`)
 

@@ -55,6 +55,8 @@ unset DATABASE_URL
 ## Convoca'm
 
 ### Sincronizar datos con CIDO DIBA
+pnpm sync:cido; echo "Código de salida: $?"
+
 # Requiere tener configurada la variable CIDO_INTERNAL_API_TOKEN
 TOKEN=$(grep '^CIDO_INTERNAL_API_TOKEN=' .env | cut -d= -f2- | tr -d '"')
 
