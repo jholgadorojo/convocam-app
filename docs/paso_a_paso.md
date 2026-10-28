@@ -56,9 +56,13 @@ unset DATABASE_URL
 
 ### Sincronizar datos con CIDO DIBA
 # Requiere tener configurada la variable CIDO_INTERNAL_API_TOKEN
+TOKEN=$(grep '^CIDO_INTERNAL_API_TOKEN=' .env | cut -d= -f2- | tr -d '"')
+
 # y enviar el token en la cabecera Authorization.
-curl -X POST http://localhost:3000/api/internal/cido/sync-all \
-  -H "Authorization: Bearer $CIDO_INTERNAL_API_TOKEN"
+curl -sS -X POST http://localhost:3000/api/internal/cido/sync-all \
+  -H "Authorization: Bearer $TOKEN" \
+  -o sync-resultado.json \
+  -w "HTTP %{http_code} en %{time_total} s\n"
 
 ## Revisión de pruebas y compilación
 

@@ -21,7 +21,9 @@ import type { SubjectAreaSyncData } from "./subject-area-sync-data";
 
 import { SyncSelectionProcesses } from "./sync-selection-processes";
 
-const SELECTION_PROCESS_ID = 1;
+// El doble del repositorio devuelve el cidoId
+// numérico como id interno de la convocatoria.
+const SELECTION_PROCESS_ID = 100;
 const INSTITUTION_ID = 10;
 
 const selectionProcess: SelectionProcessSyncData = {
@@ -71,6 +73,13 @@ const selectionProcess: SelectionProcessSyncData = {
   status: "Termini obert",
 
   lastDocumentPublicationDate: null,
+};
+
+const secondSelectionProcess: SelectionProcessSyncData = {
+  ...selectionProcess,
+  cidoId: "101",
+  cidoIdentifier: "CIDO-101",
+  cidoUrl: "https://cido.diba.cat/oposicions/101",
 };
 
 const institution: InstitutionSyncData = {
@@ -141,20 +150,27 @@ function buildDocument(
 
 function buildUseCase({
   documents,
+  selectionProcesses = [selectionProcess],
+  failingDocumentsCidoId,
 }: {
   documents: SelectionProcessDocumentSyncData[];
+  selectionProcesses?: SelectionProcessSyncData[];
+  failingDocumentsCidoId?: string;
 }) {
   const source = {
     getPage: vi.fn(async () => ({
-      total: 1,
-      items: [selectionProcess],
+      total: selectionProcesses.length,
+      items: selectionProcesses,
     })),
 
     getByCidoId: vi.fn(async () => null),
   } satisfies SelectionProcessSource;
 
   const repository = {
-    upsert: vi.fn(async () => SELECTION_PROCESS_ID),
+    upsert: vi.fn(
+      async (data: SelectionProcessSyncData) =>
+        Number(data.cidoId),
+    ),
 
     findActiveNotSeenSince: vi.fn(async () => []),
 
@@ -187,8 +203,18 @@ function buildUseCase({
   } satisfies SelectionProcessSubjectAreaRepository;
 
   const documentSource = {
-    getBySelectionProcessCidoId:
-      vi.fn(async () => documents),
+    getBySelectionProcessCidoId: vi.fn(
+      async (selectionProcessCidoId: string) => {
+        if (
+          selectionProcessCidoId ===
+          failingDocumentsCidoId
+        ) {
+          throw new Error("CIDO no disponible");
+        }
+
+        return documents;
+      },
+    ),
   } satisfies SelectionProcessDocumentSource;
 
   const documentRepository = {
@@ -211,6 +237,7 @@ function buildUseCase({
 
   return {
     useCase,
+    source,
     repository,
     institutionRepository,
     selectionProcessSubjectAreaRepository,
@@ -326,9 +353,83 @@ describe("SyncSelectionProcesses", () => {
     expect(result).toEqual({
       totalAvailable: 1,
       processed: 1,
+      failed: 0,
+      failures: [],
       institutionsProcessed: 1,
       subjectAreasProcessed: 2,
       documentsProcessed: 1,
     });
+  });
+
+  it("continúa con las demás convocatorias cuando falla una y registra el fallo", async () => {
+    const {
+      useCase,
+      documentRepository,
+    } = buildUseCase({
+      documents: [
+        buildDocument("400"),
+      ],
+      selectionProcesses: [
+        selectionProcess,
+        secondSelectionProcess,
+      ],
+      failingDocumentsCidoId:
+        selectionProcess.cidoId,
+    });
+
+    const result = await useCase.execute({
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(
+      documentRepository.markMissingAsInactive,
+    ).toHaveBeenCalledTimes(1);
+
+    expect(
+      documentRepository.markMissingAsInactive,
+    ).toHaveBeenCalledWith(
+      Number(secondSelectionProcess.cidoId),
+      ["400"],
+    );
+
+    expect(result.processed).toBe(2);
+    expect(result.failed).toBe(1);
+    expect(result.failures).toEqual([
+      {
+        cidoId: selectionProcess.cidoId,
+        message: "CIDO no disponible",
+      },
+    ]);
+  });
+
+  it("propaga el error cuando no se puede leer la página", async () => {
+    const {
+      useCase,
+      source,
+      repository,
+      documentRepository,
+    } = buildUseCase({
+      documents: [],
+    });
+
+    source.getPage.mockRejectedValueOnce(
+      new Error("CIDO no disponible"),
+    );
+
+    await expect(
+      useCase.execute({
+        limit: 10,
+        offset: 0,
+      }),
+    ).rejects.toThrow("CIDO no disponible");
+
+    expect(
+      repository.upsert,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      documentRepository.markMissingAsInactive,
+    ).not.toHaveBeenCalled();
   });
 });
