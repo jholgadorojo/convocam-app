@@ -16,18 +16,12 @@ import {
   saveResidenceAction,
   type SaveResidenceState,
 } from "./actions";
+import { normalizeSearchText } from "@/shared/presentation/normalize-search-text";
 
 type ResidenceFormProps = {
   municipalities: MunicipalityListItem[];
   residenceMunicipalityId: number | null;
 };
-
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("es");
-}
 
 export function ResidenceForm({
   municipalities,
@@ -60,14 +54,14 @@ export function ResidenceForm({
 
   // Filtrar municipios por texto
   const filteredMunicipalities = useMemo(() => {
-    const term = normalizeText(search.trim());
+    const term = normalizeSearchText(search.trim());
 
     if (!term) {
       return municipalities;
     }
 
     return municipalities.filter((municipality) =>
-      normalizeText(municipality.name).includes(term),
+      normalizeSearchText(municipality.name).includes(term),
     );
   }, [municipalities, search]);
 

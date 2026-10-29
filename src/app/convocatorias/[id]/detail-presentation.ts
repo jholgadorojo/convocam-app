@@ -1,6 +1,7 @@
 import type { SelectionProcessDetailDto } from
   "@/modules/selection-process/application/dto/selection-process-detail.dto";
 import { decodeHtmlEntities } from "@/shared/presentation/decode-html-entities";
+import { normalizeSearchText } from "@/shared/presentation/normalize-search-text";
 
 /**
  * Funciones de presentación del detalle de convocatoria.
@@ -163,7 +164,7 @@ export function findBasesDocument<
 >(documents: T[]): T | null {
   return (
     documents.find((document) =>
-      normalizeText(
+      normalizeSearchText(
         [document.phase, document.summary, document.phaseNotes ?? ""].join(" "),
       ).includes("base"),
     ) ?? null
@@ -439,11 +440,4 @@ function toDateOnlyUtc(date: Date): Date {
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
   );
-}
-
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
 }

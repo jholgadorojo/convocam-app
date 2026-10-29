@@ -13,6 +13,7 @@ import { auth } from "@/lib/auth";
 import { listActiveSelectionProcessesUseCase } from "@/composition/selection-process";
 import { getApplicationPeriodPresentation } from "@/modules/selection-process/presentation/selection-process-status";
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
+import { formatCalendarDate } from "@/shared/presentation/format-calendar-date";
 
 const QUICK_SEARCHES = [
   {
@@ -323,7 +324,7 @@ export default async function HomePage() {
                         </p>
                         <p className="mt-1 text-sm font-semibold">
                           {convocatoria.applicationEndDate
-                            ? `Hasta el ${formatDate(convocatoria.applicationEndDate)}`
+                            ? `Hasta el ${formatCalendarDate(convocatoria.applicationEndDate)}`
                             : "Fecha no disponible"}
                         </p>
                         {remainingText && (
@@ -389,15 +390,6 @@ export default async function HomePage() {
       </footer>
     </div>
   );
-}
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(date);
 }
 
 function formatLocation(

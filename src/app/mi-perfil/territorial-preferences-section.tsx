@@ -14,6 +14,7 @@ import {
   saveTerritorialPreferencesAction,
   deleteTerritorialPreferencesAction,
 } from "./territorial-actions";
+import { normalizeSearchText } from "@/shared/presentation/normalize-search-text";
 // ============================================================
 // TIPOS
 // ============================================================
@@ -54,13 +55,6 @@ function createDraft(
     ],
   };
 }
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("es")
-    .trim();
-}
 // ============================================================
 // SELECTOR MÚLTIPLE
 // ============================================================
@@ -88,10 +82,10 @@ function TerritoryMultiSelect({
   // Buscamos por el nombre del territorio. En municipios, incluir la
   // comarca o la provincia provocaba coincidencias que ocultaban el
   // municipio buscado entre los primeros 12 resultados.
-  const normalizedSearch = normalizeText(search);
+  const normalizedSearch = normalizeSearchText(search);
 
   const filteredOptions = options.filter((option) =>
-    normalizeText(option.name).includes(normalizedSearch),
+    normalizeSearchText(option.name).includes(normalizedSearch),
   );
   const visibleOptions = filteredOptions.slice(0, 12);
   function toggleTerritory(id: number) {

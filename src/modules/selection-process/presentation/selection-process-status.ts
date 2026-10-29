@@ -2,6 +2,7 @@ import {
   getCataloniaCalendarDate,
   getCataloniaDayNumber,
 } from "@/shared/utils/catalonia-calendar-date";
+import { formatCalendarDate } from "@/shared/presentation/format-calendar-date";
 
 const MILLISECONDS_PER_DAY =
   86_400_000;
@@ -500,7 +501,7 @@ export function getApplicationPeriodPresentation(
 
       detail:
         applicationEndDate
-          ? `Finalizó el ${formatDate(
+          ? `Finalizó el ${formatCalendarDate(
               applicationEndDate,
             )}`
           : "Plazo finalizado",
@@ -849,28 +850,5 @@ function getDateDayNumber(
       date.getUTCDate(),
     ) /
       MILLISECONDS_PER_DAY,
-  );
-}
-
-function formatDate(
-  date: Date,
-): string {
-  return new Intl.DateTimeFormat(
-    "es-ES",
-    {
-      day:
-        "2-digit",
-
-      month:
-        "2-digit",
-
-      year:
-        "numeric",
-
-      timeZone:
-        "UTC",
-    },
-  ).format(
-    date,
   );
 }

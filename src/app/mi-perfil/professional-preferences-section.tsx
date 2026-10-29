@@ -21,6 +21,7 @@ import {
   deleteProfessionalPreferencesAction,
   saveProfessionalPreferencesAction,
 } from "./professional-actions";
+import { normalizeSearchText } from "@/shared/presentation/normalize-search-text";
 
 // ============================================================
 // PROPIEDADES
@@ -120,14 +121,6 @@ function sameSelection(
   );
 }
 
-function normalizeSearch(value: string): string {
-  return value
-    .toLocaleLowerCase("es")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
 // ============================================================
 // COMPONENTE
 // ============================================================
@@ -181,14 +174,14 @@ export function ProfessionalPreferencesSection({
   // ==========================================================
 
   const filteredSubjectAreas = useMemo(() => {
-    const query = normalizeSearch(subjectSearch);
+    const query = normalizeSearchText(subjectSearch);
 
     if (!query) {
       return options.subjectAreas;
     }
 
     return options.subjectAreas.filter((area) =>
-      normalizeSearch(area.name).includes(query),
+      normalizeSearchText(area.name).includes(query),
     );
   }, [options.subjectAreas, subjectSearch]);
 
