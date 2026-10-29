@@ -4,7 +4,7 @@ const nullableString = z.string().nullable();
 
 export const cidoSelectionProcessDocumentResourceSchema = z.object({
   id: z.string().min(1),
-  type: z.literal("documents"),
+  type: z.literal("oposicions-documents"),
   attributes: z.object({
     dataPublicacio: z.iso.date(),
     resum: z.string(),

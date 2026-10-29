@@ -1,0 +1,117 @@
+{
+  "data": {
+    "id": "700332",
+    "type": "institucions",
+    "links": {
+      "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332"
+    },
+    "attributes": {
+      "institucioDesenvolupat": "Institut d'Investigació Biomèdica de Bellvitge (IDIBELL)",
+      "institucioAbreujat": "Institut d'Investigació Biomèdica de Bellvitge",
+      "institucioActiva": true,
+      "latitud": 41.345956,
+      "longitud": 2.1115808,
+      "urlGoogleMaps": "http://maps.google.es/?q=41.345956%202.1115808",
+      "codiIne": 0,
+      "adreca": "Av. Gran Via de l'Hospitalet, 199-203 ",
+      "codiPostal": 8907,
+      "municipi": "L'Hospitalet de Llobregat",
+      "codiComarca": 8101150006,
+      "comarca": "Baix Llobregat",
+      "codiProvincia": 8000840003,
+      "provincia": "Barcelona",
+      "urlPerfilContractant": "https://contractaciopublica.gencat.cat/ecofin_pscp/AppJava/cap.pscp?reqCode=viewDetail&idCap=5624359",
+      "soc": 81017,
+      "sepe": 8
+    },
+    "relationships": {
+      "contractacions": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/contractacions",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/contractacions"
+        }
+      },
+      "institucions-nodes-inferiors": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/institucions-nodes-inferiors",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/institucions-nodes-inferiors"
+        }
+      },
+      "oposicions": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/oposicions",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/oposicions"
+        }
+      },
+      "normatives-locals": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/normatives-locals",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/normatives-locals"
+        }
+      },
+      "contractacions-relacionades": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/contractacions-relacionades",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/contractacions-relacionades"
+        }
+      },
+      "convenis": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/convenis",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/convenis"
+        }
+      },
+      "subvencions-impacte": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/subvencions-impacte",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/subvencions-impacte"
+        }
+      },
+      "normatives-locals-relacionades": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/normatives-locals-relacionades",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/normatives-locals-relacionades"
+        }
+      },
+      "normatives-locals-impacte": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/normatives-locals-impacte",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/normatives-locals-impacte"
+        }
+      },
+      "subvencions-relacionades": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/subvencions-relacionades",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/subvencions-relacionades"
+        }
+      },
+      "subvencions": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/subvencions",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/subvencions"
+        }
+      },
+      "convenis-relacionats": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/convenis-relacionats",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/convenis-relacionats"
+        }
+      },
+      "oposicions-relacionades": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/oposicions-relacionades",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/oposicions-relacionades"
+        }
+      },
+      "institucio-node-superior": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/relationships/institucio-node-superior",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/700332/institucio-node-superior"
+        }
+      }
+    }
+  },
+  "links": {
+    "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/institucio"
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "data": [
+    {
+      "id": "21299229",
+      "type": "oposicions-documents",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions-documents/21299229"
+      },
+      "attributes": {
+        "dataPublicacio": "2026-03-23",
+        "resum": "B---Bases reguladores per a la constitució d¿una borsa de treball oberta de professorat de turisme mitjançant concurs de mèrits de l¿Escola d¿Enoturisme de Catalunya\n        \n          \n        \n      \n\n      \n\n        \n            \n\n\nConsulta les Bases.\n\n\t\nLes candidatures s¿han d¿enviar a [email protected]\n\n\t\nLa convocatòria té caràcter obert i romandrà vigent durant un període inicial de dotze mesos a comptar des de la seva publicació.\n\n\n\nRef. BorsaObertaProfessoratTurismeIMF2026",
+        "anunciant": "Institut Municipal de Formació -- Convocatòries de treball</title><link rel=\"alternate\" href=\"https://educacio.vilafranca.cat/imf/ofertes-de-treball-i-convocatories\" type=\"text/html\"></link>",
+        "idButlleti": 91,
+        "butlleti": "TA",
+        "numButlleti": 0,
+        "dataEntrada": "2026-03-24",
+        "idFase": 100,
+        "fase": "Bases específiques. Convocatòria",
+        "observacionsFase": null,
+        "urlPdf": "https://educacio.vilafranca.cat/imf/ofertes-de-treball-i-convocatories",
+        "urlHtml": null
+      },
+      "relationships": {
+        "oposicio": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions-documents/21299229/relationships/oposicio",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions-documents/21299229/oposicio"
+          }
+        }
+      }
+    },
+    {
+      "id": "22020663",
+      "type": "oposicions-documents",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions-documents/22020663"
+      },
+      "attributes": {
+        "dataPublicacio": "2026-07-30",
+        "resum": "B---Bases reguladores per a la constitució d¿una borsa de treball oberta de professorat de turisme mitjançant concurs de mèrits de l¿Escola d¿Enoturisme de Catalunya\n        \n          \n        \n      \n\n      \n\n        \n            \n\n\nConsulta les Bases.\n\n\t\nLes candidatures s¿han d¿enviar a [email protected]\n\n\t\nLa convocatòria té caràcter obert i romandrà vigent durant un període inicial de dotze mesos a comptar des de la seva publicació.\n\n\t\nLlistat provisional a data 30/07/26. Al ser una llista oberta, s¿admeten candidatures. partir del 15 de setembre de 2026 es publicarà la llista actualitzada de la borsa.\n\n\n\nRef. BorsaObertaProfessoratTurismeIMF2026",
+        "anunciant": "Institut Municipal de Formació -- Convocatòries de treball</title><link rel=\"alternate\" href=\"https://educacio.vilafranca.cat/imf/ofertes-de-treball-i-convocatories\" type=\"text/html\"></link>",
+        "idButlleti": 91,
+        "butlleti": "TA",
+        "numButlleti": 0,
+        "dataEntrada": "2026-07-31",
+        "idFase": 31,
+        "fase": "Llista d'admesos i exclosos",
+        "observacionsFase": "Provisional",
+        "urlPdf": "https://educacio.vilafranca.cat/sites/default/files/2026-07/Llista_provisional_baremacio_TurismeIMF2026.pdf",
+        "urlHtml": null
+      },
+      "relationships": {
+        "oposicio": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions-documents/22020663/relationships/oposicio",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions-documents/22020663/oposicio"
+          }
+        }
+      }
+    },
+    {
+      "id": "22392570",
+      "type": "oposicions-documents",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions-documents/22392570"
+      },
+      "attributes": {
+        "dataPublicacio": "2026-10-27",
+        "resum": "B---Bases reguladores per a la constitució d¿una borsa de treball oberta de professorat de turisme mitjançant concurs de mèrits de l¿Escola d¿Enoturisme de Catalunya\n        \n          \n        \n      \n\n      \n\n        \n            \n\n\nConsulta les Bases.\n\n\t\nLes candidatures s¿han d¿enviar a [email protected]\n\n\t\nLa convocatòria té caràcter obert i romandrà vigent durant un període inicial de dotze mesos a comptar des de la seva publicació.\n\n\t\nLlistat provisional a data 30/07/26. Al ser una llista oberta, s¿admeten candidatures.\n\n\t\nLlistat provisional a data 26/10/26. Aquesta llista substitueix l¿anterior. Les persones interessades poden presentar al·legacions a [email protected] en el termini de 10 dies hàbils a comptar de l¿endemà de la publicació, sens perjudici dels recursos previstos a la Base 14\n\n\n\nRef. BorsaObertaProfessoratTurismeIMF2026",
+        "anunciant": "Vilafranca del Penedès -- Institut Municipal de Formació -- Convocatòries de treball</title><link rel=\"alternate\" href=\"https://educacio.vilafranca.cat/imf/ofertes-de-treball-i-convocatories\" type=\"text/html\"></link>",
+        "idButlleti": 91,
+        "butlleti": "TA",
+        "numButlleti": 0,
+        "dataEntrada": "2026-10-28",
+        "idFase": 31,
+        "fase": "Llista d'admesos i exclosos",
+        "observacionsFase": "Provisional actualitzada",
+        "urlPdf": "https://educacio.vilafranca.cat/sites/default/files/2026-10/Llista_provisional_baremacio_TurismeIMF2026_actualitzacio_oct%20%281%29.pdf",
+        "urlHtml": null
+      },
+      "relationships": {
+        "oposicio": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions-documents/22392570/relationships/oposicio",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions-documents/22392570/oposicio"
+          }
+        }
+      }
+    }
+  ],
+  "links": {
+    "first": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21301420/documents?page[limit]=500",
+    "last": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21301420/documents?page[limit]=500",
+    "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21301420/documents"
+  },
+  "meta": {
+    "totalResourceCount": 3
+  }
+}

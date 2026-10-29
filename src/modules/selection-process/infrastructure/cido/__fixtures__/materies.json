@@ -1,0 +1,262 @@
+{
+  "data": [
+    {
+      "id": "141",
+      "type": "materies",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141"
+      },
+      "attributes": {
+        "materia": "Recerca / Laboratori",
+        "idModul": 4
+      },
+      "relationships": {
+        "materies-nodes-inferiors": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/materies-nodes-inferiors",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/materies-nodes-inferiors"
+          }
+        },
+        "contractacions": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/contractacions",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/contractacions"
+          }
+        },
+        "normatives-locals-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/normatives-locals-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/normatives-locals-relacionades"
+          }
+        },
+        "oposicions": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/oposicions",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/oposicions"
+          }
+        },
+        "subvencions-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/subvencions-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/subvencions-relacionades"
+          }
+        },
+        "subvencions": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/subvencions",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/subvencions"
+          }
+        },
+        "convenis-relacionats": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/convenis-relacionats",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/convenis-relacionats"
+          }
+        },
+        "normatives-locals": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/normatives-locals",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/normatives-locals"
+          }
+        },
+        "contractacions-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/contractacions-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/contractacions-relacionades"
+          }
+        },
+        "oposicions-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/oposicions-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/oposicions-relacionades"
+          }
+        },
+        "convenis": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/convenis",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/convenis"
+          }
+        },
+        "materia-node-superior": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/relationships/materia-node-superior",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/141/materia-node-superior"
+          }
+        }
+      }
+    },
+    {
+      "id": "179",
+      "type": "materies",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179"
+      },
+      "attributes": {
+        "materia": "Comunicació",
+        "idModul": 4
+      },
+      "relationships": {
+        "materies-nodes-inferiors": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/materies-nodes-inferiors",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/materies-nodes-inferiors"
+          }
+        },
+        "contractacions": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/contractacions",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/contractacions"
+          }
+        },
+        "normatives-locals-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/normatives-locals-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/normatives-locals-relacionades"
+          }
+        },
+        "oposicions": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/oposicions",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/oposicions"
+          }
+        },
+        "subvencions-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/subvencions-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/subvencions-relacionades"
+          }
+        },
+        "subvencions": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/subvencions",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/subvencions"
+          }
+        },
+        "convenis-relacionats": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/convenis-relacionats",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/convenis-relacionats"
+          }
+        },
+        "normatives-locals": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/normatives-locals",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/normatives-locals"
+          }
+        },
+        "contractacions-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/contractacions-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/contractacions-relacionades"
+          }
+        },
+        "oposicions-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/oposicions-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/oposicions-relacionades"
+          }
+        },
+        "convenis": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/convenis",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/convenis"
+          }
+        },
+        "materia-node-superior": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/relationships/materia-node-superior",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/179/materia-node-superior"
+          }
+        }
+      }
+    },
+    {
+      "id": "181",
+      "type": "materies",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181"
+      },
+      "attributes": {
+        "materia": "Relacions públiques / Publicitat",
+        "idModul": 4
+      },
+      "relationships": {
+        "materies-nodes-inferiors": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/materies-nodes-inferiors",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/materies-nodes-inferiors"
+          }
+        },
+        "contractacions": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/contractacions",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/contractacions"
+          }
+        },
+        "normatives-locals-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/normatives-locals-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/normatives-locals-relacionades"
+          }
+        },
+        "oposicions": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/oposicions",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/oposicions"
+          }
+        },
+        "subvencions-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/subvencions-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/subvencions-relacionades"
+          }
+        },
+        "subvencions": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/subvencions",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/subvencions"
+          }
+        },
+        "convenis-relacionats": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/convenis-relacionats",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/convenis-relacionats"
+          }
+        },
+        "normatives-locals": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/normatives-locals",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/normatives-locals"
+          }
+        },
+        "contractacions-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/contractacions-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/contractacions-relacionades"
+          }
+        },
+        "oposicions-relacionades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/oposicions-relacionades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/oposicions-relacionades"
+          }
+        },
+        "convenis": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/convenis",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/convenis"
+          }
+        },
+        "materia-node-superior": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/relationships/materia-node-superior",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/materies/181/materia-node-superior"
+          }
+        }
+      }
+    }
+  ],
+  "links": {
+    "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/materies"
+  }
+}

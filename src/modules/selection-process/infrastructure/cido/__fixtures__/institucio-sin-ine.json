@@ -1,0 +1,117 @@
+{
+  "data": {
+    "id": "17492965",
+    "type": "institucions",
+    "links": {
+      "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965"
+    },
+    "attributes": {
+      "institucioDesenvolupat": "Mancomunitat de Municipis de la Comarca del Lluçanès",
+      "institucioAbreujat": "Mancomunitat de Municipis de la Comarca del Lluçanès",
+      "institucioActiva": true,
+      "latitud": 42.0056194,
+      "longitud": 2.0579909,
+      "urlGoogleMaps": "http://maps.google.es/?q=42.0056194,2.0579909",
+      "codiIne": null,
+      "adreca": "C/ Vell, 3, Santa Creu de Joglars",
+      "codiPostal": 8515,
+      "municipi": "Olost",
+      "codiComarca": 8104300000,
+      "comarca": "Lluçanès",
+      "codiProvincia": 8000840003,
+      "provincia": "Barcelona",
+      "urlPerfilContractant": null,
+      "soc": 81496,
+      "sepe": 8
+    },
+    "relationships": {
+      "contractacions": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/contractacions",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/contractacions"
+        }
+      },
+      "institucions-nodes-inferiors": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/institucions-nodes-inferiors",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/institucions-nodes-inferiors"
+        }
+      },
+      "oposicions": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/oposicions",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/oposicions"
+        }
+      },
+      "normatives-locals": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/normatives-locals",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/normatives-locals"
+        }
+      },
+      "contractacions-relacionades": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/contractacions-relacionades",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/contractacions-relacionades"
+        }
+      },
+      "convenis": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/convenis",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/convenis"
+        }
+      },
+      "subvencions-impacte": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/subvencions-impacte",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/subvencions-impacte"
+        }
+      },
+      "normatives-locals-relacionades": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/normatives-locals-relacionades",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/normatives-locals-relacionades"
+        }
+      },
+      "normatives-locals-impacte": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/normatives-locals-impacte",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/normatives-locals-impacte"
+        }
+      },
+      "subvencions-relacionades": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/subvencions-relacionades",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/subvencions-relacionades"
+        }
+      },
+      "subvencions": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/subvencions",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/subvencions"
+        }
+      },
+      "convenis-relacionats": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/convenis-relacionats",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/convenis-relacionats"
+        }
+      },
+      "oposicions-relacionades": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/oposicions-relacionades",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/oposicions-relacionades"
+        }
+      },
+      "institucio-node-superior": {
+        "links": {
+          "self": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/relationships/institucio-node-superior",
+          "related": "https://api.diba.cat/dadesobertes/cido/v1/institucions/17492965/institucio-node-superior"
+        }
+      }
+    }
+  },
+  "links": {
+    "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22276691/institucio"
+  }
+}

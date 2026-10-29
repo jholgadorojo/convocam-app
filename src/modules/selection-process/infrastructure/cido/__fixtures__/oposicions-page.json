@@ -1,0 +1,349 @@
+{
+  "links": {
+    "first": "https://api.diba.cat/dadesobertes/cido/v1/oposicions?page[limit]=4&sort=-documents.dataPublicacio&filter[idEstat]=1%2C2%2C3",
+    "last": "https://api.diba.cat/dadesobertes/cido/v1/oposicions?page[limit]=4&page[offset]=14896&sort=-documents.dataPublicacio&filter[idEstat]=1%2C2%2C3",
+    "next": "https://api.diba.cat/dadesobertes/cido/v1/oposicions?page[limit]=4&page[offset]=4&sort=-documents.dataPublicacio&filter[idEstat]=1%2C2%2C3",
+    "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions?page[limit]=4&page[offset]=0&sort=-documents.dataPublicacio&filter[idEstat]=1%2C2%2C3"
+  },
+  "meta": {
+    "totalResourceCount": 14898
+  },
+  "data": [
+    {
+      "id": "22381533",
+      "type": "oposicions",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533"
+      },
+      "attributes": {
+        "institucioDesenvolupat": "Institut d'Investigació Biomèdica de Bellvitge (IDIBELL)",
+        "latitud": 41.345956,
+        "longitud": 2.1115808,
+        "urlGoogleMaps": "http://maps.google.es/?q=41.345956%202.1115808",
+        "idAmbit": 93,
+        "ambit": "Altres entitats públiques",
+        "titol": "1 plaça de Strategic Communications Manager - Cardiovascular diseases research group (BIO-HEART)",
+        "borsaTreball": false,
+        "identificador": "20261023O25",
+        "expedient": "26-142_MS_JC",
+        "anyOpo": null,
+        "dataInici": "2026-10-23",
+        "dataFinalitzacio": "2026-11-06",
+        "horaFinalitzacio": null,
+        "observacionsTermini": null,
+        "idSistemaSeleccio": 2,
+        "sistemaSeleccio": "Concurs o valoració de mèrits",
+        "idTipusPersonal": 8,
+        "tipusPersonal": "Laboral temporal",
+        "idGrupTitulacio": 1,
+        "grupTitulacio": "A1 - Grau universitari (correspondència amb llicenciatures)",
+        "titulacioRequerida": "Vegeu les bases",
+        "altresRequisits": "Català i castellà / Nivell B2 d'anglès",
+        "numPlaces": 1,
+        "placesReservadesDiscapacitat": null,
+        "placesReservadesAtur": false,
+        "placesReservadesJoves": false,
+        "placesReservadesDones": false,
+        "dataProva": null,
+        "observacions": "Data d'inici estimada: 1 de desembre de 2026",
+        "urlWeb": "https://idibell.fundanetsuite.com/convocatoriaspropias/es/Convocatorias/DetalleTipoConvocatoria/OE",
+        "accesTramit": "https://idibell.fundanetsuite.com/convocatoriaspropias/es/GestionIdentificacion/Identificacion?IdConvocatoria=2283",
+        "idEstat": 3,
+        "estat": "Termini obert",
+        "urlCido": "https://cido.diba.cat/oposicions/22381533",
+        "urlSubscripcio": "https://cido.diba.cat/seguir-entrada/OPOSICIO/20261023O25",
+        "maxDataPublicacioDocument": "2026-10-23"
+      },
+      "relationships": {
+        "materies-vinculades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/relationships/materies-vinculades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/materies-vinculades"
+          }
+        },
+        "institucio": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/relationships/institucio",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/institucio"
+          }
+        },
+        "documents": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/relationships/documents",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/documents"
+          }
+        },
+        "institucions-vinculades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/relationships/institucions-vinculades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/institucions-vinculades"
+          }
+        },
+        "materies": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/relationships/materies",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/materies"
+          }
+        },
+        "ods": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/relationships/ods",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22381533/ods"
+          }
+        }
+      }
+    },
+    {
+      "id": "22395049",
+      "type": "oposicions",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049"
+      },
+      "attributes": {
+        "institucioDesenvolupat": "Consorci Sanitari del Maresme",
+        "latitud": 41.5563503,
+        "longitud": 2.4290511,
+        "urlGoogleMaps": "http://maps.google.es/?q=41.5563503,2.4290511",
+        "idAmbit": 93,
+        "ambit": "Altres entitats públiques",
+        "titol": "1 plaça de Metge especialista en Psiquiatria, per a l'atenció de l'equip de tractament assertiu comunitari (ETAC)",
+        "borsaTreball": false,
+        "identificador": "20261027O67",
+        "expedient": "CSM058-26",
+        "anyOpo": null,
+        "dataInici": null,
+        "dataFinalitzacio": "2026-11-23",
+        "horaFinalitzacio": "14:00",
+        "observacionsTermini": null,
+        "idSistemaSeleccio": 2,
+        "sistemaSeleccio": "Concurs o valoració de mèrits",
+        "idTipusPersonal": 10,
+        "tipusPersonal": "Laboral",
+        "idGrupTitulacio": 1,
+        "grupTitulacio": "A1 - Grau universitari (correspondència amb llicenciatures)",
+        "titulacioRequerida": "Llicenciatura/Grau en Medicina i Cirurgia. Metge especialista en Psiquiatria via MIR o homologat",
+        "altresRequisits": "Nivell C1 de català / Permís de conduir B",
+        "numPlaces": 1,
+        "placesReservadesDiscapacitat": null,
+        "placesReservadesAtur": false,
+        "placesReservadesJoves": false,
+        "placesReservadesDones": false,
+        "dataProva": null,
+        "observacions": null,
+        "urlWeb": "https://www.csdm.cat/ca/el-consorci/ofertes-feina/",
+        "accesTramit": "mailto:seleccio.personal@csdm.cat",
+        "idEstat": 3,
+        "estat": "Termini obert",
+        "urlCido": "https://cido.diba.cat/oposicions/22395049",
+        "urlSubscripcio": "https://cido.diba.cat/seguir-entrada/OPOSICIO/20261027O67",
+        "maxDataPublicacioDocument": "2026-10-27"
+      },
+      "relationships": {
+        "materies-vinculades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/relationships/materies-vinculades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/materies-vinculades"
+          }
+        },
+        "institucio": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/relationships/institucio",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/institucio"
+          }
+        },
+        "documents": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/relationships/documents",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/documents"
+          }
+        },
+        "institucions-vinculades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/relationships/institucions-vinculades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/institucions-vinculades"
+          }
+        },
+        "materies": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/relationships/materies",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/materies"
+          }
+        },
+        "ods": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/relationships/ods",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22395049/ods"
+          }
+        }
+      }
+    },
+    {
+      "id": "22394879",
+      "type": "oposicions",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879"
+      },
+      "attributes": {
+        "institucioDesenvolupat": "Ajuntament de la Pobla de Segur",
+        "latitud": 42.2497636,
+        "longitud": 0.9693027,
+        "urlGoogleMaps": "http://maps.google.es/?q=42.2497636%200.9693027",
+        "idAmbit": 7,
+        "ambit": "Municipis província de Lleida i ens adscrits",
+        "titol": "1 plaça d'Encarregat del servei de neteja",
+        "borsaTreball": false,
+        "identificador": "20261028O4",
+        "expedient": null,
+        "anyOpo": null,
+        "dataInici": null,
+        "dataFinalitzacio": null,
+        "horaFinalitzacio": null,
+        "observacionsTermini": null,
+        "idSistemaSeleccio": null,
+        "sistemaSeleccio": null,
+        "idTipusPersonal": 10,
+        "tipusPersonal": "Laboral",
+        "idGrupTitulacio": 4,
+        "grupTitulacio": "C2 - ESO, graduat escolar, FP 1r grau, cicles formatius grau mitjà",
+        "titulacioRequerida": null,
+        "altresRequisits": null,
+        "numPlaces": 1,
+        "placesReservadesDiscapacitat": null,
+        "placesReservadesAtur": false,
+        "placesReservadesJoves": false,
+        "placesReservadesDones": false,
+        "dataProva": null,
+        "observacions": null,
+        "urlWeb": null,
+        "accesTramit": null,
+        "idEstat": 1,
+        "estat": "Pendent de convocatòria",
+        "urlCido": "https://cido.diba.cat/oposicions/22394879",
+        "urlSubscripcio": "https://cido.diba.cat/seguir-entrada/OPOSICIO/20261028O4",
+        "maxDataPublicacioDocument": "2026-10-28"
+      },
+      "relationships": {
+        "materies-vinculades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/relationships/materies-vinculades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/materies-vinculades"
+          }
+        },
+        "institucio": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/relationships/institucio",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/institucio"
+          }
+        },
+        "documents": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/relationships/documents",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/documents"
+          }
+        },
+        "institucions-vinculades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/relationships/institucions-vinculades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/institucions-vinculades"
+          }
+        },
+        "materies": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/relationships/materies",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/materies"
+          }
+        },
+        "ods": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/relationships/ods",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/22394879/ods"
+          }
+        }
+      }
+    },
+    {
+      "id": "21548840",
+      "type": "oposicions",
+      "links": {
+        "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840"
+      },
+      "attributes": {
+        "institucioDesenvolupat": "Ajuntament de Sant Fruitós de Bages",
+        "latitud": 41.7506528,
+        "longitud": 1.873508,
+        "urlGoogleMaps": "http://maps.google.es/?q=41.7506528%201.873508",
+        "idAmbit": 5,
+        "ambit": "Municipis província de Barcelona i ens adscrits",
+        "titol": "1 plaça de Treballador social ",
+        "borsaTreball": true,
+        "identificador": "20260508O25",
+        "expedient": null,
+        "anyOpo": 2026,
+        "dataInici": null,
+        "dataFinalitzacio": null,
+        "horaFinalitzacio": null,
+        "observacionsTermini": "El termini s'obrirà l'endemà de la publicació de la convocatòria al BOE i serà de 20 dies hàbils",
+        "idSistemaSeleccio": 4,
+        "sistemaSeleccio": "Concurs oposició o valoració de mèrits i prova",
+        "idTipusPersonal": 5,
+        "tipusPersonal": "Funcionari",
+        "idGrupTitulacio": 2,
+        "grupTitulacio": "A2 - Grau universitari (correspondència amb diplomatures)",
+        "titulacioRequerida": "Diplomatura o grau en Treball Social o titulació equivalent",
+        "altresRequisits": "Nivell C1 de català",
+        "numPlaces": 1,
+        "placesReservadesDiscapacitat": null,
+        "placesReservadesAtur": false,
+        "placesReservadesJoves": false,
+        "placesReservadesDones": false,
+        "dataProva": null,
+        "observacions": null,
+        "urlWeb": null,
+        "accesTramit": "https://santfruitosdebages.eadministracio.cat/?x=*3vIMQu4gUhY0IgvEr4BUFqT-JNqFozDUT5yQkH5JVihGCblbVpzz2hgQM0OKFulxCiOwr4K-kRuxscuilvJXoEH1VJ-2zp7ZXXCRO5SrvGhPweWsbYADi1YsnryRzdXC45oQtm-s*Y",
+        "idEstat": 2,
+        "estat": "Pendent de termini",
+        "urlCido": "https://cido.diba.cat/oposicions/21548840",
+        "urlSubscripcio": "https://cido.diba.cat/seguir-entrada/OPOSICIO/20260508O25",
+        "maxDataPublicacioDocument": "2026-10-28"
+      },
+      "relationships": {
+        "materies-vinculades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/relationships/materies-vinculades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/materies-vinculades"
+          }
+        },
+        "institucio": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/relationships/institucio",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/institucio"
+          }
+        },
+        "documents": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/relationships/documents",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/documents"
+          }
+        },
+        "institucions-vinculades": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/relationships/institucions-vinculades",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/institucions-vinculades"
+          }
+        },
+        "materies": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/relationships/materies",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/materies"
+          }
+        },
+        "ods": {
+          "links": {
+            "self": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/relationships/ods",
+            "related": "https://api.diba.cat/dadesobertes/cido/v1/oposicions/21548840/ods"
+          }
+        }
+      }
+    }
+  ]
+}
