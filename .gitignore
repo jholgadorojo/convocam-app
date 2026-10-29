@@ -42,3 +42,6 @@ next-env.d.ts
 
 /src/generated/prisma
 docs/TO DO.md
+
+# salida de la sincronización manual con curl (docs/paso_a_paso.md)
+/sync-resultado.json
