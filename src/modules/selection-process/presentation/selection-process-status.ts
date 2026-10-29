@@ -1,4 +1,7 @@
-import { getCataloniaDayNumber } from "@/shared/utils/catalonia-calendar-date";
+import {
+  getCataloniaCalendarDate,
+  getCataloniaDayNumber,
+} from "@/shared/utils/catalonia-calendar-date";
 
 const MILLISECONDS_PER_DAY =
   86_400_000;
@@ -369,6 +372,12 @@ export type ApplicationPeriodPresentation = {
  * utilizando las fechas.
  *
  * No depende del estado oficial CIDO.
+ *
+ * currentDate: día de calendario de
+ * Catalunya a las 00:00 UTC (ver
+ * getCataloniaCalendarDate). Por
+ * defecto, el día actual; se indica
+ * en los tests.
  */
 export function getApplicationPeriodPresentation(
   applicationStartDate:
@@ -380,6 +389,9 @@ export function getApplicationPeriodPresentation(
     | Date
     | null
     | undefined,
+
+  currentDate: Date =
+    getCataloniaCalendarDate(),
 ): ApplicationPeriodPresentation {
   const startDay =
     getDateDayNumber(
@@ -426,6 +438,9 @@ export function getApplicationPeriodPresentation(
   }
 
   const today =
+    getDateDayNumber(
+      currentDate,
+    ) ??
     getCataloniaDayNumber();
 
   /*

@@ -98,6 +98,7 @@ export default async function ConvocatoriasPage({
                   maxLength={100}
                   defaultValue={query}
                   placeholder="Busca por puesto, organismo, municipio..."
+                  aria-label="Buscar convocatorias"
                   className="h-[52px] w-full rounded-lg border border-[#D5DAE3] bg-white pl-12 pr-4 text-[15px] outline-none focus:border-[#4F5BD5]"
                 />
               </div>
