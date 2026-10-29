@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import type { SelectionProcessDetailDto } from
   "@/modules/selection-process/application/dto/selection-process-detail.dto";
 import { hasReservedPlaces } from "@/modules/selection-process/presentation/selection-process-badges";
+import { formatNumberOfPositions } from "@/modules/selection-process/presentation/selection-process-format";
 import { DetailSection } from "./detail-section";
-import { formatNumberOfPositions } from "./detail-presentation";
 
 /** Datos clave de la convocatoria y plazas reservadas. */
 export function SummarySection({

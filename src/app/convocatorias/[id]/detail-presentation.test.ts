@@ -8,8 +8,6 @@ import {
   buildTimeline,
   calculateApplicationProgress,
   findBasesDocument,
-  formatLocation,
-  formatNumberOfPositions,
   getReturnNavigation,
 } from "./detail-presentation";
 
@@ -51,39 +49,6 @@ describe("getReturnNavigation", () => {
       activeSidebarItem: "convocatorias",
       backLabel: "Volver a los resultados",
     });
-  });
-});
-
-describe("formatNumberOfPositions", () => {
-  it("muestra las plazas de una plaza de plantilla", () => {
-    expect(formatNumberOfPositions(3, false)).toBe("3");
-  });
-
-  it("no muestra plazas en una bolsa de trabajo", () => {
-    expect(formatNumberOfPositions(3, true)).toBe("—");
-  });
-
-  it.each([null, 0])("indica «Sin definir» si las plazas son %s", (value) => {
-    expect(formatNumberOfPositions(value, false)).toBe("Sin definir");
-  });
-});
-
-describe("formatLocation", () => {
-  it("une municipio, comarca y provincia omitiendo los vacíos", () => {
-    expect(
-      formatLocation({
-        municipality: "Terrassa",
-        county: null,
-        province: "Barcelona",
-      }),
-    ).toBe("Terrassa · Barcelona");
-  });
-
-  it("indica que no hay ubicación sin institución o sin datos", () => {
-    expect(formatLocation(null)).toBe("Ubicación no disponible");
-    expect(
-      formatLocation({ municipality: null, county: null, province: null }),
-    ).toBe("Ubicación no disponible");
   });
 });
 

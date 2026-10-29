@@ -3,8 +3,8 @@ import type { SelectionProcessDetailDto } from
   "@/modules/selection-process/application/dto/selection-process-detail.dto";
 import { getOfficialStatusPresentation } from "@/modules/selection-process/presentation/selection-process-status";
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
+import { formatInstitutionLocation } from "@/modules/selection-process/presentation/selection-process-format";
 import { formatCalendarDate } from "@/shared/presentation/format-calendar-date";
-import { formatLocation } from "./detail-presentation";
 
 /** Cabecera: tipo, estado oficial, título, organismo y ubicación. */
 export function DetailHeader({
@@ -46,7 +46,7 @@ export function DetailHeader({
           </div>
           <div className="flex items-start gap-2">
             <MapPin size={17} className="mt-0.5 shrink-0 text-[#7C859B]" />
-            <span>{formatLocation(selectionProcess.institution)}</span>
+            <span>{formatInstitutionLocation(selectionProcess.institution)}</span>
           </div>
         </div>
       </div>

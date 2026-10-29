@@ -89,40 +89,6 @@ export function getReturnNavigation(
 }
 
 /* ============================================================
- *   RESUMEN
- *============================================================ */
-
-export function formatNumberOfPositions(
-  numberOfPositions: number | null,
-  isJobPool: boolean,
-): string {
-  if (isJobPool) {
-    return "—";
-  }
-  if (numberOfPositions !== null && numberOfPositions > 0) {
-    return String(numberOfPositions);
-  }
-  return "Sin definir";
-}
-
-export function formatLocation(
-  institution: Pick<
-    NonNullable<SelectionProcessDetailDto["institution"]>,
-    "municipality" | "county" | "province"
-  > | null,
-): string {
-  if (!institution) {
-    return "Ubicación no disponible";
-  }
-  const parts = [
-    institution.municipality,
-    institution.county,
-    institution.province,
-  ].filter((value): value is string => Boolean(value));
-  return parts.length > 0 ? parts.join(" · ") : "Ubicación no disponible";
-}
-
-/* ============================================================
  *   INFORMACIÓN Y REQUISITOS
  *============================================================ */
 
