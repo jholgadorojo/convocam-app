@@ -2,10 +2,11 @@ import type { SelectionProcessFilterOption } from
   "@/modules/selection-process/application/selection-process-filter-options";
 import type { SelectionProcessMunicipalityMapPoint } from
   "@/modules/selection-process/application/selection-process-municipality-map-point";
-import type {
-  SelectionProcessApplicationPeriodFilter,
-  SelectionProcessSearchFilters,
-  SelectionProcessSort,
+import {
+  resolveSelectionProcessSort,
+  type SelectionProcessApplicationPeriodFilter,
+  type SelectionProcessSearchFilters,
+  type SelectionProcessSort,
 } from "@/modules/selection-process/application/selection-process-search-filters";
 import type { SelectionProcessResultsView } from
   "@/modules/selection-process/presentation/selection-process-results-view-toggle";
@@ -138,7 +139,7 @@ export function parseSearchParams(
     view: params.view === "map" ? "map" : "list",
     page: parsePositiveInteger(params.page) ?? 1,
     filters: {
-      sort: resolveSort(parseSort(params.sort), Boolean(query)),
+      sort: resolveSelectionProcessSort(parseSort(params.sort), Boolean(query)),
       qualificationGroups: unique(
         toArray(params.qualificationGroup)
           .map((value) => value.trim())
@@ -369,19 +370,6 @@ function parseRadiusKm(value: string | undefined): number | undefined {
 
 function parseSort(value: string | undefined): SelectionProcessSort | undefined {
   return SORT_VALUES.find((sort) => sort === value);
-}
-
-function resolveSort(
-  sort: SelectionProcessSort | undefined,
-  hasTextSearch: boolean,
-): SelectionProcessSort {
-  if (sort === undefined) {
-    return hasTextSearch ? "relevance" : "deadline-asc";
-  }
-  if (sort === "relevance" && !hasTextSearch) {
-    return "deadline-asc";
-  }
-  return sort;
 }
 
 function parseDate(value: string | undefined): Date | undefined {

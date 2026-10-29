@@ -7,6 +7,24 @@ export type SelectionProcessSort =
   | "municipality-asc"
   | "deadline-priority";
 
+/**
+ * Ordenación efectiva: sin indicar, por relevancia si hay texto y
+ * por plazo si no; la relevancia sin texto no tiene sentido y
+ * también pasa a ordenar por plazo.
+ */
+export function resolveSelectionProcessSort(
+  sort: SelectionProcessSort | undefined,
+  hasTextSearch: boolean,
+): SelectionProcessSort {
+  if (sort === undefined) {
+    return hasTextSearch ? "relevance" : "deadline-asc";
+  }
+  if (sort === "relevance" && !hasTextSearch) {
+    return "deadline-asc";
+  }
+  return sort;
+}
+
 export type SelectionProcessApplicationPeriodFilter =
   | "open"
   | "future"
