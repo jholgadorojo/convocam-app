@@ -122,17 +122,6 @@ export function formatLocation(
   return parts.length > 0 ? parts.join(" · ") : "Ubicación no disponible";
 }
 
-export function hasReservations(
-  reservedPlaces: SelectionProcessDetailDto["reservedPlaces"],
-): boolean {
-  return (
-    (reservedPlaces.disability ?? 0) > 0 ||
-    reservedPlaces.unemployed ||
-    reservedPlaces.youngPeople ||
-    reservedPlaces.women
-  );
-}
-
 /* ============================================================
  *   INFORMACIÓN Y REQUISITOS
  *============================================================ */

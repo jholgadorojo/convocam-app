@@ -12,6 +12,10 @@ import {
   listSelectionProcessMunicipalityMapPointsUseCase,
 } from "@/composition/selection-process";
 import { getApplicationPeriodPresentation, getOfficialStatusPresentation, } from "@/modules/selection-process/presentation/selection-process-status";
+import {
+    buildApplicationPeriodBadgeText,
+    hasReservedPlaces,
+} from "@/modules/selection-process/presentation/selection-process-badges";
 import { formatSelectionProcessTitle } from "@/modules/selection-process/presentation/selection-process-title";
 import type {
   SelectionProcessApplicationPeriodFilter,
@@ -1104,19 +1108,6 @@ function ReservationBadge({ children, }: {
     </span>);
 }
 
-function hasReservedPlaces(reservedPlaces: {
-    disability: number | null;
-    unemployed: boolean;
-    youngPeople: boolean;
-    women: boolean;
-}): boolean {
-    return ((reservedPlaces.disability ??
-        0) > 0 ||
-        reservedPlaces.unemployed ||
-        reservedPlaces.youngPeople ||
-        reservedPlaces.women);
-}
-
 function formatNumberOfPositions(numberOfPositions: number | null, isJobPool: boolean): string {
     if (isJobPool) {
         return "—";
@@ -1126,22 +1117,6 @@ function formatNumberOfPositions(numberOfPositions: number | null, isJobPool: bo
         return "Sin definir";
     }
     return String(numberOfPositions);
-}
-
-function buildApplicationPeriodBadgeText(period: ReturnType<typeof getApplicationPeriodPresentation>): string {
-    if (period.state ===
-        "open") {
-        if (period.label ===
-            "Finaliza hoy") {
-            return period.label;
-        }
-        return `${period.label} · ${period.detail}`;
-    }
-    if (period.state ===
-        "future") {
-        return `${period.label} · ${period.detail}`;
-    }
-    return period.label;
 }
 
 /**

@@ -1,11 +1,9 @@
 import type { ReactNode } from "react";
 import type { SelectionProcessDetailDto } from
   "@/modules/selection-process/application/dto/selection-process-detail.dto";
+import { hasReservedPlaces } from "@/modules/selection-process/presentation/selection-process-badges";
 import { DetailSection } from "./detail-section";
-import {
-  formatNumberOfPositions,
-  hasReservations,
-} from "./detail-presentation";
+import { formatNumberOfPositions } from "./detail-presentation";
 
 /** Datos clave de la convocatoria y plazas reservadas. */
 export function SummarySection({
@@ -47,7 +45,7 @@ export function SummarySection({
         />
       </div>
 
-      {hasReservations(reservedPlaces) && (
+      {hasReservedPlaces(reservedPlaces) && (
         <div className="mt-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
             Reservas

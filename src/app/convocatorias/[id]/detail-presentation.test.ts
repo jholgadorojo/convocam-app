@@ -11,7 +11,6 @@ import {
   formatLocation,
   formatNumberOfPositions,
   getReturnNavigation,
-  hasReservations,
 } from "./detail-presentation";
 
 const today = new Date("2026-11-10T00:00:00.000Z");
@@ -85,25 +84,6 @@ describe("formatLocation", () => {
     expect(
       formatLocation({ municipality: null, county: null, province: null }),
     ).toBe("Ubicación no disponible");
-  });
-});
-
-describe("hasReservations", () => {
-  const none = {
-    disability: null,
-    unemployed: false,
-    youngPeople: false,
-    women: false,
-  };
-
-  it("no hay reservas si todo está vacío o la discapacidad es 0", () => {
-    expect(hasReservations(none)).toBe(false);
-    expect(hasReservations({ ...none, disability: 0 })).toBe(false);
-  });
-
-  it("detecta cualquier reserva", () => {
-    expect(hasReservations({ ...none, disability: 1 })).toBe(true);
-    expect(hasReservations({ ...none, women: true })).toBe(true);
   });
 });
 
