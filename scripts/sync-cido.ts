@@ -39,12 +39,18 @@ async function main(): Promise<number> {
   );
 
   console.log(
-    `Reconciliación: ${reconciliation.checked} revisadas, ${reconciliation.updated} actualizadas, ${reconciliation.deactivated} desactivadas`,
+    `Reconciliación: ${reconciliation.checked} revisadas, ${reconciliation.updated} actualizadas, ${reconciliation.deactivated} desactivadas, ${reconciliation.failed} con error`,
   );
 
   for (const failure of sync.failures) {
     console.warn(
       `  Error en la convocatoria ${failure.cidoId}: ${failure.message}`,
+    );
+  }
+
+  for (const failure of reconciliation.failures) {
+    console.warn(
+      `  Error al reconciliar la convocatoria ${failure.cidoId}: ${failure.message}`,
     );
   }
 

@@ -32,6 +32,8 @@ const reconciliationResult: ReconcileMissingSelectionProcessesResult = {
   checked: 1,
   updated: 0,
   deactivated: 1,
+  failed: 0,
+  failures: [],
 };
 
 function buildUseCase({
