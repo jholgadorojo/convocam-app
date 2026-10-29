@@ -1,11 +1,23 @@
-import type {
-  CidoSelectionProcessesResponse,
-  CidoSelectionProcessResponse,
+import {
+  cidoSelectionProcessesResponseSchema,
+  cidoSelectionProcessResponseSchema,
+  type CidoSelectionProcessesResponse,
+  type CidoSelectionProcessResponse,
 } from "./cido-types";
 
-import type { CidoInstitutionResponse } from "./cido-institution-types";
-import type { CidoSubjectAreasResponse } from "./cido-subject-area-types";
-import type { CidoSelectionProcessDocumentsResponse } from "./cido-selection-process-document-types";
+import {
+  cidoInstitutionResponseSchema,
+  type CidoInstitutionResponse,
+} from "./cido-institution-types";
+import {
+  cidoSubjectAreasResponseSchema,
+  type CidoSubjectAreasResponse,
+} from "./cido-subject-area-types";
+import {
+  cidoSelectionProcessDocumentsResponseSchema,
+  type CidoSelectionProcessDocumentsResponse,
+} from "./cido-selection-process-document-types";
+import { parseCidoResponse } from "./cido-validation";
 
 const CIDO_API_BASE_URL =
   "https://api.diba.cat/dadesobertes/cido/v1";
@@ -120,7 +132,11 @@ export async function getCidoSelectionProcesses({
     );
   }
 
-  return response.json() as Promise<CidoSelectionProcessesResponse>;
+  return parseCidoResponse(
+    await response.json(),
+    cidoSelectionProcessesResponseSchema,
+    url,
+  );
 }
 
 export async function getCidoInstitution(
@@ -140,7 +156,11 @@ export async function getCidoInstitution(
     );
   }
 
-  return response.json() as Promise<CidoInstitutionResponse>;
+  return parseCidoResponse(
+    await response.json(),
+    cidoInstitutionResponseSchema,
+    url,
+  );
 }
 
 export async function getCidoSubjectAreas(
@@ -160,7 +180,11 @@ export async function getCidoSubjectAreas(
     );
   }
 
-  return response.json() as Promise<CidoSubjectAreasResponse>;
+  return parseCidoResponse(
+    await response.json(),
+    cidoSubjectAreasResponseSchema,
+    url,
+  );
 }
 export async function getCidoSelectionProcessDocuments(
   selectionProcessCidoId: string,
@@ -179,7 +203,11 @@ export async function getCidoSelectionProcessDocuments(
     );
   }
 
-  return response.json() as Promise<CidoSelectionProcessDocumentsResponse>;
+  return parseCidoResponse(
+    await response.json(),
+    cidoSelectionProcessDocumentsResponseSchema,
+    url,
+  );
 }
 export async function getCidoSelectionProcessById(
   cidoId: string,
@@ -204,5 +232,9 @@ export async function getCidoSelectionProcessById(
     );
   }
 
-  return response.json() as Promise<CidoSelectionProcessResponse>;
+  return parseCidoResponse(
+    await response.json(),
+    cidoSelectionProcessResponseSchema,
+    url,
+  );
 }

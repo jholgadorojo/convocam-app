@@ -12,7 +12,10 @@ import type { SelectionProcessDocumentRepository } from "./selection-process-doc
 import type { SelectionProcessDocumentSource } from "./selection-process-document-source";
 import type { SelectionProcessDocumentSyncData } from "./selection-process-document-sync-data";
 import type { SelectionProcessRepository } from "./selection-process-repository";
-import type { SelectionProcessSource } from "./selection-process-source";
+import type {
+  SelectionProcessSource,
+  SelectionProcessSourceRejection,
+} from "./selection-process-source";
 import type { SelectionProcessSubjectAreaRepository } from "./selection-process-subject-area-repository";
 import type { SelectionProcessSyncData } from "./selection-process-sync-data";
 import type { SubjectAreaRepository } from "./subject-area-repository";
@@ -151,16 +154,19 @@ function buildDocument(
 function buildUseCase({
   documents,
   selectionProcesses = [selectionProcess],
+  rejected = [],
   failingDocumentsCidoId,
 }: {
   documents: SelectionProcessDocumentSyncData[];
   selectionProcesses?: SelectionProcessSyncData[];
+  rejected?: SelectionProcessSourceRejection[];
   failingDocumentsCidoId?: string;
 }) {
   const source = {
     getPage: vi.fn(async () => ({
-      total: selectionProcesses.length,
+      total: selectionProcesses.length + rejected.length,
       items: selectionProcesses,
+      rejected,
     })),
 
     getByCidoId: vi.fn(async () => null),
@@ -400,6 +406,43 @@ describe("SyncSelectionProcesses", () => {
         cidoId: selectionProcess.cidoId,
         message: "CIDO no disponible",
       },
+    ]);
+  });
+
+  it("registra como fallos las convocatorias descartadas por el origen y sincroniza el resto", async () => {
+    const rejection = {
+      cidoId: "999",
+      message: "Convocatoria de CIDO no válida",
+    };
+
+    const {
+      useCase,
+      repository,
+    } = buildUseCase({
+      documents: [],
+      rejected: [rejection],
+    });
+
+    const result = await useCase.execute({
+      limit: 10,
+      offset: 0,
+    });
+
+    expect(
+      repository.upsert,
+    ).toHaveBeenCalledTimes(1);
+
+    expect(
+      repository.upsert,
+    ).toHaveBeenCalledWith(
+      selectionProcess,
+      INSTITUTION_ID,
+    );
+
+    expect(result.processed).toBe(2);
+    expect(result.failed).toBe(1);
+    expect(result.failures).toEqual([
+      rejection,
     ]);
   });
 

@@ -34,6 +34,7 @@ describe("ReconcileMissingSelectionProcesses", () => {
       getPage: vi.fn(async () => ({
         total: 0,
         items: [],
+        rejected: [],
       })),
 
       getByCidoId:
@@ -81,6 +82,7 @@ describe("ReconcileMissingSelectionProcesses", () => {
       getPage: vi.fn(async () => ({
         total: 0,
         items: [],
+        rejected: [],
       })),
 
       getByCidoId:

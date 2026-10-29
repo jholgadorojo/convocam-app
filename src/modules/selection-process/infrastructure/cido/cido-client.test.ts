@@ -12,6 +12,11 @@ import {
   getCidoSelectionProcesses,
 } from "./cido-client";
 
+const emptyPage = {
+  data: [],
+  meta: { totalResourceCount: 0 },
+};
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
 }
@@ -41,7 +46,7 @@ describe(
     it(
       "envía las peticiones con un límite de tiempo",
       async () => {
-        const fetchMock = vi.fn(async () => jsonResponse({ data: [] }));
+        const fetchMock = vi.fn(async () => jsonResponse(emptyPage));
         vi.stubGlobal("fetch", fetchMock);
 
         await getCidoSelectionProcesses({ limit: 1 });
@@ -59,14 +64,29 @@ describe(
     it(
       "hace una sola petición cuando CIDO responde bien",
       async () => {
-        const fetchMock = vi.fn(async () => jsonResponse({ data: [] }));
+        const fetchMock = vi.fn(async () => jsonResponse(emptyPage));
         vi.stubGlobal("fetch", fetchMock);
 
         const result = await getCidoSelectionProcesses();
 
-        expect(result).toEqual({ data: [] });
+        expect(result).toEqual(emptyPage);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(console.warn).not.toHaveBeenCalled();
+      },
+    );
+
+    it(
+      "falla con un error descriptivo si la respuesta no tiene el formato esperado",
+      async () => {
+        const fetchMock = vi.fn(async () =>
+          jsonResponse({ data: [], meta: {} }),
+        );
+        vi.stubGlobal("fetch", fetchMock);
+
+        await expect(getCidoSelectionProcesses()).rejects.toThrow(
+          /Respuesta de CIDO no válida en \/dadesobertes\/cido\/v1\/oposicions:[\s\S]*totalResourceCount/,
+        );
+        expect(fetchMock).toHaveBeenCalledTimes(1);
       },
     );
 
@@ -76,13 +96,13 @@ describe(
         const fetchMock = vi
           .fn()
           .mockRejectedValueOnce(timeoutError())
-          .mockResolvedValueOnce(jsonResponse({ data: [] }));
+          .mockResolvedValueOnce(jsonResponse(emptyPage));
         vi.stubGlobal("fetch", fetchMock);
 
         const promise = getCidoSelectionProcesses();
         await vi.runAllTimersAsync();
 
-        await expect(promise).resolves.toEqual({ data: [] });
+        await expect(promise).resolves.toEqual(emptyPage);
         expect(fetchMock).toHaveBeenCalledTimes(2);
       },
     );
@@ -94,13 +114,13 @@ describe(
           .fn()
           .mockResolvedValueOnce(jsonResponse({}, 503))
           .mockResolvedValueOnce(jsonResponse({}, 429))
-          .mockResolvedValueOnce(jsonResponse({ data: [] }));
+          .mockResolvedValueOnce(jsonResponse(emptyPage));
         vi.stubGlobal("fetch", fetchMock);
 
         const promise = getCidoSelectionProcesses();
         await vi.runAllTimersAsync();
 
-        await expect(promise).resolves.toEqual({ data: [] });
+        await expect(promise).resolves.toEqual(emptyPage);
         expect(fetchMock).toHaveBeenCalledTimes(3);
       },
     );

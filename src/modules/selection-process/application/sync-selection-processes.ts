@@ -78,7 +78,12 @@ export class SyncSelectionProcesses {
       documentCidoIds: new Set<string>(),
     };
 
-    const failures: SyncSelectionProcessFailure[] = [];
+    // Las convocatorias descartadas por el origen cuentan
+    // como fallos; la reconciliación también las vuelve a
+    // consultar al final.
+    const failures: SyncSelectionProcessFailure[] = [
+      ...page.rejected,
+    ];
 
     for (const selectionProcess of page.items) {
       try {
@@ -106,9 +111,11 @@ export class SyncSelectionProcesses {
     return {
       totalAvailable: page.total,
       // Convocatorias leídas de la página, incluidas
-      // las que han fallado: SyncAllSelectionProcesses
-      // lo usa para detectar la última página.
-      processed: page.items.length,
+      // las que han fallado o se han descartado:
+      // SyncAllSelectionProcesses lo usa para detectar
+      // la última página.
+      processed:
+        page.items.length + page.rejected.length,
       failed: failures.length,
       failures,
       institutionsProcessed:

@@ -1,36 +1,51 @@
-export type CidoInstitutionAttributes = {
-  institucioDesenvolupat: string;
-  institucioAbreujat: string | null;
-  institucioActiva: boolean;
+import { z } from "zod";
 
-  latitud: number | null;
-  longitud: number | null;
-  urlGoogleMaps: string | null;
+// CIDO envía los códigos como número, pero se aceptan
+// también como texto: el mapper normaliza ambos.
+const nullableCode = z.union([z.string(), z.number()]).nullable();
+const nullableString = z.string().nullable();
 
-  codiIne: string | number | null;
-  adreca: string | null;
-  codiPostal: string | number | null;
+export const cidoInstitutionResourceSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("institucions"),
+  attributes: z.object({
+    institucioDesenvolupat: z.string(),
+    institucioAbreujat: nullableString,
+    institucioActiva: z.boolean(),
 
-  municipi: string | null;
+    latitud: z.number().nullable(),
+    longitud: z.number().nullable(),
 
-  codiComarca: string | number | null;
-  comarca: string | null;
+    codiIne: nullableCode,
+    adreca: nullableString,
+    codiPostal: nullableCode,
 
-  codiProvincia: string | number | null;
-  provincia: string | null;
+    municipi: nullableString,
 
-  urlPerfilContractant: string | null;
+    codiComarca: nullableCode,
+    comarca: nullableString,
 
-  soc: string | number | null;
-  sepe: string | number | null;
-};
+    codiProvincia: nullableCode,
+    provincia: nullableString,
 
-export type CidoInstitutionResource = {
-  id: string;
-  type: "institucions";
-  attributes: CidoInstitutionAttributes;
-};
+    urlPerfilContractant: nullableString,
 
-export type CidoInstitutionResponse = {
-  data: CidoInstitutionResource | null;
-};
+    soc: nullableCode,
+    sepe: nullableCode,
+  }),
+});
+
+export type CidoInstitutionResource = z.infer<
+  typeof cidoInstitutionResourceSchema
+>;
+
+export type CidoInstitutionAttributes =
+  CidoInstitutionResource["attributes"];
+
+export const cidoInstitutionResponseSchema = z.object({
+  data: cidoInstitutionResourceSchema.nullable(),
+});
+
+export type CidoInstitutionResponse = z.infer<
+  typeof cidoInstitutionResponseSchema
+>;

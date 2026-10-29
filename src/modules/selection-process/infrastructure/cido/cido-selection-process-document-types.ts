@@ -1,28 +1,41 @@
-export type CidoSelectionProcessDocumentAttributes = {
-  dataPublicacio: string;
-  resum: string;
-  anunciant: string | null;
+import { z } from "zod";
 
-  idButlleti: number;
-  butlleti: string;
-  numButlleti: number | null;
+const nullableString = z.string().nullable();
 
-  dataEntrada: string;
+export const cidoSelectionProcessDocumentResourceSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("documents"),
+  attributes: z.object({
+    dataPublicacio: z.iso.date(),
+    resum: z.string(),
+    anunciant: nullableString,
 
-  idFase: number;
-  fase: string;
-  observacionsFase: string | null;
+    idButlleti: z.number().int(),
+    butlleti: z.string(),
+    numButlleti: z.number().int().nullable(),
 
-  urlPdf: string | null;
-  urlHtml: string | null;
-};
+    dataEntrada: z.iso.date(),
 
-export type CidoSelectionProcessDocumentResource = {
-  id: string;
-  type: "documents";
-  attributes: CidoSelectionProcessDocumentAttributes;
-};
+    idFase: z.number().int(),
+    fase: z.string(),
+    observacionsFase: nullableString,
 
-export type CidoSelectionProcessDocumentsResponse = {
-  data: CidoSelectionProcessDocumentResource[];
-};
+    urlPdf: nullableString,
+    urlHtml: nullableString,
+  }),
+});
+
+export type CidoSelectionProcessDocumentResource = z.infer<
+  typeof cidoSelectionProcessDocumentResourceSchema
+>;
+
+export type CidoSelectionProcessDocumentAttributes =
+  CidoSelectionProcessDocumentResource["attributes"];
+
+export const cidoSelectionProcessDocumentsResponseSchema = z.object({
+  data: z.array(cidoSelectionProcessDocumentResourceSchema),
+});
+
+export type CidoSelectionProcessDocumentsResponse = z.infer<
+  typeof cidoSelectionProcessDocumentsResponseSchema
+>;

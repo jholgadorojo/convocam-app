@@ -1,77 +1,93 @@
-export type CidoSelectionProcessAttributes = {
-  institucioDesenvolupat: string;
-  latitud: number | null;
-  longitud: number | null;
-  urlGoogleMaps: string | null;
+import { z } from "zod";
 
-  idAmbit: number;
-  ambit: string;
+// Solo se declaran los campos que usa el mapper: zod
+// descarta el resto, así que un cambio en un campo que
+// no usamos no invalida la convocatoria.
+const nullableString = z.string().nullable();
+const nullableInt = z.number().int().nullable();
+const nullableDate = z.iso.date().nullable();
 
-  titol: string;
-  borsaTreball: boolean;
-  identificador: string;
-  expedient: string | null;
-  anyOpo: number | null;
+export const cidoSelectionProcessResourceSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("oposicions"),
+  attributes: z.object({
+    institucioDesenvolupat: z.string(),
 
-  dataInici: string | null;
-  dataFinalitzacio: string | null;
-  horaFinalitzacio: string | null;
-  observacionsTermini: string | null;
+    idAmbit: z.number().int(),
+    ambit: z.string(),
 
-  idSistemaSeleccio: number | null;
-  sistemaSeleccio: string | null;
+    titol: z.string(),
+    borsaTreball: z.boolean(),
+    identificador: z.string(),
+    expedient: nullableString,
+    anyOpo: nullableInt,
 
-  idTipusPersonal: number | null;
-  tipusPersonal: string | null;
+    dataInici: nullableDate,
+    dataFinalitzacio: nullableDate,
+    horaFinalitzacio: nullableString,
+    observacionsTermini: nullableString,
 
-  idGrupTitulacio: number | null;
-  grupTitulacio: string | null;
+    idSistemaSeleccio: nullableInt,
+    sistemaSeleccio: nullableString,
 
-  titulacioRequerida: string | null;
-  altresRequisits: string | null;
+    idTipusPersonal: nullableInt,
+    tipusPersonal: nullableString,
 
-  numPlaces: number | null;
+    idGrupTitulacio: nullableInt,
+    grupTitulacio: nullableString,
 
-  placesReservadesDiscapacitat: number | null;
-  placesReservadesAtur: boolean;
-  placesReservadesJoves: boolean;
-  placesReservadesDones: boolean;
+    titulacioRequerida: nullableString,
+    altresRequisits: nullableString,
 
-  dataProva: string | null;
-  observacions: string | null;
+    numPlaces: nullableInt,
 
-  urlWeb: string | null;
-  accesTramit: string | null;
+    placesReservadesDiscapacitat: nullableInt,
+    placesReservadesAtur: z.boolean(),
+    placesReservadesJoves: z.boolean(),
+    placesReservadesDones: z.boolean(),
 
-  idEstat: number;
-  estat: string;
+    dataProva: nullableDate,
+    observacions: nullableString,
 
-  urlCido: string;
-  urlSubscripcio: string | null;
+    urlWeb: nullableString,
+    accesTramit: nullableString,
 
-  maxDataPublicacioDocument: string | null;
-};
+    idEstat: z.number().int(),
+    estat: z.string(),
 
-export type CidoSelectionProcessResource = {
-  id: string;
-  type: "oposicions";
-  attributes: CidoSelectionProcessAttributes;
-};
+    urlCido: z.string(),
 
-export type CidoSelectionProcessesResponse = {
-  data: CidoSelectionProcessResource[];
+    maxDataPublicacioDocument: nullableDate,
+  }),
+});
 
-  links: {
-    first?: string;
-    last?: string;
-    next?: string;
-    self: string;
-  };
+export type CidoSelectionProcessResource = z.infer<
+  typeof cidoSelectionProcessResourceSchema
+>;
 
-  meta: {
-    totalResourceCount: number;
-  };
-};
-export type CidoSelectionProcessResponse = {
-  data: CidoSelectionProcessResource | null;
-};
+export type CidoSelectionProcessAttributes =
+  CidoSelectionProcessResource["attributes"];
+
+// En la lista solo se valida el envoltorio: cada
+// convocatoria se valida por separado en
+// CidoSelectionProcessSource para que una mal formada
+// no impida sincronizar el resto de la página.
+export const cidoSelectionProcessesResponseSchema = z.object({
+  data: z.array(z.unknown()),
+
+  meta: z.object({
+    totalResourceCount: z.number().int().nonnegative(),
+  }),
+});
+
+export type CidoSelectionProcessesResponse = z.infer<
+  typeof cidoSelectionProcessesResponseSchema
+>;
+
+export const cidoSelectionProcessResponseSchema = z.object({
+  data: cidoSelectionProcessResourceSchema.nullable(),
+});
+
+export type CidoSelectionProcessResponse = z.infer<
+  typeof cidoSelectionProcessResponseSchema
+>;
