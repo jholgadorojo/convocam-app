@@ -8,10 +8,12 @@ import {
   changeSelectionProcessPersonalStatusUseCase,
   followSelectionProcessUseCase,
   unfollowSelectionProcessUseCase,
-} from "@/composition/user-selection-process";import { auth } from "@/lib/auth";
+} from "@/composition/user-selection-process";
+import { auth } from "@/lib/auth";
 
 import { PersonalSelectionProcessStatus } from "@/modules/user-selection-process/domain/personal-selection-process-status";
 import { SelectionProcessNotFoundError } from "@/modules/user-selection-process/domain/selection-process-not-found-error";
+import { getSafeReturnTo } from "@/shared/infrastructure/security/safe-return-to";
 import { parsePositiveId } from "@/shared/presentation/parse-positive-id";
 
 export async function followSelectionProcessAction(
@@ -33,10 +35,16 @@ export async function followSelectionProcessAction(
     });
 
   if (!session?.user) {
+    // Tras iniciar sesión se vuelve al detalle con su propio returnTo,
+    // para que «Volver» siga llevando a los resultados de origen.
+    const requestedReturnTo = formData.get("returnTo");
+    const loginReturnTo =
+      typeof requestedReturnTo === "string" && requestedReturnTo
+        ? getSafeReturnTo(requestedReturnTo)
+        : `/convocatorias/${selectionProcessId}`;
+
     redirect(
-      `/login?returnTo=${encodeURIComponent(
-        `/convocatorias/${selectionProcessId}`,
-      )}`,
+      `/login?returnTo=${encodeURIComponent(loginReturnTo)}`,
     );
   }
 
