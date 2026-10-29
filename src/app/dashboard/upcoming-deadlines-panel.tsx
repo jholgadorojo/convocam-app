@@ -11,11 +11,11 @@ import { formatSelectionProcessTitle } from
   "@/modules/selection-process/presentation/selection-process-title";
 import { getPersonalSelectionProcessStatusLabel } from
   "@/modules/user-selection-process/presentation/personal-selection-process-status";
+import { formatCalendarDate } from "@/shared/presentation/format-calendar-date";
 import {
   dashboardDetailHref,
   deadlineBadgeClasses,
   deadlineBadgeLabel,
-  formatCalendarDate,
   secondaryDetailButtonClasses,
 } from "./dashboard-presentation";
 

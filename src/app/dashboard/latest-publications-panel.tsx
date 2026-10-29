@@ -11,9 +11,9 @@ import type { DashboardLatestPublicationItem } from
 import { formatSelectionProcessTitle } from
   "@/modules/selection-process/presentation/selection-process-title";
 import { decodeHtmlEntities } from "@/shared/presentation/decode-html-entities";
+import { formatCalendarDate } from "@/shared/presentation/format-calendar-date";
 import {
   dashboardDetailHref,
-  formatCalendarDate,
   secondaryDetailButtonClasses,
 } from "./dashboard-presentation";
 

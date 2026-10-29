@@ -1,5 +1,6 @@
 import type { SelectionProcessListItem } from
   "@/modules/selection-process/application/selection-process-list-item";
+import { formatCalendarDate } from "@/shared/presentation/format-calendar-date";
 
 /**
  * SPEC-009 - Funciones de presentación del dashboard.
@@ -16,18 +17,6 @@ export const secondaryDetailButtonClasses =
   "hover:border-[#9FA8EC] hover:bg-[#E2E6FB] " +
   "focus-visible:outline focus-visible:outline-2 " +
   "focus-visible:outline-offset-2 focus-visible:outline-[#4F5BD5]";
-
-const calendarDateFormatter = new Intl.DateTimeFormat("es-ES", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
-/** Las fechas DATE de PostgreSQL se representan a las 00:00 UTC. */
-export function formatCalendarDate(value: Date): string {
-  return calendarDateFormatter.format(value);
-}
 
 /** Enlace al detalle que vuelve al dashboard con «Volver». */
 export function dashboardDetailHref(selectionProcessId: number): string {

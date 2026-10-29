@@ -4,20 +4,11 @@ import {
   dashboardDetailHref,
   deadlineBadgeClasses,
   deadlineBadgeLabel,
-  formatCalendarDate,
   getOpportunityDateText,
 } from "./dashboard-presentation";
 
 const startDate = new Date("2026-11-02T00:00:00.000Z");
 const endDate = new Date("2026-11-20T00:00:00.000Z");
-
-describe("formatCalendarDate", () => {
-  it("formatea la fecha en dd/mm/aaaa sin desplazarla por la zona horaria", () => {
-    expect(formatCalendarDate(new Date("2026-01-01T00:00:00.000Z"))).toBe(
-      "01/01/2026",
-    );
-  });
-});
 
 describe("dashboardDetailHref", () => {
   it("enlaza al detalle con retorno al dashboard", () => {
