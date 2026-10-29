@@ -137,7 +137,7 @@ function DateItem({
           {title}
         </p>
 
-        <p className="truncate text-[13px] text-[#7C859B]">
+        <p className="truncate text-[13px] text-[#646E85]">
           {organization}
         </p>
       </div>

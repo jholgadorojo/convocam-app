@@ -165,7 +165,7 @@ export function PersonalDataForm({
                 {email}
               </dd>
 
-              <p className="mt-1.5 text-xs text-[#8A93A7]">
+              <p className="mt-1.5 text-xs text-[#646E85]">
                 El correo electrónico está asociado a tu
                 cuenta.
               </p>
@@ -268,7 +268,7 @@ export function PersonalDataForm({
                 className="mt-2 h-11 w-full cursor-not-allowed rounded-lg border border-[#E3E7EE] bg-[#F7F8FA] px-3.5 text-sm text-[#69738A] outline-none"
               />
 
-              <p className="mt-1.5 text-xs text-[#8A93A7]">
+              <p className="mt-1.5 text-xs text-[#646E85]">
                 El correo electrónico no se puede
                 modificar desde este apartado.
               </p>

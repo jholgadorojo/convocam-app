@@ -123,7 +123,7 @@ export function SearchFiltersPanel({
                 </option>
               ))}
             </select>
-            <span className="text-xs leading-relaxed text-[#7C859B]">
+            <span className="text-xs leading-relaxed text-[#646E85]">
               Se calcula en línea recta desde el municipio seleccionado.
             </span>
           </label>

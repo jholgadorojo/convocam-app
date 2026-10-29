@@ -37,7 +37,7 @@ export function OfficialSourcesSection({
           </a>
         ))}
       </div>
-      <p className="mt-4 text-xs leading-relaxed text-[#7C859B]">
+      <p className="mt-4 text-xs leading-relaxed text-[#646E85]">
         Convoca&apos;m organiza información pública para facilitar su consulta.
         Revisa siempre las fuentes oficiales antes de presentar una solicitud.
       </p>

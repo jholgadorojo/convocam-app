@@ -39,13 +39,13 @@ export function DetailHeader({
 
         <div className="mt-5 flex flex-col gap-2 text-sm text-[#4E5870]">
           <div className="flex items-start gap-2">
-            <Building2 size={17} className="mt-0.5 shrink-0 text-[#7C859B]" />
+            <Building2 size={17} className="mt-0.5 shrink-0 text-[#646E85]" />
             <span>
               {selectionProcess.institution?.name ?? "Organismo no disponible"}
             </span>
           </div>
           <div className="flex items-start gap-2">
-            <MapPin size={17} className="mt-0.5 shrink-0 text-[#7C859B]" />
+            <MapPin size={17} className="mt-0.5 shrink-0 text-[#646E85]" />
             <span>{formatInstitutionLocation(selectionProcess.institution)}</span>
           </div>
         </div>

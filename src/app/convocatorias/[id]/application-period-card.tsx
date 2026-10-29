@@ -36,7 +36,7 @@ export function ApplicationPeriodCard({
 
   return (
     <section className="rounded-xl border border-[#E3E7EE] bg-white p-5 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7C859B]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#646E85]">
         Plazo de solicitud
       </p>
       <div className="mt-3">
@@ -52,7 +52,7 @@ export function ApplicationPeriodCard({
       </div>
       {applicationStartDate && (
         <div className="mt-4 flex items-center justify-between gap-3 text-xs">
-          <span className="text-[#7C859B]">Inicio</span>
+          <span className="text-[#646E85]">Inicio</span>
           <span className="font-semibold text-[#4E5870]">
             {formatCalendarDate(applicationStartDate)}
           </span>
@@ -60,7 +60,7 @@ export function ApplicationPeriodCard({
       )}
       {applicationEndDate && (
         <div className="mt-2 flex items-center justify-between gap-3 text-xs">
-          <span className="text-[#7C859B]">Fin</span>
+          <span className="text-[#646E85]">Fin</span>
           <span className="font-semibold text-[#4E5870]">
             {formatCalendarDate(applicationEndDate)}
             {applicationEndTime ? ` · ${applicationEndTime}` : ""}

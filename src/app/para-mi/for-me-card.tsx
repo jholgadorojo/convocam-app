@@ -59,7 +59,7 @@ export function ForMeCard({
         </h3>
 
         <p className="mt-2 flex items-start gap-2 text-[13.5px] text-[#4E5870]">
-          <MapPin size={15} className="mt-0.5 shrink-0 text-[#7C859B]" />
+          <MapPin size={15} className="mt-0.5 shrink-0 text-[#646E85]" />
           <span>{locationText(item.institution)}</span>
         </p>
 
@@ -67,7 +67,7 @@ export function ForMeCard({
           <div className="flex items-start gap-2.5">
             <CalendarClock size={17} className="mt-0.5 shrink-0 text-[#4F5BD5]" />
             <div>
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
                 Plazo de solicitud
               </p>
               <p className="mt-1 text-sm font-semibold text-[#131A2C]">
@@ -84,7 +84,7 @@ export function ForMeCard({
         </div>
 
         <div className="mt-4 flex-1">
-          <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
             ¿Por qué aparece para mí?
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -101,7 +101,7 @@ export function ForMeCard({
             ))}
           </div>
           {showTerritorialNote && (
-            <p className="mt-1.5 text-[11px] text-[#7C859B]">
+            <p className="mt-1.5 text-[11px] text-[#646E85]">
               La coincidencia territorial se basa en la ubicación
               del organismo convocante, no necesariamente del puesto.
             </p>

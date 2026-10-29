@@ -75,7 +75,7 @@ export function UpcomingDeadlinesPanel({
               <p className="mt-2 flex items-start gap-1.5 text-sm text-[#4E5870]">
                 <MapPin
                   size={15}
-                  className="mt-0.5 shrink-0 text-[#7C859B]"
+                  className="mt-0.5 shrink-0 text-[#646E85]"
                   aria-hidden="true"
                 />
                 <span className="min-w-0 break-words">

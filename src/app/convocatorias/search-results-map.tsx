@@ -35,7 +35,7 @@ export function SearchResultsMap({
         </>
       ) : (
         <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-center">
-          <MapPin size={28} className="text-[#7C859B]" aria-hidden="true" />
+          <MapPin size={28} className="text-[#646E85]" aria-hidden="true" />
           <p className="text-base font-semibold text-[#131A2C]">
             {totalItems === 0
               ? "No se han encontrado convocatorias"

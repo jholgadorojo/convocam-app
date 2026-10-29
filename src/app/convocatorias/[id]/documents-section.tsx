@@ -30,7 +30,7 @@ export function DocumentsSection({
                     <span className="rounded-full bg-[#EEF0FC] px-2.5 py-1 text-[11px] font-semibold text-[#3B45B5]">
                       {document.phase}
                     </span>
-                    <span className="text-xs font-medium text-[#7C859B]">
+                    <span className="text-xs font-medium text-[#646E85]">
                       {formatCalendarDate(document.publicationDate)}
                     </span>
                   </div>

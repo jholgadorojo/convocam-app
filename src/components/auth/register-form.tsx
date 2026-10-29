@@ -146,7 +146,7 @@ export function RegisterForm() {
                     </button>
                 </div>
 
-                <p className="text-[12.5px] text-[#7C859B]">
+                <p className="text-[12.5px] text-[#646E85]">
                     Mínimo 8 caracteres, con al menos una letra y un número.
                 </p>
             </div>
@@ -225,7 +225,7 @@ export function RegisterForm() {
             </Button>
 
             {/* Condiciones */}
-            <p className="text-center text-[12.5px] text-[#7C859B]">
+            <p className="text-center text-[12.5px] text-[#646E85]">
                 Al crear la cuenta aceptas las{" "}
                 <a href="#" className="text-[#3B45B5] hover:underline">
                     condiciones de uso

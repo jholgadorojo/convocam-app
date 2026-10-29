@@ -185,7 +185,7 @@ export function AddAcademicQualificationForm() {
                 className="mt-2 h-11 w-full rounded-lg border border-[#D5DAE3] bg-white px-3.5 text-sm text-[#131A2C] outline-none focus:border-[#4F5BD5] focus:ring-2 focus:ring-[#4F5BD5]/15 disabled:opacity-60"
               />
 
-              <p className="mt-1.5 text-xs text-[#8A93A7]">
+              <p className="mt-1.5 text-xs text-[#646E85]">
                 Indica la denominación de la titulación
                 que has obtenido.
               </p>

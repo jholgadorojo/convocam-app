@@ -47,7 +47,7 @@ export function SummarySection({
 
       {hasReservedPlaces(reservedPlaces) && (
         <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.05em] text-[#646E85]">
             Reservas
           </p>
           <div className="flex flex-wrap gap-2">
@@ -81,7 +81,7 @@ function SummaryItem({
 }) {
   return (
     <div className="border-b border-[#E7EAF0] px-4 py-3 last:border-b-0 sm:border-r sm:last:border-r-0">
-      <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+      <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
         {label}
       </p>
       <p className="mt-1.5 text-sm font-semibold leading-snug text-[#131A2C]">

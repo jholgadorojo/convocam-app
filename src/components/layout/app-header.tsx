@@ -36,7 +36,7 @@ export function AppHeader({
         >
           <Search
             size={16}
-            className="shrink-0 text-[#7C859B]"
+            className="shrink-0 text-[#646E85]"
           />
 
           <input
@@ -45,7 +45,7 @@ export function AppHeader({
             maxLength={100}
             placeholder="Búsqueda rápida de convocatorias"
             aria-label="Búsqueda rápida de convocatorias"
-            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-[#131A2C] outline-none placeholder:text-[#7C859B]"
+            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-[#131A2C] outline-none placeholder:text-[#646E85]"
           />
         </form>
 

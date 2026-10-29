@@ -427,7 +427,7 @@ export async function FollowedMunicipalitiesMap(props: Props) {
               : `Hay ${missingMunicipalities} municipios que no se pueden situar por falta de coordenadas.`}
           </p>
         )}
-        <p className="mt-3 text-[11px] text-[#8A93A7]">
+        <p className="mt-3 text-[11px] text-[#646E85]">
           Cartografía: {" "}
           <a
             href="https://www.icgc.cat/"

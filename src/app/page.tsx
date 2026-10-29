@@ -152,7 +152,7 @@ export default async function HomePage() {
                 <Search
                   size={19}
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#7C859B]"
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#646E85]"
                 />
                 <input
                   type="search"
@@ -172,7 +172,7 @@ export default async function HomePage() {
             </form>
 
             <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[13.5px]">
-              <span className="text-[#7C859B]">Búsquedas frecuentes:</span>
+              <span className="text-[#646E85]">Búsquedas frecuentes:</span>
               {QUICK_SEARCHES.map((item) => (
                 <Link
                   key={item.label}
@@ -185,7 +185,7 @@ export default async function HomePage() {
             </div>
 
             {!isAuthenticated && (
-              <p className="mt-6 text-sm text-[#7C859B]">
+              <p className="mt-6 text-sm text-[#646E85]">
                 No necesitas registrarte para buscar convocatorias.
               </p>
             )}
@@ -277,7 +277,7 @@ export default async function HomePage() {
                       <Building2
                         size={16}
                         aria-hidden="true"
-                        className="mt-0.5 shrink-0 text-[#7C859B]"
+                        className="mt-0.5 shrink-0 text-[#646E85]"
                       />
                       <span>
                         {convocatoria.institution?.name ??
@@ -306,7 +306,7 @@ export default async function HomePage() {
                       <MapPin
                         size={16}
                         aria-hidden="true"
-                        className="mt-0.5 shrink-0 text-[#7C859B]"
+                        className="mt-0.5 shrink-0 text-[#646E85]"
                       />
                       <span>
                         {formatLocation(
@@ -318,7 +318,7 @@ export default async function HomePage() {
 
                     <div className="mt-auto pt-5">
                       <div className="border-t border-[#EEF1F5] pt-4">
-                        <p className="text-xs text-[#7C859B]">
+                        <p className="text-xs text-[#646E85]">
                           Fin del plazo de inscripción
                         </p>
                         <p className="mt-1 text-sm font-semibold">
@@ -376,7 +376,7 @@ export default async function HomePage() {
 
       {/* PIE DE PÁGINA */}
       <footer className="border-t border-[#E3E7EE] bg-white">
-        <div className="mx-auto flex max-w-[1180px] flex-col justify-between gap-4 px-6 py-7 text-[13.5px] text-[#7C859B] sm:flex-row sm:items-center lg:px-0">
+        <div className="mx-auto flex max-w-[1180px] flex-col justify-between gap-4 px-6 py-7 text-[13.5px] text-[#646E85] sm:flex-row sm:items-center lg:px-0">
           <div className="flex items-center gap-4">
             <span className="font-bold text-[#131A2C]">Convoca&apos;m</span>
             <span>© 2026</span>

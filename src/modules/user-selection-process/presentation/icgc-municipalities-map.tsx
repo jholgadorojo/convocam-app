@@ -967,7 +967,7 @@ export function IcgcMunicipalitiesMap({
           <div className="shrink-0 px-4 pt-2">
             <MapLegend mode={mode} showSelected={Boolean(selectedMarker)} />
           </div>
-          <p className="shrink-0 px-4 py-2 text-[11px] text-[#8A93A7]">
+          <p className="shrink-0 px-4 py-2 text-[11px] text-[#646E85]">
             Cartografía:{" "}
             <a
               href="https://www.icgc.cat/"
@@ -984,7 +984,7 @@ export function IcgcMunicipalitiesMap({
 
       <div className="mt-2 space-y-1">
         <MapLegend mode={mode} showSelected={Boolean(selectedMarker)} />
-        <p className="text-[11px] leading-relaxed text-[#8A93A7]">
+        <p className="text-[11px] leading-relaxed text-[#646E85]">
           Cartografía: {" "}
           <a
             href="https://www.icgc.cat/"

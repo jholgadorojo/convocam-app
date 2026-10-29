@@ -57,11 +57,11 @@ export function SearchResultCard({
           </h3>
           <div className="mt-3 flex flex-col gap-2 text-sm text-[#4E5870]">
             <div className="flex items-start gap-2">
-              <Building2 size={16} className="mt-0.5 shrink-0 text-[#7C859B]" />
+              <Building2 size={16} className="mt-0.5 shrink-0 text-[#646E85]" />
               <span>{item.institution?.name ?? "Organismo no disponible"}</span>
             </div>
             <div className="flex items-start gap-2">
-              <MapPin size={16} className="mt-0.5 shrink-0 text-[#7C859B]" />
+              <MapPin size={16} className="mt-0.5 shrink-0 text-[#646E85]" />
               <span>{formatInstitutionLocation(item.institution)}</span>
             </div>
           </div>
@@ -84,7 +84,7 @@ export function SearchResultCard({
 
         {hasReservedPlaces(reservedPlaces) && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-semibold uppercase tracking-[0.04em] text-[#7C859B]">
+            <span className="mr-1 text-xs font-semibold uppercase tracking-[0.04em] text-[#646E85]">
               Reservas
             </span>
             {(reservedPlaces.disability ?? 0) > 0 && (
@@ -123,7 +123,7 @@ export function SearchResultCard({
 function ResultInfoItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 border-b border-r border-[#E7EAF0] px-4 py-3">
-      <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+      <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
         {label}
       </p>
       <p className="mt-1 break-words text-[13.5px] font-medium leading-snug text-[#131A2C]">

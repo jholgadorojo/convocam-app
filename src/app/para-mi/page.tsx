@@ -107,7 +107,7 @@ export default async function ForMePage({ searchParams }: ForMePageProps) {
 
             {result.kind === "preferences-not-configured" ? (
               <ForMeEmptyState
-                icon={<Target size={32} className="mx-auto text-[#7C859B]" />}
+                icon={<Target size={32} className="mx-auto text-[#646E85]" />}
                 title="Configura tus preferencias"
                 description="Selecciona tus preferencias territoriales o profesionales para descubrir convocatorias relacionadas con tus intereses."
                 actionHref="/mi-perfil"

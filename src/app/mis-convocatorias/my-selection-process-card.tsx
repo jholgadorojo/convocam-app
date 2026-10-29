@@ -86,7 +86,7 @@ export function MySelectionProcessCard({
             {formatSelectionProcessTitle(convocatoria.title)}
           </h3>
           <div className="mt-2 flex items-start gap-2 text-[13.5px] text-[#4E5870]">
-            <MapPin size={15} className="mt-0.5 shrink-0 text-[#7C859B]" />
+            <MapPin size={15} className="mt-0.5 shrink-0 text-[#646E85]" />
             <span>{buildLocationText(convocatoria.institution)}</span>
           </div>
         </div>
@@ -96,7 +96,7 @@ export function MySelectionProcessCard({
           <div className="flex items-start gap-2.5">
             <CalendarClock size={17} className="mt-0.5 shrink-0 text-[#4F5BD5]" />
             <div className="min-w-0">
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
                 Solicitud
               </p>
               <p className="mt-1 text-sm font-semibold leading-snug text-[#131A2C]">
@@ -109,7 +109,7 @@ export function MySelectionProcessCard({
         {/* RESERVAS */}
         {hasReservedPlaces(reservedPlaces) && (
           <div className="mt-3">
-            <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+            <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
               Reservas
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -146,7 +146,7 @@ export function MySelectionProcessCard({
                   <span className="block text-sm font-semibold">
                     Último documento oficial
                   </span>
-                  <span className="mt-0.5 block text-xs font-medium text-[#7C859B]">
+                  <span className="mt-0.5 block text-xs font-medium text-[#646E85]">
                     Publicado el {formatCalendarDate(latestDocument.publicationDate)}
                   </span>
                 </span>
@@ -154,7 +154,7 @@ export function MySelectionProcessCard({
               <ExternalLink size={15} className="mt-0.5 shrink-0" />
             </a>
           ) : (
-            <div className="flex items-center gap-2 px-1 py-1.5 text-sm text-[#7C859B]">
+            <div className="flex items-center gap-2 px-1 py-1.5 text-sm text-[#646E85]">
               <FileText size={16} className="shrink-0" />
               <span>Sin documentos oficiales disponibles</span>
             </div>
@@ -173,7 +173,7 @@ export function MySelectionProcessCard({
         {/* INFORMACIÓN PERSONAL */}
         <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-[#FAFBFC] px-3.5 py-2.5">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[#8A93A7]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
               Siguiendo desde
             </p>
             <p className="mt-1 text-xs font-medium text-[#4E5870]">
@@ -181,7 +181,7 @@ export function MySelectionProcessCard({
             </p>
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[#8A93A7]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
               Último cambio de estado
             </p>
             <p className="mt-1 text-xs font-medium text-[#4E5870]">

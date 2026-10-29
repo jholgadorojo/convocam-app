@@ -20,7 +20,7 @@ export function InformationSection({
       </div>
       {selectionProcess.observations && (
         <div className="mt-4 rounded-lg border border-[#E7EAF0] bg-[#F7F8FA] px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+          <p className="text-xs font-semibold uppercase tracking-[0.05em] text-[#646E85]">
             Observaciones
           </p>
           <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-[#4E5870]">

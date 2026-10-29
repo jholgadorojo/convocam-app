@@ -27,7 +27,7 @@ export function PersonalTrackingCard({
 }) {
   return (
     <section className="rounded-xl border border-[#D8DCF8] bg-white p-5 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7C859B]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#646E85]">
         Seguimiento personal
       </p>
       {userSelectionProcess ? (
@@ -47,7 +47,7 @@ export function PersonalTrackingCard({
                 {formatDateTime(userSelectionProcess.personalStatusUpdatedAt)}
               </span>
             </p>
-            <p className="mt-1.5 text-xs leading-relaxed text-[#7C859B]">
+            <p className="mt-1.5 text-xs leading-relaxed text-[#646E85]">
               Tu estado personal. No modifica el estado oficial de la
               convocatoria.
             </p>
@@ -76,7 +76,7 @@ export function PersonalTrackingCard({
             </button>
           </form>
           {!isAuthenticated && (
-            <p className="mt-2 text-center text-xs leading-relaxed text-[#7C859B]">
+            <p className="mt-2 text-center text-xs leading-relaxed text-[#646E85]">
               Necesitarás iniciar sesión para guardar tu seguimiento.
             </p>
           )}

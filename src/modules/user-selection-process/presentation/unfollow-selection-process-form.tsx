@@ -84,7 +84,7 @@ export function UnfollowSelectionProcessForm({
                   setIsOpen(false)
                 }
                 aria-label="Cerrar"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#7C859B] hover:bg-[#F1F3F7] hover:text-[#131A2C]"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#646E85] hover:bg-[#F1F3F7] hover:text-[#131A2C]"
               >
                 <X size={18} />
               </button>

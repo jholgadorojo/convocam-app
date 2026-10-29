@@ -69,7 +69,7 @@ function TimelineRow({
             {presentation.label}
           </span>
         </div>
-        <p className="mt-1 text-xs font-medium text-[#7C859B]">
+        <p className="mt-1 text-xs font-medium text-[#646E85]">
           {formatCalendarDate(item.date)}
         </p>
         {item.description && (

@@ -55,7 +55,7 @@ export function PersonalSelectionProcessStatusPicker({
                 <div className="rounded-lg border border-[#E3E7EE] bg-[#FAFBFC] px-3.5 py-3">
                     <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#7C859B]">
+                            <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
                                 Mi estado
                             </p>
                             <div className="mt-1.5 flex items-center gap-2">

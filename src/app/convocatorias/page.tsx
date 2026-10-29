@@ -88,7 +88,7 @@ export default async function ConvocatoriasPage({
               <div className="relative flex-1">
                 <Search
                   size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7C859B]"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#646E85]"
                 />
                 <input
                   key={`search-${filterFormKey}`}
@@ -132,7 +132,7 @@ export default async function ConvocatoriasPage({
                   <SearchResultsMap markers={mapMarkers} totalItems={result.totalItems} />
                 ) : result.items.length === 0 ? (
                   <div className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
-                    <Search size={30} className="mx-auto text-[#7C859B]" />
+                    <Search size={30} className="mx-auto text-[#646E85]" />
                     <h2 className="mt-4 text-lg font-semibold text-[#131A2C]">
                       No se han encontrado convocatorias
                     </h2>

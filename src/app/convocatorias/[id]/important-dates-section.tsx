@@ -39,7 +39,7 @@ function ImportantDateCard({ item }: { item: ImportantDate }) {
       <div className="flex items-start gap-3">
         <CalendarDays size={17} className="mt-0.5 shrink-0 text-[#4F5BD5]" />
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.04em] text-[#7C859B]">
+          <p className="text-xs font-semibold uppercase tracking-[0.04em] text-[#646E85]">
             {item.label}
           </p>
           <p className="mt-1.5 text-sm font-semibold text-[#131A2C]">

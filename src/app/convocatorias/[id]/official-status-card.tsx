@@ -13,7 +13,7 @@ export function OfficialStatusCard({
 
   return (
     <section className="rounded-xl border border-[#E3E7EE] bg-white p-5 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7C859B]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#646E85]">
         Estado oficial CIDO
       </p>
       <div className="mt-3">
@@ -24,7 +24,7 @@ export function OfficialStatusCard({
           {officialStatus.label}
         </span>
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-[#7C859B]">
+      <p className="mt-3 text-xs leading-relaxed text-[#646E85]">
         Estado publicado por la fuente oficial.
       </p>
       <div className="mt-4 border-t border-[#EEF1F5] pt-4">

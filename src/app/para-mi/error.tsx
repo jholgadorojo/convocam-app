@@ -97,7 +97,7 @@ export default function ForMeError({
             </Link>
           </div>
 
-          <p className="mt-7 text-xs text-[#7C859B]">
+          <p className="mt-7 text-xs text-[#646E85]">
             Si el problema continúa, inténtalo
             de nuevo más tarde.
           </p>
