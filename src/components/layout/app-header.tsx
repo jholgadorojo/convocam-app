@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 
+import { MobileNavigation } from "@/components/layout/mobile-navigation";
+
 type AppHeaderProps = {
   title: string;
 
@@ -17,10 +19,14 @@ export function AppHeader({
   const initials = getInitials(user?.name, user?.email);
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-6 border-b border-[#E3E7EE] bg-white px-10">
-      <span className="text-sm font-semibold text-[#131A2C]">
-        {title}
-      </span>
+    <header className="flex h-16 shrink-0 items-center justify-between gap-6 border-b border-[#E3E7EE] bg-white px-4 lg:px-10">
+      <div className="flex min-w-0 items-center gap-2">
+        <MobileNavigation isAuthenticated={Boolean(user)} />
+
+        <span className="truncate text-sm font-semibold text-[#131A2C]">
+          {title}
+        </span>
+      </div>
 
       <div className="flex items-center gap-4">
         {/* Búsqueda rápida */}
