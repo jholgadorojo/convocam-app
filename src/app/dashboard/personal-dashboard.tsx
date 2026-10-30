@@ -45,7 +45,7 @@ export function PersonalDashboard({
             id="personal-summary-heading"
             className="text-lg font-semibold text-[#131A2C]"
           >
-            Mi resumen
+            Mi dashboard
           </h2>
           <p className="mt-1 text-sm text-[#69738A]">
             Una visión general de tus convocatorias y oportunidades.
