@@ -12,6 +12,8 @@
     "test:integration": "vitest run tests/integration",
     "test:all": "vitest run",
     "sync:cido": "tsx scripts/sync-cido.ts",
+    "deploy:prod": "bash scripts/deploy.sh deploy",
+    "deploy:rollback": "bash scripts/deploy.sh rollback",
     "postinstall": "node scripts/sync-maplibre-assets.mjs"
   },
   "dependencies": {

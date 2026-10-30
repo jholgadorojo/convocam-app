@@ -1,0 +1,17 @@
+# /etc/systemd/system/convocam.service
+# Activar: systemctl daemon-reload && systemctl enable convocam
+# El primer arranque lo hace scripts/deploy.sh (pnpm deploy:prod).
+[Unit]
+Description=Convoca'm (Next.js)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/var/www/convocam/current
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
