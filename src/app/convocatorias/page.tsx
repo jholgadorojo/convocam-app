@@ -88,7 +88,7 @@ export default async function ConvocatoriasPage({
             </header>
 
             {/* Buscador: se envía con el formulario de filtros. */}
-            <div className="flex gap-2.5">
+            <div className="flex flex-col gap-2.5 sm:flex-row">
               <div className="relative flex-1">
                 <Search
                   size={18}
@@ -109,7 +109,7 @@ export default async function ConvocatoriasPage({
               <button
                 form={FILTER_FORM_ID}
                 type="submit"
-                className="h-[52px] shrink-0 rounded-[10px] bg-[#4F5BD5] px-5 text-[15px] font-semibold sm:px-7 text-white hover:bg-[#3B45B5]"
+                className="h-[52px] w-full shrink-0 rounded-[10px] bg-[#4F5BD5] px-7 text-[15px] font-semibold text-white hover:bg-[#3B45B5] sm:w-auto"
               >
                 Buscar
               </button>
