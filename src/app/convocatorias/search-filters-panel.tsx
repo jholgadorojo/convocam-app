@@ -1,14 +1,17 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { SlidersHorizontal } from "lucide-react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import type { SelectionProcessFilterOptions } from
   "@/modules/selection-process/application/selection-process-filter-options";
 import type { SelectionProcessResultsView } from
   "@/modules/selection-process/presentation/selection-process-results-view-toggle";
 import {
+  APPLICATION_PERIOD_OPTIONS,
+  countAdvancedActiveFilters,
   RADIUS_KM_OPTIONS,
   type CurrentFilterState,
 } from "./search-presentation";
+import { SearchFiltersSheetClose } from "./search-filters-sheet";
 import { TerritoryFilters } from "./territory-filters";
 
 /**
@@ -17,14 +20,10 @@ import { TerritoryFilters } from "./territory-filters";
  */
 export const FILTER_FORM_ID = "convocatorias-filter-form";
 
-const APPLICATION_PERIOD_OPTIONS = [
-  { value: "open", label: "Abierto ahora" },
-  { value: "future", label: "Próximo a abrir" },
-  { value: "closed", label: "Finalizado" },
-  { value: "unknown", label: "Sin fechas disponibles" },
-];
-
-/** Panel lateral con el formulario de filtros del buscador. */
+/**
+ * Panel con el formulario de filtros del buscador: columna lateral
+ * desde `lg` y hoja inferior en móvil (ver SearchFiltersSheetPanel).
+ */
 export function SearchFiltersPanel({
   formKey,
   view,
@@ -37,19 +36,25 @@ export function SearchFiltersPanel({
   filters: CurrentFilterState;
   filterOptions: SelectionProcessFilterOptions;
 }) {
+  const advancedFilterCount = countAdvancedActiveFilters(filters);
+
   return (
-    <aside className="rounded-xl border border-[#E3E7EE] bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-[#EEF1F5] px-5 py-4">
+    <aside className="bg-white lg:rounded-xl lg:border lg:border-[#E3E7EE] lg:shadow-sm">
+      {/* En móvil la cabecera queda fija arriba al desplazar el panel. */}
+      <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-[#EEF1F5] bg-white px-5 py-4 max-lg:sticky max-lg:top-0 max-lg:z-10 lg:rounded-t-xl">
         <h2 className="flex items-center gap-2 text-[15px] font-semibold">
           <SlidersHorizontal size={16} className="text-[#4E5870]" />
           Filtros
         </h2>
-        <Link
-          href={view === "map" ? "/convocatorias?view=map" : "/convocatorias"}
-          className="text-[13.5px] font-semibold text-[#3B45B5] hover:text-[#2E3794]"
-        >
-          Limpiar
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href={view === "map" ? "/convocatorias?view=map" : "/convocatorias"}
+            className="text-[13.5px] font-semibold text-[#3B45B5] hover:text-[#2E3794]"
+          >
+            Limpiar
+          </Link>
+          <SearchFiltersSheetClose />
+        </div>
       </div>
 
       <form key={formKey} id={FILTER_FORM_ID} action="/convocatorias">
@@ -90,15 +95,6 @@ export function SearchFiltersPanel({
           ))}
         </FilterSection>
 
-        <FilterSection title="Plazo de solicitud">
-          <FilterSelect
-            name="applicationPeriod"
-            defaultValue={filters.applicationPeriod ?? ""}
-            emptyLabel="Todos los plazos"
-            options={APPLICATION_PERIOD_OPTIONS}
-          />
-        </FilterSection>
-
         <FilterSection title="Ubicación">
           <TerritoryFilters
             key={`territory-${formKey}`}
@@ -129,6 +125,19 @@ export function SearchFiltersPanel({
           </label>
         </FilterSection>
 
+        <FilterSection title="Fin del plazo de solicitud">
+          <FilterDate
+            name="applicationEndDateFrom"
+            label="Desde"
+            defaultValue={filters.applicationEndDateFrom}
+          />
+          <FilterDate
+            name="applicationEndDateTo"
+            label="Hasta"
+            defaultValue={filters.applicationEndDateTo}
+          />
+        </FilterSection>
+
         <FilterSection title="Grupo de titulación">
           {filterOptions.qualificationGroups.length === 0 ? (
             <p className="text-sm text-[#69738A]">No hay grupos disponibles.</p>
@@ -145,74 +154,93 @@ export function SearchFiltersPanel({
           )}
         </FilterSection>
 
-        <FilterSection title="Ámbito">
-          <FilterSelect
-            name="scopeId"
-            defaultValue={optionalId(filters.scopeId)}
-            emptyLabel="Todos los ámbitos"
-            options={toSelectOptions(filterOptions.scopes)}
-          />
-        </FilterSection>
+        {/* Filtros menos usados: se abren solos si alguno está activo. */}
+        <details
+          open={advancedFilterCount > 0}
+          className="group"
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-[13.5px] font-semibold text-[#131A2C] hover:bg-[#FAFBFC] [&::-webkit-details-marker]:hidden">
+            <span>
+              Más filtros
+              {advancedFilterCount > 0 && (
+                <span className="ml-1.5 font-medium text-[#3B45B5]">
+                  ({advancedFilterCount} {advancedFilterCount === 1 ? "activo" : "activos"})
+                </span>
+              )}
+            </span>
+            <ChevronDown
+              size={16}
+              className="text-[#4E5870] transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="border-t border-[#EEF1F5] [&>fieldset:last-child]:border-b-0">
+            <FilterSection title="Ámbito">
+              <FilterSelect
+                name="scopeId"
+                defaultValue={optionalId(filters.scopeId)}
+                emptyLabel="Todos los ámbitos"
+                options={toSelectOptions(filterOptions.scopes)}
+              />
+            </FilterSection>
 
-        <FilterSection title="Sistema de selección">
-          <FilterSelect
-            name="selectionSystemId"
-            defaultValue={optionalId(filters.selectionSystemId)}
-            emptyLabel="Todos los sistemas"
-            options={toSelectOptions(filterOptions.selectionSystems)}
-          />
-        </FilterSection>
+            <FilterSection title="Sistema de selección">
+              <FilterSelect
+                name="selectionSystemId"
+                defaultValue={optionalId(filters.selectionSystemId)}
+                emptyLabel="Todos los sistemas"
+                options={toSelectOptions(filterOptions.selectionSystems)}
+              />
+            </FilterSection>
 
-        <FilterSection title="Tipo de personal">
-          <FilterSelect
-            name="personnelTypeId"
-            defaultValue={optionalId(filters.personnelTypeId)}
-            emptyLabel="Todos los tipos"
-            options={toSelectOptions(filterOptions.personnelTypes)}
-          />
-        </FilterSection>
+            <FilterSection title="Tipo de personal">
+              <FilterSelect
+                name="personnelTypeId"
+                defaultValue={optionalId(filters.personnelTypeId)}
+                emptyLabel="Todos los tipos"
+                options={toSelectOptions(filterOptions.personnelTypes)}
+              />
+            </FilterSection>
 
-        <FilterSection title="Fin del plazo de solicitud">
-          <FilterDate
-            name="applicationEndDateFrom"
-            label="Desde"
-            defaultValue={filters.applicationEndDateFrom}
-          />
-          <FilterDate
-            name="applicationEndDateTo"
-            label="Hasta"
-            defaultValue={filters.applicationEndDateTo}
-          />
-        </FilterSection>
+            <FilterSection title="Plazo de solicitud">
+              <FilterSelect
+                name="applicationPeriod"
+                defaultValue={filters.applicationPeriod ?? ""}
+                emptyLabel="Todos los plazos"
+                options={APPLICATION_PERIOD_OPTIONS}
+              />
+            </FilterSection>
 
-        <FilterSection title="Reservas">
-          <FilterCheckLabel
-            name="reservedDisability"
-            value="true"
-            label="Personas con discapacidad"
-            checked={filters.reservedDisability}
-          />
-          <FilterCheckLabel
-            name="reservedUnemployed"
-            value="true"
-            label="Personas desempleadas"
-            checked={filters.reservedUnemployed}
-          />
-          <FilterCheckLabel
-            name="reservedYoung"
-            value="true"
-            label="Jóvenes"
-            checked={filters.reservedYoung}
-          />
-          <FilterCheckLabel
-            name="reservedWomen"
-            value="true"
-            label="Mujeres"
-            checked={filters.reservedWomen}
-          />
-        </FilterSection>
+            <FilterSection title="Reservas">
+              <FilterCheckLabel
+                name="reservedDisability"
+                value="true"
+                label="Personas con discapacidad"
+                checked={filters.reservedDisability}
+              />
+              <FilterCheckLabel
+                name="reservedUnemployed"
+                value="true"
+                label="Personas desempleadas"
+                checked={filters.reservedUnemployed}
+              />
+              <FilterCheckLabel
+                name="reservedYoung"
+                value="true"
+                label="Jóvenes"
+                checked={filters.reservedYoung}
+              />
+              <FilterCheckLabel
+                name="reservedWomen"
+                value="true"
+                label="Mujeres"
+                checked={filters.reservedWomen}
+              />
+            </FilterSection>
+          </div>
+        </details>
 
-        <div className="p-5">
+        {/* Siempre visible al desplazar el panel. */}
+        <div className="sticky bottom-0 rounded-b-xl border-t border-[#EEF1F5] bg-white p-5 max-lg:pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <button
             type="submit"
             className="w-full rounded-lg bg-[#4F5BD5] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3B45B5]"

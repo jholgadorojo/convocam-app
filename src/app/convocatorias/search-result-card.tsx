@@ -36,7 +36,7 @@ export function SearchResultCard({
 
   return (
     <article className="overflow-hidden rounded-xl border border-[#E3E7EE] bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex flex-col gap-5 p-5">
+      <div className="flex flex-col gap-4 p-4 sm:gap-5 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex min-h-7 items-center rounded-full border border-[#DDE1FA] bg-[#EEF0FC] px-3 text-xs font-semibold text-[#3B45B5]">
             {item.isJobPool ? "Bolsa de trabajo" : "Plaza de plantilla"}
@@ -52,7 +52,7 @@ export function SearchResultCard({
         </div>
 
         <div>
-          <h3 className="text-[18px] font-semibold leading-snug tracking-[-0.01em] text-[#131A2C]">
+          <h3 className="text-[17px] font-semibold sm:text-[18px] leading-snug tracking-[-0.01em] text-[#131A2C]">
             {formatSelectionProcessTitle(item.title)}
           </h3>
           <div className="mt-3 flex flex-col gap-2 text-sm text-[#4E5870]">
@@ -67,7 +67,7 @@ export function SearchResultCard({
           </div>
         </div>
 
-        <div className="grid overflow-hidden rounded-lg border border-[#E7EAF0] bg-[#FAFBFC] sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid overflow-hidden rounded-lg border border-[#E7EAF0] bg-[#FAFBFC] grid-cols-2 xl:grid-cols-3">
           <ResultInfoItem
             label="Plazas"
             value={formatNumberOfPositions(item.numberOfPositions, item.isJobPool)}
@@ -98,7 +98,7 @@ export function SearchResultCard({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-[#EEF1F5] pt-4">
+        <div className="flex flex-col gap-2.5 border-t border-[#EEF1F5] pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           <Link
             href={`/convocatorias/${item.id}?returnTo=${encodeURIComponent(returnTo)}`}
             className="inline-flex items-center justify-center rounded-lg bg-[#4F5BD5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3B45B5]"
@@ -122,7 +122,7 @@ export function SearchResultCard({
 
 function ResultInfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 border-b border-r border-[#E7EAF0] px-4 py-3">
+    <div className="min-w-0 border-b border-r border-[#E7EAF0] px-3 py-3 sm:px-4">
       <p className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[#646E85]">
         {label}
       </p>

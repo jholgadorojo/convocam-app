@@ -1,5 +1,7 @@
-import type { SelectionProcessFilterOption } from
-  "@/modules/selection-process/application/selection-process-filter-options";
+import type {
+  SelectionProcessFilterOption,
+  SelectionProcessFilterOptions,
+} from "@/modules/selection-process/application/selection-process-filter-options";
 import type { SelectionProcessMunicipalityMapPoint } from
   "@/modules/selection-process/application/selection-process-municipality-map-point";
 import {
@@ -79,6 +81,16 @@ export type ParsedSearch = {
 };
 
 export const RADIUS_KM_OPTIONS = [5, 10, 25, 50, 100] as const;
+
+export const APPLICATION_PERIOD_OPTIONS: {
+  value: SelectionProcessApplicationPeriodFilter;
+  label: string;
+}[] = [
+  { value: "open", label: "Abierto ahora" },
+  { value: "future", label: "Próximo a abrir" },
+  { value: "closed", label: "Finalizado" },
+  { value: "unknown", label: "Sin fechas disponibles" },
+];
 
 const SORT_VALUES: SelectionProcessSort[] = [
   "relevance",
@@ -293,6 +305,182 @@ function appendFiltersToParams(
       params.set(name, "true");
     }
   }
+}
+
+/* ============================================================
+ *   FILTROS ACTIVOS
+ *============================================================ */
+
+/** Un filtro aplicado, con la URL que lo quita. */
+export type ActiveFilterChip = {
+  key: string;
+  label: string;
+  removeHref: string;
+};
+
+const RESERVATION_LABELS: [
+  "reservedDisability" | "reservedUnemployed" | "reservedYoung" | "reservedWomen",
+  string,
+][] = [
+  ["reservedDisability", "Personas con discapacidad"],
+  ["reservedUnemployed", "Personas desempleadas"],
+  ["reservedYoung", "Jóvenes"],
+  ["reservedWomen", "Mujeres"],
+];
+
+/**
+ * Filtros aplicados (texto incluido, ordenación no), cada uno con
+ * un enlace que lo quita conservando el resto y la vista. Quitar un
+ * territorio quita también los que dependen de él (comarca,
+ * municipio y radio).
+ */
+export function getActiveFilterChips(
+  query: string,
+  filters: CurrentFilterState,
+  filterOptions: Pick<
+    SelectionProcessFilterOptions,
+    "statuses" | "scopes" | "selectionSystems" | "personnelTypes"
+  >,
+  view: SelectionProcessResultsView,
+): ActiveFilterChip[] {
+  const chips: ActiveFilterChip[] = [];
+  const add = (
+    key: string,
+    label: string,
+    changes: Partial<CurrentFilterState>,
+    nextQuery = query,
+  ) => {
+    chips.push({
+      key,
+      label,
+      removeHref: buildPageHref(1, nextQuery, { ...filters, ...changes }, view),
+    });
+  };
+
+  if (query) {
+    add("q", `«${query}»`, {}, "");
+  }
+  for (const value of filters.jobPoolValues) {
+    add(
+      `isJobPool-${value}`,
+      value === "true" ? "Bolsa de trabajo" : "Plazas de plantilla",
+      { jobPoolValues: filters.jobPoolValues.filter((item) => item !== value) },
+    );
+  }
+  for (const statusId of filters.statusIds) {
+    add(
+      `statusId-${statusId}`,
+      findOptionName(filterOptions.statuses, statusId),
+      { statusIds: filters.statusIds.filter((item) => item !== statusId) },
+    );
+  }
+  if (filters.applicationPeriod) {
+    const period = APPLICATION_PERIOD_OPTIONS.find(
+      (option) => option.value === filters.applicationPeriod,
+    );
+    add("applicationPeriod", `Plazo: ${period?.label ?? ""}`.trim(), {
+      applicationPeriod: undefined,
+    });
+  }
+  if (filters.province) {
+    add("province", filters.province, {
+      province: undefined,
+      county: undefined,
+      municipality: undefined,
+      radiusKm: undefined,
+    });
+  }
+  if (filters.county) {
+    add("county", filters.county, {
+      county: undefined,
+      municipality: undefined,
+      radiusKm: undefined,
+    });
+  }
+  if (filters.municipality) {
+    add("municipality", filters.municipality, {
+      municipality: undefined,
+      radiusKm: undefined,
+    });
+  }
+  if (filters.radiusKm !== undefined) {
+    add("radiusKm", `Hasta ${filters.radiusKm} km`, { radiusKm: undefined });
+  }
+  for (const group of filters.qualificationGroups) {
+    add(`qualificationGroup-${group}`, `Grupo ${group}`, {
+      qualificationGroups: filters.qualificationGroups.filter((item) => item !== group),
+    });
+  }
+  if (filters.scopeId !== undefined) {
+    add("scopeId", findOptionName(filterOptions.scopes, filters.scopeId), {
+      scopeId: undefined,
+    });
+  }
+  if (filters.selectionSystemId !== undefined) {
+    add(
+      "selectionSystemId",
+      findOptionName(filterOptions.selectionSystems, filters.selectionSystemId),
+      { selectionSystemId: undefined },
+    );
+  }
+  if (filters.personnelTypeId !== undefined) {
+    add(
+      "personnelTypeId",
+      findOptionName(filterOptions.personnelTypes, filters.personnelTypeId),
+      { personnelTypeId: undefined },
+    );
+  }
+  if (filters.applicationEndDateFrom) {
+    add(
+      "applicationEndDateFrom",
+      `Fin del plazo desde ${formatDateInput(filters.applicationEndDateFrom)}`,
+      { applicationEndDateFrom: undefined },
+    );
+  }
+  if (filters.applicationEndDateTo) {
+    add(
+      "applicationEndDateTo",
+      `Fin del plazo hasta ${formatDateInput(filters.applicationEndDateTo)}`,
+      { applicationEndDateTo: undefined },
+    );
+  }
+  for (const [name, label] of RESERVATION_LABELS) {
+    if (filters[name]) {
+      add(name, `Reserva: ${label}`, { [name]: false });
+    }
+  }
+  return chips;
+}
+
+/**
+ * Filtros activos del bloque «Más filtros» del panel (ámbito,
+ * sistema, tipo de personal, plazo de solicitud y reservas). Si hay alguno,
+ * el bloque se muestra abierto.
+ */
+export function countAdvancedActiveFilters(filters: CurrentFilterState): number {
+  return [
+    filters.scopeId !== undefined,
+    filters.selectionSystemId !== undefined,
+    filters.personnelTypeId !== undefined,
+    filters.applicationPeriod !== undefined,
+    filters.reservedDisability,
+    filters.reservedUnemployed,
+    filters.reservedYoung,
+    filters.reservedWomen,
+  ].filter(Boolean).length;
+}
+
+function findOptionName(
+  options: readonly SelectionProcessFilterOption[],
+  id: number,
+): string {
+  return options.find((option) => option.id === id)?.name.trim() ?? String(id);
+}
+
+/** aaaa-mm-dd → dd/mm/aaaa; cualquier otro valor se muestra tal cual. */
+function formatDateInput(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
 }
 
 /* ============================================================

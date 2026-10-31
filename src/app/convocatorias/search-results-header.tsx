@@ -5,6 +5,7 @@ import {
   type SelectionProcessResultsView,
 } from "@/modules/selection-process/presentation/selection-process-results-view-toggle";
 import { FILTER_FORM_ID } from "./search-filters-panel";
+import { SearchFiltersSheetTrigger } from "./search-filters-sheet";
 
 const SORT_OPTIONS: { value: SelectionProcessSort; label: string }[] = [
   { value: "relevance", label: "Relevancia" },
@@ -15,8 +16,9 @@ const SORT_OPTIONS: { value: SelectionProcessSort; label: string }[] = [
 ];
 
 /**
- * Total de resultados, selector lista/mapa y, en el listado,
- * la ordenación (se envía con el formulario de filtros).
+ * Total de resultados, botón de filtros (solo en móvil), selector
+ * lista/mapa y, en el listado, la ordenación (se envía con el
+ * formulario de filtros).
  */
 export function SearchResultsHeader({
   totalItems,
@@ -24,12 +26,14 @@ export function SearchResultsHeader({
   listHref,
   mapHref,
   sort,
+  activeFilterCount,
 }: {
   totalItems: number;
   view: SelectionProcessResultsView;
   listHref: string;
   mapHref: string;
   sort: SelectionProcessSort;
+  activeFilterCount: number;
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -40,15 +44,18 @@ export function SearchResultsHeader({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2">
-        <SelectionProcessResultsViewToggle
-          activeView={view}
-          listHref={listHref}
-          mapHref={mapHref}
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <SearchFiltersSheetTrigger activeFilterCount={activeFilterCount} />
+          <SelectionProcessResultsViewToggle
+            activeView={view}
+            listHref={listHref}
+            mapHref={mapHref}
+          />
+        </div>
         {view === "list" && (
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex min-w-[230px] flex-col gap-1.5 text-sm text-[#131A2C]">
+          <div className="flex items-end gap-2">
+            <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm text-[#131A2C] sm:min-w-[230px] sm:flex-none">
               <span className="text-xs font-medium text-[#69738A]">Ordenar por</span>
               <select
                 form={FILTER_FORM_ID}

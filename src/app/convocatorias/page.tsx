@@ -8,12 +8,15 @@ import {
   listActiveSelectionProcessesUseCase,
   listSelectionProcessMunicipalityMapPointsUseCase,
 } from "@/composition/selection-process";
+import { ActiveSearchFilters } from "./active-search-filters";
 import { FILTER_FORM_ID, SearchFiltersPanel } from "./search-filters-panel";
+import { SearchFiltersSheet, SearchFiltersSheetPanel } from "./search-filters-sheet";
 import { SearchPagination } from "./search-pagination";
 import {
   buildFilterFormKey,
   buildMapMarkers,
   buildPageHref,
+  getActiveFilterChips,
   parseSearchParams,
   toSearchFilters,
   type SearchParams,
@@ -40,6 +43,7 @@ export default async function ConvocatoriasPage({
     filterOptions.statuses,
   );
   const filterFormKey = buildFilterFormKey(query, page, filters);
+  const activeFilterChips = getActiveFilterChips(query, filters, filterOptions, view);
 
   const searchFilters = toSearchFilters(query, filters);
   const result = await listActiveSelectionProcessesUseCase.execute({
@@ -71,10 +75,10 @@ export default async function ConvocatoriasPage({
               : undefined
           }
         />
-        <main className="flex-1 px-4 py-8 lg:px-6 lg:pb-12">
-          <div className="flex flex-col gap-6">
+        <main className="flex-1 px-4 py-6 sm:py-8 lg:px-6 lg:pb-12">
+          <div className="flex flex-col gap-5 sm:gap-6">
             <header>
-              <h1 className="text-[28px] font-semibold tracking-tight text-[#131A2C]">
+              <h1 className="text-2xl font-semibold sm:text-[28px] tracking-tight text-[#131A2C]">
                 Buscar convocatorias
               </h1>
               <p className="mt-1.5 text-[15px] text-[#4E5870]">
@@ -99,67 +103,75 @@ export default async function ConvocatoriasPage({
                   defaultValue={query}
                   placeholder="Busca por puesto, organismo, municipio..."
                   aria-label="Buscar convocatorias"
-                  className="h-[52px] w-full rounded-lg border border-[#D5DAE3] bg-white pl-12 pr-4 text-[15px] outline-none focus:border-[#4F5BD5]"
+                  className="h-[52px] w-full min-w-0 rounded-lg border border-[#D5DAE3] bg-white pl-12 pr-4 text-[15px] outline-none focus:border-[#4F5BD5]"
                 />
               </div>
               <button
                 form={FILTER_FORM_ID}
                 type="submit"
-                className="h-[52px] rounded-[10px] bg-[#4F5BD5] px-7 text-[15px] font-semibold text-white hover:bg-[#3B45B5]"
+                className="h-[52px] shrink-0 rounded-[10px] bg-[#4F5BD5] px-5 text-[15px] font-semibold sm:px-7 text-white hover:bg-[#3B45B5]"
               >
                 Buscar
               </button>
             </div>
 
-            <div className="grid items-start gap-7 lg:grid-cols-[300px_minmax(0,1fr)]">
-              <SearchFiltersPanel
-                formKey={filterFormKey}
-                view={view}
-                filters={filters}
-                filterOptions={filterOptions}
-              />
-
-              <section className="flex min-w-0 flex-col gap-4">
-                <SearchResultsHeader
-                  totalItems={result.totalItems}
-                  view={view}
-                  listHref={buildPageHref(page, query, filters, "list")}
-                  mapHref={buildPageHref(page, query, filters, "map")}
-                  sort={filters.sort}
-                />
-
-                {view === "map" ? (
-                  <SearchResultsMap markers={mapMarkers} totalItems={result.totalItems} />
-                ) : result.items.length === 0 ? (
-                  <div className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
-                    <Search size={30} className="mx-auto text-[#646E85]" />
-                    <h2 className="mt-4 text-lg font-semibold text-[#131A2C]">
-                      No se han encontrado convocatorias
-                    </h2>
-                    <p className="mx-auto mt-2 max-w-[480px] text-sm leading-relaxed text-[#4E5870]">
-                      Prueba con otros criterios de búsqueda.
-                    </p>
-                  </div>
-                ) : (
-                  result.items.map((item) => (
-                    <SearchResultCard
-                      key={item.id}
-                      item={item}
-                      returnTo={buildPageHref(page, query, filters, view)}
-                    />
-                  ))
-                )}
-
-                {/* Paginación: solo en el listado, también con una página fuera de rango. */}
-                {view === "list" && (
-                  <SearchPagination
-                    page={result.page}
-                    totalPages={result.totalPages}
-                    pageHref={(targetPage) => buildPageHref(targetPage, query, filters)}
+            {/* En móvil el panel es una hoja inferior que abre el botón «Filtros». */}
+            <SearchFiltersSheet>
+              <div className="grid items-start gap-7 lg:grid-cols-[300px_minmax(0,1fr)]">
+                <SearchFiltersSheetPanel>
+                  <SearchFiltersPanel
+                    formKey={filterFormKey}
+                    view={view}
+                    filters={filters}
+                    filterOptions={filterOptions}
                   />
-                )}
-              </section>
-            </div>
+                </SearchFiltersSheetPanel>
+
+                <section className="flex min-w-0 flex-col gap-4">
+                  <SearchResultsHeader
+                    totalItems={result.totalItems}
+                    view={view}
+                    listHref={buildPageHref(page, query, filters, "list")}
+                    mapHref={buildPageHref(page, query, filters, "map")}
+                    sort={filters.sort}
+                    activeFilterCount={activeFilterChips.length}
+                  />
+
+                  <ActiveSearchFilters chips={activeFilterChips} view={view} />
+
+                  {view === "map" ? (
+                    <SearchResultsMap markers={mapMarkers} totalItems={result.totalItems} />
+                  ) : result.items.length === 0 ? (
+                    <div className="rounded-xl border border-[#E3E7EE] bg-white p-8 text-center shadow-sm">
+                      <Search size={30} className="mx-auto text-[#646E85]" />
+                      <h2 className="mt-4 text-lg font-semibold text-[#131A2C]">
+                        No se han encontrado convocatorias
+                      </h2>
+                      <p className="mx-auto mt-2 max-w-[480px] text-sm leading-relaxed text-[#4E5870]">
+                        Prueba con otros criterios de búsqueda.
+                      </p>
+                    </div>
+                  ) : (
+                    result.items.map((item) => (
+                      <SearchResultCard
+                        key={item.id}
+                        item={item}
+                        returnTo={buildPageHref(page, query, filters, view)}
+                      />
+                    ))
+                  )}
+
+                  {/* Paginación: solo en el listado, también con una página fuera de rango. */}
+                  {view === "list" && (
+                    <SearchPagination
+                      page={result.page}
+                      totalPages={result.totalPages}
+                      pageHref={(targetPage) => buildPageHref(targetPage, query, filters)}
+                    />
+                  )}
+                </section>
+              </div>
+            </SearchFiltersSheet>
           </div>
         </main>
       </div>

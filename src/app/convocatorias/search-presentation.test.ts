@@ -4,6 +4,8 @@ import {
   buildFilterFormKey,
   buildMapMarkers,
   buildPageHref,
+  countAdvancedActiveFilters,
+  getActiveFilterChips,
   parseSearchParams,
   toSearchFilters,
   type CurrentFilterState,
@@ -229,5 +231,137 @@ describe("buildMapMarkers", () => {
     expect(params.get("county")).toBeNull();
     expect(params.get("radiusKm")).toBeNull();
     expect(params.get("page")).toBe("1");
+  });
+});
+
+describe("getActiveFilterChips", () => {
+  const filterOptions = {
+    statuses,
+    scopes: [{ id: 7, name: "Local" }],
+    selectionSystems: [{ id: 8, name: "Concurs-oposició" }],
+    personnelTypes: [{ id: 9, name: "Funcionari" }],
+  };
+
+  function removeParams(chips: ReturnType<typeof getActiveFilterChips>, key: string) {
+    const chip = chips.find((item) => item.key === key);
+    return new URLSearchParams(chip?.removeHref.split("?")[1]);
+  }
+
+  it("sin parámetros solo muestra los estados por defecto", () => {
+    const { query, filters } = parse({});
+    expect(
+      getActiveFilterChips(query, filters, filterOptions, "list").map((chip) => chip.label),
+    ).toEqual(["Pendent de termini", "Termini obert"]);
+  });
+
+  it("crea un chip por filtro con etiquetas legibles", () => {
+    const { query, filters } = parse({
+      q: "auxiliar",
+      isJobPool: "true",
+      statusFilterApplied: "1",
+      applicationPeriod: "open",
+      province: "Barcelona",
+      municipality: "Sabadell",
+      radiusKm: "25",
+      qualificationGroup: "A1",
+      scopeId: "7",
+      selectionSystemId: "8",
+      personnelTypeId: "9",
+      applicationEndDateFrom: "2026-11-01",
+      reservedYoung: "true",
+    });
+
+    expect(
+      getActiveFilterChips(query, filters, filterOptions, "list").map((chip) => chip.label),
+    ).toEqual([
+      "«auxiliar»",
+      "Bolsa de trabajo",
+      "Plazo: Abierto ahora",
+      "Barcelona",
+      "Sabadell",
+      "Hasta 25 km",
+      "Grupo A1",
+      "Local",
+      "Concurs-oposició",
+      "Funcionari",
+      "Fin del plazo desde 01/11/2026",
+      "Reserva: Jóvenes",
+    ]);
+  });
+
+  it("quitar un filtro conserva el resto, la vista y vuelve a la página 1", () => {
+    const { query, filters } = parse({
+      q: "auxiliar",
+      qualificationGroup: ["A1", "C1"],
+      page: "3",
+    });
+    const params = removeParams(
+      getActiveFilterChips(query, filters, filterOptions, "map"),
+      "qualificationGroup-A1",
+    );
+
+    expect(params.getAll("qualificationGroup")).toEqual(["C1"]);
+    expect(params.get("q")).toBe("auxiliar");
+    expect(params.get("view")).toBe("map");
+    expect(params.get("page")).toBe("1");
+  });
+
+  it("quitar el texto mantiene los filtros", () => {
+    const { query, filters } = parse({ q: "auxiliar", qualificationGroup: "A1" });
+    const params = removeParams(getActiveFilterChips(query, filters, filterOptions, "list"), "q");
+
+    expect(params.get("q")).toBeNull();
+    expect(params.get("qualificationGroup")).toBe("A1");
+  });
+
+  it("quitar un territorio quita también los que dependen de él", () => {
+    const { query, filters } = parse({
+      province: "Barcelona",
+      county: "Vallès Occidental",
+      municipality: "Sabadell",
+      radiusKm: "25",
+    });
+    const chips = getActiveFilterChips(query, filters, filterOptions, "list");
+
+    const withoutProvince = removeParams(chips, "province");
+    expect(withoutProvince.get("province")).toBeNull();
+    expect(withoutProvince.get("county")).toBeNull();
+    expect(withoutProvince.get("municipality")).toBeNull();
+    expect(withoutProvince.get("radiusKm")).toBeNull();
+
+    const withoutMunicipality = removeParams(chips, "municipality");
+    expect(withoutMunicipality.get("province")).toBe("Barcelona");
+    expect(withoutMunicipality.get("county")).toBe("Vallès Occidental");
+    expect(withoutMunicipality.get("radiusKm")).toBeNull();
+  });
+
+  it("quitar el último estado deja la búsqueda sin filtro de estado", () => {
+    const { query, filters } = parse({ statusId: "3" });
+    const params = removeParams(
+      getActiveFilterChips(query, filters, filterOptions, "list"),
+      "statusId-3",
+    );
+
+    expect(params.get("statusFilterApplied")).toBe("1");
+    expect(params.getAll("statusId")).toEqual([]);
+  });
+});
+
+describe("countAdvancedActiveFilters", () => {
+  it("cuenta solo los filtros del bloque «Más filtros»", () => {
+    expect(
+      countAdvancedActiveFilters(
+        parse({ qualificationGroup: "A1", applicationEndDateTo: "2026-12-31" }).filters,
+      ),
+    ).toBe(0);
+    expect(
+      countAdvancedActiveFilters(
+        parse({
+          scopeId: "7",
+          applicationPeriod: "open",
+          reservedWomen: "true",
+        }).filters,
+      ),
+    ).toBe(3);
   });
 });

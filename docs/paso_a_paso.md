@@ -6,6 +6,7 @@ pnpm run test:all           - Ejecución de todos los tests
 pnpm run test:integration   - Ejecución de test de integración
 pnpm exec tsc --noEmit      - Comprobar TypeScript
 pnpm lint                   - Comprobar ESLint
+pnpm deploy:prod            - Script despliege en produccion
 
 ## Prisma migraciones
 
@@ -82,3 +83,14 @@ pnpm build
 
 ### Borrar cache navegador
  rm -rf .next/dev
+
+## Productivo
+### Muestra si hay funcionado la sincronizacion con CIDO
+ssh deploy@151.236.55.203 'tail -n 30 /var/www/convocam/shared/log/sync-cido.log'
+
+### Muestra el log sin errores de nginx
+ssh deploy@151.236.55.203 'tail -n 5 /var/log/nginx/access.log'
+
+### Muestra los errores de la APP
+ssh deploy@151.236.55.203 'journalctl -u convocam'
+journalctl -u convocam --since "2026-10-31 10:15" --until "2026-10-31 10:20"41
