@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Ficticia: prisma.ts lanza un error si no está definida. Los tests unitarios no se conectan.
+  DATABASE_URL: postgresql://convocam:convocam@localhost:5432/convocam_test
+
+jobs:
+  calidad:
+    name: Lint, tipos y tests unitarios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # toma la versión de "packageManager"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prisma generate --config prisma7.config.ts
+      - run: pnpm lint
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm test:run
+
+  integracion:
+    name: Tests de integración (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: convocam
+          POSTGRES_PASSWORD: convocam
+          POSTGRES_DB: convocam_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U convocam"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prisma generate --config prisma7.config.ts
+      - run: pnpm exec prisma migrate deploy --config prisma7.config.ts
+      - run: pnpm test:integration
