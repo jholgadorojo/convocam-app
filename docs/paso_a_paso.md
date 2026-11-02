@@ -84,6 +84,16 @@ pnpm build
 ### Borrar cache navegador
  rm -rf .next/dev
 
+## Despliegue
+### Productivo, checkeando comprobaciones de GITHUB Actions, lint, tipos y tests en local
+pnpm deploy:prod
+
+### Productivo, saltandome comprobaciones de GITHUB Actions
+SKIP_CI=1 pnpm deploy:prod
+
+### Productivo, saltandome lint, tipos, tests en local y GITHUB Actions
+SKIP_CI=1 SKIP_CHECKS=1 pnpm deploy:prod
+
 ## Productivo
 ### Muestra si hay funcionado la sincronizacion con CIDO
 ssh deploy@151.236.55.203 'tail -n 30 /var/www/convocam/shared/log/sync-cido.log'
