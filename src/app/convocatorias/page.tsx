@@ -83,7 +83,7 @@ export default async function ConvocatoriasPage({
               </h1>
               <p className="mt-1.5 text-[15px] text-[#4E5870]">
                 Procesos selectivos, oposiciones y bolsas de trabajo de acceso
-                libre en Catalunya.....................tests
+                libre en Catalunya
               </p>
             </header>
 
