@@ -36,13 +36,13 @@ pnpm sync:cido                    # sincronización completa con CIDO sin servid
 
 ## Arquitectura
 
-Arquitectura hexagonal por módulos en `src/modules/<módulo>/`. Referencia: `user-profile`. Módulos: `user-profile` (perfil, residencia, titulaciones, preferencias territoriales y profesionales), `selection-process` (convocatorias CIDO: sincronización, buscador, detalle, «para mí»), `user-selection-process` (seguimiento de convocatorias y estado personal `PersonalSelectionProcessStatus`) y `dashboard` (solo consultas, sin dominio).
+Clean Architecture por módulos en `src/modules/<módulo>/`. Referencia: `user-profile`. Módulos: `user-profile` (perfil, residencia, titulaciones, preferencias territoriales y profesionales), `selection-process` (convocatorias CIDO: sincronización, buscador, detalle, «para mí»), `user-selection-process` (seguimiento de convocatorias y estado personal `PersonalSelectionProcessStatus`) y `dashboard` (solo consultas, sin dominio).
 
 La estructura varía entre módulos: `user-profile` agrupa `application/` en `use-cases/`, `dto/` y `repositories/` y usa `adapters/`; los demás usan `infrastructure/prisma/` (y `infrastructure/cido/`) en lugar de `adapters/`, y en `user-selection-process` la interfaz del repositorio vive en `domain/`. Varios módulos tienen `presentation/` con lógica de presentación (etiquetas, clases de badge de estado) e incluso componentes React reutilizables. Al añadir código, imitar la estructura del módulo que se toca.
 
 - `domain/`: entidades con constructor privado. `Entity.create(...)` valida y construye una entidad nueva (sin `id`). `Entity.restore(...)` rehidrata desde persistencia (exige `id`). Sin dependencias de framework ni de Prisma.
-- `application/`: casos de uso (clases con `execute(dto)` que devuelven DTOs, no entidades), DTOs y las **interfaces** de repositorio (puertos).
-- `adapters/`: implementaciones de los puertos. `Prisma*Repository` para producción e `InMemory*Repository` para los tests unitarios de los casos de uso. Los mappers convierten los registros de Prisma en entidades de dominio vía `restore`.
+- `application/`: casos de uso (clases con `execute(dto)` que devuelven DTOs, no entidades), DTOs y las **interfaces** de repositorio.
+- `adapters/`: implementaciones de esas interfaces. `Prisma*Repository` para producción e `InMemory*Repository` para los tests unitarios de los casos de uso. Los mappers convierten los registros de Prisma en entidades de dominio vía `restore`.
 - `src/composition/<módulo>.ts`: composition root. Instancia repositorios Prisma y exporta los casos de uso ya cableados; la capa de Next.js debe consumirlos desde aquí.
 - `src/shared/infrastructure/database/prisma.ts`: singleton de `PrismaClient` con el driver adapter `@prisma/adapter-pg` (obligatorio en Prisma 7), cacheado en `globalThis` fuera de producción.
 
@@ -54,7 +54,7 @@ Los tests unitarios se colocan junto al código (`*.test.ts` en `src/`, incluido
 
 Importa convocatorias de la API pública CIDO de la Diputació de Barcelona (`https://api.diba.cat/dadesobertes/cido/v1`, formato JSON:API). Este módulo **no sigue la estructura de `user-profile`**: no tiene `domain/` ni entidades, y sus adaptadores están en `infrastructure/` en lugar de `adapters/`.
 
-- `application/`: tipos `*SyncData` (datos planos ya mapeados), puertos `*Source` (lectura de CIDO) y `*Repository` (escritura en BD), y el caso de uso `SyncSelectionProcesses`.
+- `application/`: tipos `*SyncData` (datos planos ya mapeados), interfaces `*Source` (lectura de CIDO) y `*Repository` (escritura en BD), y el caso de uso `SyncSelectionProcesses`.
 - `infrastructure/cido/`: `cido-client.ts` (funciones `fetch` por endpoint: `/oposicions`, `/oposicions/{id}/institucio`, `/materies`, `/documents`), tipos de respuesta `cido-*-types.ts`, mappers CIDO → `*SyncData` y las implementaciones `Cido*Source`.
 - `infrastructure/prisma/`: repositorios basados en `upsert` por `cidoId` (único en cada tabla), que devuelven el `id` numérico interno.
 - `SyncSelectionProcesses.execute({ limit, offset })`: para cada convocatoria de la página hace upsert de institución → convocatoria → materias (y reemplaza la tabla puente `SelectionProcessSubjectArea`) → documentos. Las filas sincronizadas llevan campos de seguimiento `sourceActive`, `sourceSyncedAt`, `sourceLastSeenAt`, `sourceHash`; los documentos que desaparecen de CIDO se marcan `sourceActive: false` en vez de borrarse.
