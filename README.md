@@ -22,9 +22,7 @@ Convoca'm importa automáticamente las convocatorias publicadas en CIDO, el serv
 - hacer el seguimiento de las que le interesan, con un estado personal, hasta el final del proceso,
 - ver en un panel los plazos que vencen pronto y los documentos publicados recientemente.
 
-Proyecto desarrollado como Trabajo Final de Máster.
-
-Aplicación en producción: <https://convocam.duckdns.org>
+La aplicación está desplegada en producción en <https://convocam.duckdns.org>.
 
 ## 2. Stack tecnológico utilizado
 
@@ -155,7 +153,7 @@ El código sigue **Clean Architecture** organizada por módulos. Cada módulo de
 
 | Capa | Dónde | Contenido |
 | --- | --- | --- |
-| Entidades | `domain/` | Entidades y reglas de negocio, sin dependencias de framework ni de Prisma. Las entidades tienen constructor privado: `create(...)` valida y construye una nueva, y `restore(...)` la rehidrata desde la base de datos. |
+| Entidades | `domain/` | Entidades y reglas de negocio, sin dependencias de framework ni de Prisma. Las entidades tienen constructor privado: `create(...)` valida y construye una entidad nueva, y `restore(...)` la reconstruye a partir de los datos ya guardados en la base de datos. |
 | Casos de uso | `application/` | Casos de uso (clases con `execute(dto)` que devuelven DTOs, nunca entidades), DTOs e interfaces de los repositorios y fuentes de datos que necesitan. |
 | Adaptadores de interfaz | `adapters/` o `infrastructure/`, `presentation/` | Implementaciones de esas interfaces: repositorios con Prisma para producción, repositorios en memoria para los tests de los casos de uso y el cliente de la API de CIDO. Lógica de presentación del módulo (etiquetas, estilos de estado) y componentes React reutilizables. |
 | Frameworks y drivers | `src/app/`, Prisma, PostgreSQL, better-auth | Páginas, Server Actions y route handlers de Next.js, y los servicios externos. |
@@ -168,21 +166,6 @@ El código sigue **Clean Architecture** organizada por módulos. Cada módulo de
 | `selection-process` | Convocatorias de CIDO: sincronización, buscador, filtros, detalle y «Para mí» |
 | `user-selection-process` | Seguimiento de convocatorias y estado personal |
 | `dashboard` | Consultas de solo lectura para el panel (sin dominio propio) |
-
-Recorrido de una petición:
-
-```text
-Página o Server Action (src/app/...)
-   │  obtiene el usuario de la sesión de better-auth
-   ▼
-Composition root (src/composition/<módulo>.ts)
-   │  casos de uso ya cableados con sus repositorios
-   ▼
-Caso de uso (application/) ──► Entidades y reglas (domain/)
-   │  usa las interfaces de repositorio
-   ▼
-Repositorio Prisma (infrastructure/) ──► PostgreSQL
-```
 
 Decisiones de diseño:
 
@@ -272,6 +255,35 @@ En producción se ejecuta tres veces al día con cron (apartado [3.4](#34-despli
 - El endpoint de sincronización exige un token de 32 a 512 caracteres, comparado en tiempo constante. Si el token no está configurado, responde siempre `401`.
 - En producción, PostgreSQL solo escucha en la máquina local, la aplicación solo en `127.0.0.1` detrás de nginx con HTTPS, y el cortafuegos solo abre SSH, HTTP y HTTPS.
 
+### 5.6 Mejoras futuras
+
+**Análisis de bases con IA**
+
+Un objetivo a largo plazo es extraer mediante IA la información de las bases de cada convocatoria. El problema es que las bases las redacta cada administración convocante sin una plantilla común, y cada una las estructura a su manera. Para mí, una de las mejoras más importantes será interpretar con IA cualquier PDF de bases y volcar sus datos clave a la plataforma, para que sean más fáciles de leer y comprender.
+
+**Convocatorias de todo el Estado**
+
+Otra mejora prevista es recoger convocatorias de toda España, no solo las que publica CIDO en Cataluña. La Clean Architecture lo facilita: la sincronización depende de interfaces como `SelectionProcessSource` o `InstitutionSource` y no de CIDO directamente. Añadir una nueva fuente consistiría sobre todo en escribir su cliente y sus mappers en `infrastructure/`, y el caso de uso de sincronización, el buscador, «Para mí» y el seguimiento se reutilizarían sin cambios. Habría que adaptar el identificador de origen, que hoy es `cidoId`, para distinguir de qué fuente viene cada convocatoria, y cargar los territorios del resto de comunidades, porque ahora solo están los de Cataluña (Idescat).
+
+**Colaboración con academias de oposiciones**
+
+También está prevista la colaboración con academias de oposiciones. La idea es mostrar en cada convocatoria enlaces a academias, temarios o cursos relacionados con la plaza. Al opositor le aporta recursos para prepararse, y a Convoca'm le sirve para darse a conocer y captar más usuarios a través de las academias.
+
+### 5.7 Limitaciones conocidas
+
+**Idioma**
+
+La interfaz está en castellano, mientras que el contenido de las convocatorias llega de CIDO en catalán. Para el TFM se ha mantenido así, pero para que Convoca'm sea un producto viable debería ser multiidioma, al menos en catalán y castellano.
+
+**Gestión de cuentas**
+
+La gestión de cuentas cubre lo básico: registro, inicio y cierre de sesión. Para un producto más robusto faltaría:
+
+- recuperar la contraseña por correo electrónico, ya que la aplicación todavía no envía correos;
+- verificar el correo al registrarse;
+- cambiar la contraseña desde «Mi perfil»;
+- que el usuario pueda borrar su cuenta y sus datos.
+
 ## 6. Usuario y contraseña de prueba
 
 La aplicación en producción tiene un usuario de prueba con el perfil configurado y algunas convocatorias en seguimiento:
@@ -280,7 +292,7 @@ La aplicación en producción tiene un usuario de prueba con el perfil configura
 | --- | --- |
 | URL | <https://convocam.duckdns.org/login> |
 | Usuario | `mouredev@example.com` |
-| Contraseña | `PENDIENTE` |
+| Contraseña | `BigSchool2026` |
 
 Con este usuario se puede probar todo lo que requiere sesión: el dashboard personal, «Para mí», «Mis convocatorias» (cambiar el estado de seguimiento, seguir y dejar de seguir convocatorias) y «Mi perfil». El buscador y el detalle de las convocatorias son públicos y no necesitan iniciar sesión.
 
