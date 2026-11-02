@@ -171,7 +171,7 @@ export default async function ConvocatoriasPage({
                   )}
                 </section>
               </div>
-            <SearchFiltersSheet>
+            </SearchFiltersSheet>
           </div>
         </main>
       </div>
