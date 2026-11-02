@@ -12,6 +12,10 @@
 #   pnpm deploy:prod                  despliega origin/master
 #   pnpm deploy:rollback              vuelve a la release anterior
 #   SKIP_CHECKS=1 pnpm deploy:prod    sin lint, tsc ni tests en local
+#   SKIP_CI=1 pnpm deploy:prod        sin comprobar el resultado de la CI en GitHub
+#
+# Antes de desplegar se exige que la CI de GitHub Actions haya terminado en verde
+# para el commit exacto que se despliega (requiere gh con la sesión iniciada).
 #
 # Variables opcionales: DEPLOY_HOST, DEPLOY_USER, BRANCH.
 # La configuración del servidor (systemd, nginx, sudoers) está en docs/servidor/.
@@ -54,6 +58,43 @@ check_pushed() {
   fi
 
   COMMIT="$(git rev-parse HEAD)"
+}
+
+# El commit que se despliega tiene que tener la CI en verde, incluidos los tests
+# de integración, que no se ejecutan en local.
+check_ci() {
+  if [[ "${SKIP_CI:-}" == "1" ]]; then
+    log "SKIP_CI=1: no se comprueba la CI de GitHub Actions"
+    return
+  fi
+
+  command -v gh >/dev/null 2>&1 \
+    || fail "No se encuentra gh (GitHub CLI): instálalo y ejecuta gh auth login, o usa SKIP_CI=1."
+
+  cd "$ROOT_DIR"
+  log "Comprobando la CI de ${COMMIT:0:7} en GitHub Actions"
+
+  local run
+  run="$(gh run list --workflow ci.yml --commit "$COMMIT" --limit 1 \
+    --json status,conclusion,url \
+    --jq '.[0] | select(. != null) | "\(.status) \(.conclusion) \(.url)"')" \
+    || fail "No se ha podido consultar GitHub Actions (¿gh auth login?)."
+
+  if [[ -z "$run" ]]; then
+    fail "No hay ninguna ejecución de la CI para ${COMMIT:0:7}."
+  fi
+
+  local status conclusion url
+  read -r status conclusion url <<<"$run"
+
+  if [[ "$status" != "completed" ]]; then
+    fail "La CI de ${COMMIT:0:7} todavía se está ejecutando: espera a que termine. $url"
+  fi
+  if [[ "$conclusion" != "success" ]]; then
+    fail "La CI de ${COMMIT:0:7} no está en verde ($conclusion): no se despliega. $url"
+  fi
+
+  log "CI en verde"
 }
 
 run_checks() {
@@ -260,6 +301,7 @@ run_remote() {
 case "${1:-}" in
   deploy)
     check_pushed
+    check_ci
     check_ssh_agent
     run_checks
     log "Desplegando ${COMMIT:0:7} en $DEPLOY_HOST"
