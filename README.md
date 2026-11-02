@@ -13,7 +13,7 @@
 
 ## 1. Descripción general del proyecto
 
-Convoca'm es un portal personal para organizar convocatorias de oposiciones de Cataluña. Cada año se publican miles de convocatorias de ayuntamientos, consejos comarcales, diputaciones y otros organismos, repartidas en boletines y webs distintas. Seguirlas a mano es difícil: hay que encontrar las que encajan con el perfil de cada persona, no perder ningún plazo y recordar en qué punto está cada proceso.
+Convoca'm es un portal personal para opositores que sirve para organizar convocatorias de oposiciones de Cataluña. Cada año se publican miles de convocatorias de ayuntamientos, consejos comarcales, diputaciones y otros organismos, repartidas en boletines y webs distintas. Seguirlas a mano es difícil: hay que encontrar las que encajan con el perfil de cada persona, no perder ningún plazo y recordar en qué punto está cada proceso.
 
 Convoca'm importa automáticamente las convocatorias publicadas en CIDO, el servicio de datos abiertos de la Diputació de Barcelona, y permite a cada usuario:
 
@@ -145,6 +145,7 @@ scripts/                  Sincronización con CIDO, despliegue y recursos de Map
 tests/integration/        Tests contra PostgreSQL
 docs/                     Diario del proyecto y plantillas del servidor
 .github/workflows/        Integración continua (GitHub Actions)
+.claude/specs/            Especificaciones del desarrollo (SPEC-001 a SPEC-010)
 ```
 
 ### 4.2 Arquitectura
@@ -189,11 +190,28 @@ El esquema (`prisma/schema.prisma`) tiene 23 modelos, agrupados así:
 
 Las tablas que vienen de CIDO guardan su identificador original (`cidoId`, único) y campos de seguimiento de la fuente (`sourceActive`, `sourceSyncedAt`, `sourceLastSeenAt`). Las instituciones guardan latitud y longitud para el mapa y el filtro por distancia. Las migraciones están en `prisma/migrations/`.
 
+### 4.4 Especificaciones del desarrollo
+
+El proyecto se ha desarrollado por fases, cada una descrita antes en una especificación (SPEC) con su objetivo, su alcance, las decisiones tomadas y los criterios de aceptación. Están en [`.claude/specs/`](.claude/specs/) y el código las cita en sus comentarios (`SPEC-004`, `SPEC-009`…).
+
+| SPEC | Contenido |
+| --- | --- |
+| [001](.claude/specs/convocam-spec-001-modelo-datos-cido-v1.1.md) | Modelo de datos para la integración con CIDO |
+| [002](.claude/specs/convocam-spec-002-modelo-prisma-cido.md) | Modelo de base de datos en Prisma |
+| [003](.claude/specs/convocam-spec-003-sincronizacion-cido.md) | Sincronización con CIDO |
+| [004](.claude/specs/convocam-spec-004-buscador-de-convocatorias.md) | Buscador de convocatorias |
+| [005](.claude/specs/convocam-spec-005-detalle-convocatoria.md) | Detalle de convocatoria |
+| [006](.claude/specs/convocam-spec-006-seguimiento-personal-convocatorias.md) | Seguimiento personal y «Mis convocatorias» |
+| [007](.claude/specs/convocam-spec-007-perfil%20opositor.md) | Perfil del opositor |
+| [008](.claude/specs/convocam-spec-008-para-mi.md) | «Para mí»: convocatorias personalizadas |
+| [009](.claude/specs/convocam-spec-009-dashboard.md) | Dashboard del opositor |
+| [010](.claude/specs/convocam-spec-010-ultimos%20retoques.md) | Retoques y estabilización |
+
 ## 5. Funcionalidades principales
 
 ### 5.1 Funcionalidades
 
-- **Buscador de convocatorias.** Búsqueda de texto tolerante a acentos y errores de escritura, con ordenación por relevancia. Filtros por estado oficial (varios a la vez), territorio (provincia, comarca o municipio), distancia en kilómetros a un municipio, materia, grupo de titulación, plazas o bolsa de trabajo, ámbito, sistema de selección, tipo de personal, plazo de solicitud y plazas reservadas (discapacidad, personas en paro, jóvenes, mujeres). Ordenación por relevancia, fecha de publicación, plazo o municipio, y vista en mapa.
+- **Buscador de convocatorias.** Búsqueda de texto tolerante a acentos y errores de escritura, con ordenación por relevancia. Filtros por estado oficial (varios a la vez), territorio (provincia, comarca o municipio), distancia en kilómetros a un municipio, grupo de titulación, plazas o bolsa de trabajo, ámbito, sistema de selección, tipo de personal, plazo de solicitud y plazas reservadas (discapacidad, personas en paro, jóvenes, mujeres). Ordenación por relevancia, fecha de publicación, plazo o municipio, y vista en mapa.
 - **Detalle de la convocatoria.** Plazos, plazas, requisitos, sistema de selección, institución convocante con su ubicación y documentos publicados, con navegación de vuelta a la lista de origen.
 - **Para mí.** Convocatorias pendientes de plazo o con plazo abierto que encajan con las preferencias territoriales y profesionales del usuario, ordenadas por prioridad de plazo, con mapa de municipios. Excluye las que el usuario ya sigue.
 - **Mis convocatorias.** Seguimiento personal con un estado propio para cada convocatoria, fecha de inicio del seguimiento y del último cambio de estado, filtros por estado y plazo, contadores y mapa con la localización de las convocatorias seguidas.
