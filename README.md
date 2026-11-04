@@ -13,7 +13,7 @@
 
 ## 1. Descripción general del proyecto
 
-Convoca'm es un portal personal para opositores que sirve para organizar convocatorias de oposiciones de Cataluña. Cada año se publican miles de convocatorias de ayuntamientos, consejos comarcales, diputaciones y otros organismos, repartidas en boletines y webs distintas. Seguirlas a mano es difícil: hay que encontrar las que encajan con el perfil de cada persona, no perder ningún plazo y recordar en qué punto está cada proceso.
+Convoca'm es un portal personal que ayuda a los opositores a organizar las convocatorias de oposiciones de Catalunya. Cada año se publican miles de convocatorias de ayuntamientos, consejos comarcales, diputaciones y otros organismos, repartidas en boletines y webs distintas. Seguirlas a mano es difícil: hay que encontrar las que encajan con el perfil de cada persona, no perder ningún plazo y recordar en qué punto está cada proceso.
 
 Convoca'm importa automáticamente las convocatorias publicadas en CIDO, el servicio de datos abiertos de la Diputació de Barcelona, y permite a cada usuario:
 
@@ -75,7 +75,7 @@ Notas:
 
 ### 3.2 Carga de datos
 
-- **Territorios.** `pnpm exec tsx prisma/import-idescat-territories.ts` carga las provincias, comarcas y municipios de Cataluña desde `prisma/data/idescat-territories.csv` (Idescat).
+- **Territorios.** `pnpm exec tsx prisma/import-idescat-territories.ts` carga las provincias, comarcas y municipios de Catalunya desde `prisma/data/idescat-territories.csv` (Idescat).
 - **Convocatorias.** `pnpm sync:cido` hace una sincronización completa con CIDO (unas 15.000 convocatorias en unos 30 minutos). Sale con 0 si termina, 1 si falla y 2 si ya hay otra en curso. También se puede lanzar con el endpoint interno `POST /api/internal/cido/sync-all` y la cabecera `Authorization: Bearer $CIDO_INTERNAL_API_TOKEN`, que responde `409` si ya hay una en curso. El funcionamiento se explica en el apartado [5.4](#54-sincronización-con-cido).
 
 ### 3.3 Tests e integración continua
@@ -216,7 +216,7 @@ El proyecto se ha desarrollado por fases, cada una descrita antes en una especif
 - **Para mí.** Convocatorias pendientes de plazo o con plazo abierto que encajan con las preferencias territoriales y profesionales del usuario, ordenadas por prioridad de plazo, con mapa de municipios. Excluye las que el usuario ya sigue.
 - **Mis convocatorias.** Seguimiento personal con un estado propio para cada convocatoria, fecha de inicio del seguimiento y del último cambio de estado, filtros por estado y plazo, contadores y mapa con la localización de las convocatorias seguidas.
 - **Dashboard.** Para visitantes, contadores públicos de convocatorias activas. Para usuarios, además: recuento por estado personal (con acceso directo al listado filtrado), plazos que vencen en los próximos 15 días, últimas publicaciones de documentos de las convocatorias seguidas, convocatorias caducadas y nuevas oportunidades de «Para mí».
-- **Mi perfil.** Residencia, titulaciones académicas, preferencias territoriales (toda Cataluña o provincias, comarcas y municipios concretos) y profesionales (plazas, bolsas o ambas; materias; grupos de titulación).
+- **Mi perfil.** Residencia, titulaciones académicas, preferencias territoriales (toda Catalunya o provincias, comarcas y municipios concretos) y profesionales (plazas, bolsas o ambas; materias; grupos de titulación).
 - **Cuentas de usuario** con correo electrónico y contraseña.
 
 Estados personales de seguimiento: me interesa, preparando solicitud, solicitud presentada, admitido, excluido, pendiente de examen, examen realizado y finalizado.
@@ -245,7 +245,7 @@ Estados personales de seguimiento: me interesa, preparando solicitud, solicitud 
 **«Para mí».** Combina las preferencias del usuario en un filtro de búsqueda:
 
 - Solo convocatorias pendientes de plazo o con plazo abierto (estados oficiales 2 y 3 de CIDO).
-- Preferencias territoriales: toda Cataluña, o solo las provincias, comarcas y municipios elegidos.
+- Preferencias territoriales: toda Catalunya, o solo las provincias, comarcas y municipios elegidos.
 - Preferencias profesionales: plazas, bolsas o ambas; materias; grupos de titulación.
 - Si el usuario no ha configurado ninguna preferencia, la página le invita a completar su perfil.
 
@@ -279,9 +279,13 @@ En producción se ejecuta tres veces al día con cron (apartado [3.4](#34-despli
 
 Un objetivo a largo plazo es extraer mediante IA la información de las bases de cada convocatoria. El problema es que las bases las redacta cada administración convocante sin una plantilla común, y cada una las estructura a su manera. Para mí, una de las mejoras más importantes será interpretar con IA cualquier PDF de bases y volcar sus datos clave a la plataforma, para que sean más fáciles de leer y comprender.
 
+**Avisos por email**
+
+Otra mejora prevista es un servicio de avisos por correo electrónico que comunique al opositor los cambios en las convocatorias que sigue: la publicación de nuevos documentos, la apertura o el cierre del plazo de presentación y los cambios de estado. Hoy esa información solo se ve al entrar en el dashboard. Como la sincronización con CIDO ya actualiza las convocatorias varias veces al día, el servicio podría apoyarse en ella para detectar esos cambios y enviar los avisos.
+
 **Convocatorias de todo el Estado**
 
-Otra mejora prevista es recoger convocatorias de toda España, no solo las que publica CIDO en Cataluña. La Clean Architecture lo facilita: la sincronización depende de interfaces como `SelectionProcessSource` o `InstitutionSource` y no de CIDO directamente. Añadir una nueva fuente consistiría sobre todo en escribir su cliente y sus mappers en `infrastructure/`, y el caso de uso de sincronización, el buscador, «Para mí» y el seguimiento se reutilizarían sin cambios. Habría que adaptar el identificador de origen, que hoy es `cidoId`, para distinguir de qué fuente viene cada convocatoria, y cargar los territorios del resto de comunidades, porque ahora solo están los de Cataluña (Idescat).
+Otra mejora prevista es recoger convocatorias de toda España, no solo las que publica CIDO en Catalunya. La Clean Architecture lo facilita: la sincronización depende de interfaces como `SelectionProcessSource` o `InstitutionSource` y no de CIDO directamente. Añadir una nueva fuente consistiría sobre todo en escribir su cliente y sus mappers en `infrastructure/`, y el caso de uso de sincronización, el buscador, «Para mí» y el seguimiento se reutilizarían sin cambios. Habría que adaptar el identificador de origen, que hoy es `cidoId`, para distinguir de qué fuente viene cada convocatoria, y cargar los territorios del resto de comunidades, porque ahora solo están los de Catalunya (Idescat).
 
 **Colaboración con academias de oposiciones**
 
